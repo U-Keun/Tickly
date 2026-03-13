@@ -1,3 +1,4 @@
+import { i18n } from '$lib/i18n';
 import type { AuthSession } from '../../types';
 
 interface SignInFlowDeps {
@@ -14,7 +15,13 @@ export function detectDesktopFromUserAgent(userAgent: string): boolean {
 }
 
 export function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (/Authorization error 1000|AuthenticationServices\.AuthorizationError.*1000/i.test(message)) {
+    return i18n.t('appleSignInConfigurationError');
+  }
+
+  return message;
 }
 
 export async function runSignInFlow(deps: SignInFlowDeps): Promise<void> {

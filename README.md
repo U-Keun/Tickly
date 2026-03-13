@@ -13,7 +13,7 @@
 </p>
 
 **Tickly**는 심플한 체크리스트 앱입니다. 복잡한 기능 없이 빠르고 간단하게 사용할 수 있도록 설계되었습니다.
-현재 릴리즈 버전은 **v1.0.0**입니다.
+현재 릴리즈 버전은 **v1.0.1**입니다.
 
 ### 주요 기능
 
@@ -52,6 +52,15 @@
 - **Cloud**: Supabase (인증, 데이터 동기화)
 - **Styling**: TailwindCSS
 - **Platform**: iOS, macOS, Windows, Linux
+
+## Supabase Schema
+
+- 새 Supabase 프로젝트를 처음 세팅할 때: `supabase/schema.sql`
+- 이미 사용 중인 Supabase 프로젝트를 현재 앱 스키마에 한 번에 맞출 때: `supabase/reconcile.sql`
+- 운영 중인 DB에 특정 변경만 순차 반영할 때: `supabase/migrations/*.sql`
+- `schema.sql`과 `reconcile.sql`에는 현재 기준 테이블, RLS 정책, `updated_at` 트리거, realtime publication 설정이 포함됩니다.
+- 클라우드 동기화 스키마가 바뀌면 앱 코드와 SQLite migration을 수정한 뒤 `supabase/schema.sql`, `supabase/reconcile.sql`, `supabase/migrations/`를 함께 업데이트합니다.
+- 운영 DB에서 `reconcile.sql`을 실행할 때는 먼저 백업을 권장합니다.
 
 ## 아키텍처
 

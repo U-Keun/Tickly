@@ -9,7 +9,8 @@
     lastSyncedText,
     syncError = null,
     onToggleSync,
-    onSync
+    onSync,
+    onForcePull
   } = $props<{
     isEnabled: boolean;
     isSyncing: boolean;
@@ -18,6 +19,7 @@
     syncError?: string | null;
     onToggleSync: () => void | Promise<void>;
     onSync: () => void | Promise<void>;
+    onForcePull: () => void | Promise<void>;
   }>();
 </script>
 
@@ -72,6 +74,14 @@
         </svg>
         {i18n.t('syncNow')}
       {/if}
+    </button>
+
+    <button
+      class="force-pull-btn"
+      onclick={onForcePull}
+      disabled={isSyncing}
+    >
+      {i18n.t('forcePull')}
     </button>
 
     {#if syncError}
@@ -210,7 +220,26 @@
     transition: opacity 0.2s;
   }
 
+  .force-pull-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px;
+    background: transparent;
+    border: 1px solid var(--color-stroke);
+    border-radius: 10px;
+    color: var(--color-ink-muted);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
   .sync-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .force-pull-btn:disabled {
     opacity: 0.7;
     cursor: not-allowed;
   }

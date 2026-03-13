@@ -1,7 +1,10 @@
 use super::*;
 
 impl WidgetService {
-    pub(super) fn resolve_cache_path(conn: &Connection, app: &AppHandle) -> Result<PathBuf, String> {
+    pub(super) fn resolve_cache_path(
+        conn: &Connection,
+        app: &AppHandle,
+    ) -> Result<PathBuf, String> {
         let custom_path = SettingsRepository::get(conn, WIDGET_CACHE_PATH_KEY)
             .map_err(|e| e.to_string())?
             .unwrap_or_default();

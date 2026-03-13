@@ -103,6 +103,33 @@ impl CompletionLogRepository {
         Ok(logs)
     }
 
+    pub fn delete_for_item(conn: &Connection, item_id: i64) -> Result<(), rusqlite::Error> {
+        conn.execute(
+            "DELETE FROM completion_logs WHERE item_id = ?1",
+            params![item_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_for_category(conn: &Connection, category_id: i64) -> Result<(), rusqlite::Error> {
+        conn.execute(
+            "DELETE FROM completion_logs
+             WHERE item_id IN (SELECT id FROM todos WHERE category_id = ?1)",
+            params![category_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn prune_stale_logs(conn: &Connection) -> Result<(), rusqlite::Error> {
+        conn.execute(
+            "DELETE FROM completion_logs
+             WHERE item_id NOT IN (SELECT id FROM todos)
+                OR item_id IN (SELECT id FROM todos WHERE sync_status = 'deleted')",
+            [],
+        )?;
+        Ok(())
+    }
+
     /// Upsert a completion log (for sync pull)
     pub fn upsert(
         conn: &Connection,

@@ -1,7 +1,7 @@
 use rusqlite::Connection;
 
 use crate::models::Category;
-use crate::repository::CategoryRepository;
+use crate::repository::{CategoryRepository, CompletionLogRepository};
 
 pub struct CategoryService;
 
@@ -21,6 +21,7 @@ impl CategoryService {
     pub fn delete(conn: &Connection, id: i64) -> Result<(), rusqlite::Error> {
         // Check if category has been synced (has sync_id)
         if let Some(category) = CategoryRepository::get_by_id(conn, id)? {
+            CompletionLogRepository::delete_for_category(conn, id)?;
             if category.sync_id.is_some() {
                 // Category was synced - mark as deleted, also mark all todos in this category
                 // First mark all todos in this category as deleted

@@ -1,6 +1,6 @@
 {
   "name": "tickly",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Simple checklist app for items to remember when going out",
   "type": "module",
   "scripts": {

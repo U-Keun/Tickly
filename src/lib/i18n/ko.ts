@@ -157,12 +157,17 @@ export const ko = {
   loginDescription: '클라우드 동기화를 사용하려면 로그인하세요',
   signInWithApple: 'Apple로 로그인',
   signInWithGoogle: 'Google로 로그인',
+  appleSignInConfigurationError:
+    'Apple 로그인 권한이 이 iOS 빌드에 포함되지 않았을 수 있습니다. Xcode Signing & Capabilities에서 Sign In with Apple과 프로비저닝 프로필을 확인하세요.',
   logout: '로그아웃',
   logoutConfirm: '정말 로그아웃하시겠습니까?',
   syncEnabled: '동기화 사용',
   lastSynced: '마지막 동기화',
   pendingChanges: '대기 중인 변경사항',
   syncNow: '지금 동기화',
+  forcePull: '클라우드 데이터 다시 받기',
+  forcePullConfirm:
+    '로컬 클라우드 데이터를 지우고 서버에서 다시 받아오시겠습니까?\n이 기기에만 있고 아직 동기화되지 않은 변경사항은 사라질 수 있습니다.',
   syncing: '동기화 중...',
   never: '없음',
   justNow: '방금 전',

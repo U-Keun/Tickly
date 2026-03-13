@@ -198,7 +198,8 @@ impl SyncService {
         let mut count = 0;
 
         for remote in remote_tags {
-            let existing = TagRepository::get_by_sync_id(conn, &remote.id).map_err(|e| e.to_string())?;
+            let existing =
+                TagRepository::get_by_sync_id(conn, &remote.id).map_err(|e| e.to_string())?;
             if let Some(local) = existing {
                 if Self::is_remote_newer(&local.updated_at, &remote.updated_at) {
                     conn.execute(
@@ -251,8 +252,8 @@ impl SyncService {
             let local_tag_id = tag_sync_to_local.get(&remote.tag_id).copied();
 
             if let (Some(todo_id), Some(tag_id)) = (local_todo_id, local_tag_id) {
-                let existing =
-                    TodoTagRepository::get_by_sync_id(conn, &remote.id).map_err(|e| e.to_string())?;
+                let existing = TodoTagRepository::get_by_sync_id(conn, &remote.id)
+                    .map_err(|e| e.to_string())?;
                 if existing.is_none() {
                     TodoTagRepository::add_tag(conn, todo_id, tag_id).map_err(|e| e.to_string())?;
                     TodoTagRepository::update_sync_id(conn, todo_id, tag_id, &remote.id)

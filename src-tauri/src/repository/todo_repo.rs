@@ -344,6 +344,18 @@ impl TodoRepository {
         Ok(())
     }
 
+    pub fn assign_sync_id(
+        conn: &Connection,
+        id: i64,
+        sync_id: &str,
+    ) -> Result<(), rusqlite::Error> {
+        conn.execute(
+            "UPDATE todos SET sync_id = ?1 WHERE id = ?2",
+            params![sync_id, id],
+        )?;
+        Ok(())
+    }
+
     pub fn mark_synced(conn: &Connection, id: i64) -> Result<(), rusqlite::Error> {
         conn.execute(
             "UPDATE todos SET sync_status = 'synced' WHERE id = ?1",

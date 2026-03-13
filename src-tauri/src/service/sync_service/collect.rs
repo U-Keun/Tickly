@@ -68,10 +68,7 @@ impl SyncService {
             .into_iter()
             .map(|t| PendingTagSync {
                 id: t.id,
-                sync_id: t
-                    .sync_id
-                    .clone()
-                    .or_else(|| Some(Uuid::new_v4().to_string())),
+                sync_id: t.sync_id,
                 name: t.name,
                 created_at: t.created_at,
                 updated_at: t.updated_at,
@@ -97,10 +94,7 @@ impl SyncService {
                 Some(PendingTodoTagSync {
                     todo_id: tt.todo_id,
                     tag_id: tt.tag_id,
-                    sync_id: tt
-                        .sync_id
-                        .clone()
-                        .or_else(|| Some(Uuid::new_v4().to_string())),
+                    sync_id: tt.sync_id,
                     todo_sync_id,
                     tag_sync_id,
                     created_at: tt.created_at,

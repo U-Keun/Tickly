@@ -159,12 +159,17 @@ export const en: Translations = {
   loginDescription: 'Sign in to use cloud sync',
   signInWithApple: 'Sign in with Apple',
   signInWithGoogle: 'Sign in with Google',
+  appleSignInConfigurationError:
+    'This iOS build may be missing the Apple Sign In entitlement. Check Sign In with Apple in Xcode Signing & Capabilities and verify the provisioning profile.',
   logout: 'Log out',
   logoutConfirm: 'Are you sure you want to log out?',
   syncEnabled: 'Sync enabled',
   lastSynced: 'Last synced',
   pendingChanges: 'Pending changes',
   syncNow: 'Sync now',
+  forcePull: 'Re-download cloud data',
+  forcePullConfirm:
+    'Clear local cloud data and download it again from the server?\nAny changes that exist only on this device and are not synced yet may be lost.',
   syncing: 'Syncing...',
   never: 'Never',
   justNow: 'Just now',

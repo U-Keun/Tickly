@@ -15,7 +15,9 @@ pub fn get_item_heatmap_data(
     item_id: i64,
     state: State<AppState>,
 ) -> Result<Option<HeatmapData>, String> {
-    with_db(&state, |db| StreakService::get_item_heatmap_data(db, item_id))
+    with_db(&state, |db| {
+        StreakService::get_item_heatmap_data(db, item_id)
+    })
 }
 
 #[tauri::command]
@@ -24,5 +26,7 @@ pub fn update_track_streak(
     track_streak: bool,
     state: State<AppState>,
 ) -> Result<(), String> {
-    with_db(&state, |db| StreakService::update_track_streak(db, id, track_streak))
+    with_db(&state, |db| {
+        StreakService::update_track_streak(db, id, track_streak)
+    })
 }

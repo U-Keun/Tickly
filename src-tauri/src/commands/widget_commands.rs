@@ -10,7 +10,9 @@ pub fn get_widget_snapshot(
     max_items: Option<i64>,
     state: State<AppState>,
 ) -> Result<WidgetSnapshot, String> {
-    with_db(&state, |db| WidgetService::get_snapshot(db, normalize_limit(max_items)))
+    with_db(&state, |db| {
+        WidgetService::get_snapshot(db, normalize_limit(max_items))
+    })
 }
 
 #[tauri::command]
@@ -19,7 +21,9 @@ pub fn refresh_widget_cache(
     app: AppHandle,
     state: State<AppState>,
 ) -> Result<WidgetSnapshot, String> {
-    with_db(&state, |db| WidgetService::refresh_cache(db, &app, normalize_limit(max_items)))
+    with_db(&state, |db| {
+        WidgetService::refresh_cache(db, &app, normalize_limit(max_items))
+    })
 }
 
 #[tauri::command]
@@ -53,7 +57,9 @@ pub fn set_widget_cache_path(path: String, state: State<AppState>) -> Result<(),
 
 #[tauri::command]
 pub fn set_widget_app_group_id(app_group_id: String, state: State<AppState>) -> Result<(), String> {
-    with_db(&state, |db| WidgetService::set_app_group_id(db, &app_group_id))
+    with_db(&state, |db| {
+        WidgetService::set_app_group_id(db, &app_group_id)
+    })
 }
 
 #[tauri::command]

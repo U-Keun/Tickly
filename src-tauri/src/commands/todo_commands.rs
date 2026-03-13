@@ -37,7 +37,9 @@ pub fn update_item_reminder(
     reminder_at: Option<String>,
     state: State<AppState>,
 ) -> Result<(), String> {
-    with_db(&state, |db| TodoService::update_reminder(db, id, reminder_at.as_deref()))
+    with_db(&state, |db| {
+        TodoService::update_reminder(db, id, reminder_at.as_deref())
+    })
 }
 
 #[tauri::command]
@@ -46,7 +48,9 @@ pub fn update_item_linked_app(
     linked_app: Option<String>,
     state: State<AppState>,
 ) -> Result<(), String> {
-    with_db(&state, |db| TodoService::update_linked_app(db, id, linked_app.as_deref()))
+    with_db(&state, |db| {
+        TodoService::update_linked_app(db, id, linked_app.as_deref())
+    })
 }
 
 #[tauri::command]
@@ -87,7 +91,9 @@ pub fn update_item_memo(
     memo: Option<String>,
     state: State<AppState>,
 ) -> Result<(), String> {
-    with_db(&state, |db| TodoService::update_memo(db, id, memo.as_deref()))
+    with_db(&state, |db| {
+        TodoService::update_memo(db, id, memo.as_deref())
+    })
 }
 
 #[tauri::command]
@@ -98,7 +104,9 @@ pub fn update_item_repeat(
     state: State<AppState>,
 ) -> Result<(), String> {
     let repeat = RepeatType::from_str(&repeat_type);
-    with_db(&state, |db| TodoService::update_repeat(db, id, &repeat, repeat_detail.as_deref()))
+    with_db(&state, |db| {
+        TodoService::update_repeat(db, id, &repeat, repeat_detail.as_deref())
+    })
 }
 
 #[tauri::command]

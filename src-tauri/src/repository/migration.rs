@@ -20,9 +20,7 @@ pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
 }
 
 fn should_add_column(conn: &Connection, table: &str, column: &str) -> bool {
-    let query = format!(
-        "SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = ?1"
-    );
+    let query = format!("SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = ?1");
     let column_exists: Result<i64, _> = conn.query_row(&query, [column], |row| row.get(0));
     matches!(column_exists, Ok(0))
 }

@@ -159,12 +159,17 @@ export const ja: Translations = {
   loginDescription: 'クラウド同期を使用するにはログインしてください',
   signInWithApple: 'Appleでサインイン',
   signInWithGoogle: 'Googleでサインイン',
+  appleSignInConfigurationError:
+    'このiOSビルドにAppleサインイン権限が含まれていない可能性があります。XcodeのSigning & CapabilitiesでSign In with Appleとプロビジョニングプロファイルを確認してください。',
   logout: 'ログアウト',
   logoutConfirm: '本当にログアウトしますか？',
   syncEnabled: '同期を有効化',
   lastSynced: '最終同期',
   pendingChanges: '保留中の変更',
   syncNow: '今すぐ同期',
+  forcePull: 'クラウドデータを再取得',
+  forcePullConfirm:
+    'ローカルのクラウドデータを削除して、サーバーから再取得しますか？\nこの端末にだけあり、まだ同期されていない変更は失われる可能性があります。',
   syncing: '同期中...',
   never: 'なし',
   justNow: 'たった今',

@@ -9,16 +9,20 @@
   import AccountLogoutModal from '../../../components/account/AccountLogoutModal.svelte';
   import AccountProfileSection from '../../../components/account/AccountProfileSection.svelte';
   import AccountSyncSection from '../../../components/account/AccountSyncSection.svelte';
+  import ConfirmModal from '../../../components/ConfirmModal.svelte';
   import SettingsLayout from '../../../components/SettingsLayout.svelte';
 
   let showLogoutConfirm = $state(false);
+  let showForcePullConfirm = $state(false);
   let syncError = $state<string | null>(null);
   let loginError = $state<string | null>(null);
   let isSigningIn = $state(false);
   let isDesktop = $state(false);
+  let supportsAppleSignIn = $state(false);
 
   onMount(async () => {
     isDesktop = detectDesktopFromUserAgent(navigator.userAgent);
+    supportsAppleSignIn = !isDesktop;
 
     await authStore.checkSession();
     await syncStore.loadStatus();
@@ -35,6 +39,10 @@
         connectRealtime: syncStore.connectRealtime,
         getSession: () => authStore.session,
       });
+
+      if (syncStore.isEnabled) {
+        await syncStore.sync();
+      }
     } catch (error) {
       console.error(`${providerName} failed:`, error);
       loginError = getErrorMessage(error);
@@ -62,6 +70,23 @@
     }
   }
 
+  function openForcePullConfirm() {
+    showForcePullConfirm = true;
+  }
+
+  function closeForcePullConfirm() {
+    showForcePullConfirm = false;
+  }
+
+  async function handleForcePull() {
+    showForcePullConfirm = false;
+    syncError = null;
+    const result = await syncStore.forcePull();
+    if (!result && syncStore.error) {
+      syncError = syncStore.error;
+    }
+  }
+
   async function handleLogout() {
     showLogoutConfirm = false;
     await authStore.signOut();
@@ -77,7 +102,20 @@
   }
 
   async function handleToggleSync() {
-    await syncStore.setEnabled(!syncStore.isEnabled);
+    const nextEnabled = !syncStore.isEnabled;
+    await syncStore.setEnabled(nextEnabled);
+
+    if (nextEnabled) {
+      await syncStore.sync();
+
+      if (authStore.session) {
+        const { access_token, user_id } = authStore.session;
+        await syncStore.connectRealtime(access_token, user_id);
+      }
+      return;
+    }
+
+    await syncStore.disconnectRealtime();
   }
 </script>
 
@@ -91,6 +129,7 @@
       <AccountLoginSection
         {isSigningIn}
         {loginError}
+        {supportsAppleSignIn}
         onAppleSignIn={handleAppleSignIn}
         onGoogleSignIn={handleGoogleSignIn}
       />
@@ -110,6 +149,7 @@
         {syncError}
         onToggleSync={handleToggleSync}
         onSync={handleSync}
+        onForcePull={openForcePullConfirm}
       />
     {/if}
   </div>
@@ -119,6 +159,17 @@
   show={showLogoutConfirm}
   onClose={closeLogoutConfirm}
   onConfirm={handleLogout}
+/>
+
+<ConfirmModal
+  show={showForcePullConfirm}
+  title={i18n.t('forcePull')}
+  message={i18n.t('forcePullConfirm')}
+  confirmLabel={i18n.t('forcePull')}
+  cancelLabel={i18n.t('cancel')}
+  confirmStyle="warning"
+  onConfirm={handleForcePull}
+  onCancel={closeForcePullConfirm}
 />
 
 <style>

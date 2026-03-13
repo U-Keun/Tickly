@@ -1,7 +1,7 @@
 use rusqlite::Connection;
 
 use crate::models::{RepeatType, TodoItem};
-use crate::repository::TodoRepository;
+use crate::repository::{CompletionLogRepository, TodoRepository};
 use crate::service::RepeatService;
 
 pub struct TodoService;
@@ -63,6 +63,7 @@ impl TodoService {
     pub fn delete_item(conn: &Connection, id: i64) -> Result<(), rusqlite::Error> {
         // Check if item has been synced (has sync_id)
         if let Some(item) = TodoRepository::get_by_id(conn, id)? {
+            CompletionLogRepository::delete_for_item(conn, id)?;
             if item.sync_id.is_some() {
                 // Item was synced - mark as deleted so it can be synced to server
                 TodoRepository::mark_deleted(conn, id)

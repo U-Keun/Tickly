@@ -66,9 +66,13 @@ pub fn force_pull(state: State<'_, AppState>) -> Result<(), String> {
     with_db(&state, |conn| {
         // Delete all local data to force re-pull from server
         // Order matters due to foreign key constraints
+        conn.execute("DELETE FROM todo_tags", [])
+            .map_err(|e| e.to_string())?;
         conn.execute("DELETE FROM completion_logs", [])
             .map_err(|e| e.to_string())?;
         conn.execute("DELETE FROM todos", [])
+            .map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM tags", [])
             .map_err(|e| e.to_string())?;
         conn.execute("DELETE FROM categories", [])
             .map_err(|e| e.to_string())?;

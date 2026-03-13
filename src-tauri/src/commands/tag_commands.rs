@@ -26,7 +26,9 @@ pub fn add_tag_to_item(
     tag_name: String,
     state: State<AppState>,
 ) -> Result<Tag, String> {
-    with_db(&state, |db| TagService::add_tag_to_item(db, item_id, &tag_name))
+    with_db(&state, |db| {
+        TagService::add_tag_to_item(db, item_id, &tag_name)
+    })
 }
 
 #[tauri::command]
@@ -35,7 +37,9 @@ pub fn remove_tag_from_item(
     tag_id: i64,
     state: State<AppState>,
 ) -> Result<(), String> {
-    with_db(&state, |db| TagService::remove_tag_from_item(db, item_id, tag_id))
+    with_db(&state, |db| {
+        TagService::remove_tag_from_item(db, item_id, tag_id)
+    })
 }
 
 #[tauri::command]

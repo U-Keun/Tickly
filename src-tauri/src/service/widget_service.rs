@@ -24,9 +24,9 @@ const DEFAULT_WIDGET_ACTION_FILE: &str = "widget-actions.json";
 const DEFAULT_WIDGET_ITEM_LIMIT: usize = 20;
 const MAX_WIDGET_ITEM_LIMIT: usize = 100;
 
-mod theme;
 mod cache;
 mod snapshot;
+mod theme;
 
 #[derive(Debug, Deserialize)]
 struct WidgetToggleAction {

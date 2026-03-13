@@ -130,6 +130,19 @@ impl TodoTagRepository {
         Ok(())
     }
 
+    pub fn assign_sync_id(
+        conn: &Connection,
+        todo_id: i64,
+        tag_id: i64,
+        sync_id: &str,
+    ) -> Result<(), rusqlite::Error> {
+        conn.execute(
+            "UPDATE todo_tags SET sync_id = ?1 WHERE todo_id = ?2 AND tag_id = ?3",
+            params![sync_id, todo_id, tag_id],
+        )?;
+        Ok(())
+    }
+
     #[allow(dead_code)]
     pub fn mark_synced(
         conn: &Connection,

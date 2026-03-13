@@ -255,5 +255,4 @@ impl RealtimeService {
             }
         }
     }
-
 }

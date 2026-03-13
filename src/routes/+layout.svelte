@@ -7,7 +7,11 @@
   import { onMount, onDestroy } from 'svelte';
   import type { Snippet } from 'svelte';
   import { appStore } from '$lib/stores';
-  import { authStore, handleOAuthCallback } from '$lib/stores/authStore.svelte';
+  import {
+    authStore,
+    handleOAuthCallback,
+    handleOAuthCallbackError,
+  } from '$lib/stores/authStore.svelte';
   import { syncStore } from '$lib/stores/syncStore.svelte';
   import { ensurePermission } from '$lib/notification';
 
@@ -18,6 +22,11 @@
 
   // Connect realtime when logged in
   async function connectRealtimeIfLoggedIn() {
+    if (!syncStore.isEnabled) {
+      await syncStore.disconnectRealtime();
+      return;
+    }
+
     if (authStore.isLoggedIn && authStore.session) {
       const { access_token, user_id } = authStore.session;
       await syncStore.connectRealtime(access_token, user_id);
@@ -72,6 +81,47 @@
     return false;
   }
 
+  async function handleIncomingDeepLinks(urls: string[]): Promise<void> {
+    for (const url of urls) {
+
+      // Parse the URL to extract OAuth callback parameters
+      try {
+        const parsedUrl = new URL(url);
+
+        if (await handleWidgetDeepLink(parsedUrl)) {
+          continue;
+        }
+
+        // Check if this is an OAuth callback
+        if (parsedUrl.host === 'auth' && parsedUrl.pathname === '/callback') {
+          const code = parsedUrl.searchParams.get('code');
+          const error = parsedUrl.searchParams.get('error');
+          const errorDescription = parsedUrl.searchParams.get('error_description');
+
+          if (error) {
+            const message = errorDescription ? `${error}: ${errorDescription}` : error;
+            console.error('OAuth error:', message);
+            handleOAuthCallbackError(new Error(message));
+            continue;
+          }
+
+          if (code) {
+            await handleOAuthCallback(code);
+            // Connect to realtime after successful OAuth
+            await connectRealtimeIfLoggedIn();
+            continue;
+          }
+
+          const message = 'OAuth callback missing authorization code';
+          console.error(message);
+          handleOAuthCallbackError(new Error(message));
+        }
+      } catch (e) {
+        console.error('Failed to parse deep link URL:', e);
+      }
+    }
+  }
+
   // Check session and set up deep link listener
   onMount(async () => {
     // Request notification permission
@@ -80,47 +130,30 @@
     // Restore login state from saved session
     await authStore.checkSession();
 
+    // Load persisted sync state before any sync-related decisions
+    await syncStore.loadStatus();
+
     // Apply widget-only check actions queued in app group storage
     await appStore.processWidgetActions();
 
-    // Connect to realtime if logged in
+    if (authStore.isLoggedIn && syncStore.isEnabled) {
+      await syncStore.sync();
+    }
+
+    // Connect to realtime if logged in and sync is enabled
     await connectRealtimeIfLoggedIn();
 
     try {
-      const { onOpenUrl } = await import('@tauri-apps/plugin-deep-link');
+      const { getCurrent, onOpenUrl } = await import('@tauri-apps/plugin-deep-link');
+
+      const currentUrls = (await getCurrent()) ?? [];
+      if (currentUrls.length > 0) {
+        await handleIncomingDeepLinks(currentUrls);
+      }
 
       // Listen for deep link events
       await onOpenUrl(async (urls) => {
-        for (const url of urls) {
-
-          // Parse the URL to extract OAuth callback parameters
-          try {
-            const parsedUrl = new URL(url);
-
-            if (await handleWidgetDeepLink(parsedUrl)) {
-              continue;
-            }
-
-            // Check if this is an OAuth callback
-            if (parsedUrl.host === 'auth' && parsedUrl.pathname === '/callback') {
-              const code = parsedUrl.searchParams.get('code');
-              const error = parsedUrl.searchParams.get('error');
-
-              if (error) {
-                console.error('OAuth error:', error);
-                return;
-              }
-
-              if (code) {
-                await handleOAuthCallback(code);
-                // Connect to realtime after successful OAuth
-                await connectRealtimeIfLoggedIn();
-              }
-            }
-          } catch (e) {
-            console.error('Failed to parse deep link URL:', e);
-          }
-        }
+        await handleIncomingDeepLinks(urls);
       });
     } catch (e) {
       // Deep link plugin might not be available on all platforms

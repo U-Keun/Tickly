@@ -111,6 +111,34 @@ class SyncStore {
     }
   }
 
+  async forcePull(): Promise<SyncResult | null> {
+    if (this.isSyncing) {
+      return null;
+    }
+
+    this.isSyncing = true;
+    this.error = null;
+
+    try {
+      await syncApi.forcePull();
+      await appStore.refreshAll();
+
+      const result = await syncApi.triggerSync();
+      this.lastSyncResult = result;
+      this.lastSyncedAt = result.last_synced_at;
+      this.pendingCount = 0;
+
+      await appStore.refreshAll();
+      return result;
+    } catch (error) {
+      console.error('Force pull failed:', error);
+      this.error = getErrorMessage(error);
+      return null;
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
   async setEnabled(enabled: boolean): Promise<void> {
     try {
       await syncApi.setSyncEnabled(enabled);

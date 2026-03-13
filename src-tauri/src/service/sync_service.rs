@@ -97,29 +97,95 @@ impl SyncService {
             .map_err(|e| format!("Failed to create runtime: {}", e))?;
 
         let mut pending_categories = Self::collect_pending_categories(conn)?;
-
-        let mut cat_id_to_sync_id: HashMap<i64, String> = HashMap::new();
         for cat in &mut pending_categories {
-            if cat.sync_id.is_none() {
+            if cat.sync_status == SyncStatus::Pending && cat.sync_id.is_none() {
                 let new_sync_id = Uuid::new_v4().to_string();
+                CategoryRepository::assign_sync_id(conn, cat.id, &new_sync_id)
+                    .map_err(|e| e.to_string())?;
                 cat.sync_id = Some(new_sync_id.clone());
-                cat_id_to_sync_id.insert(cat.id, new_sync_id);
-            } else {
-                cat_id_to_sync_id.insert(cat.id, cat.sync_id.clone().unwrap());
             }
         }
 
         let all_categories =
             CategoryRepository::get_all_including_deleted(conn).map_err(|e| e.to_string())?;
+        let mut cat_id_to_sync_id: HashMap<i64, String> = HashMap::new();
         for cat in &all_categories {
             if let Some(sync_id) = &cat.sync_id {
                 cat_id_to_sync_id.insert(cat.id, sync_id.clone());
             }
         }
 
-        let pending_todos = Self::collect_pending_todos_with_map(conn, &cat_id_to_sync_id)?;
+        let mut pending_todos = Self::collect_pending_todos_with_map(conn, &cat_id_to_sync_id)?;
+        for todo in &mut pending_todos {
+            if todo.sync_status == SyncStatus::Pending && todo.sync_id.is_none() {
+                let new_sync_id = Uuid::new_v4().to_string();
+                TodoRepository::assign_sync_id(conn, todo.id, &new_sync_id)
+                    .map_err(|e| e.to_string())?;
+                todo.sync_id = Some(new_sync_id);
+            }
+        }
 
         let all_todos = TodoRepository::get_all(conn).map_err(|e| e.to_string())?;
+        let remote_category_lookup: HashMap<String, RemoteCategory> = all_categories
+            .iter()
+            .filter(|cat| cat.sync_status != SyncStatus::Deleted)
+            .filter_map(|cat| {
+                cat.sync_id.as_ref().map(|sync_id| {
+                    (
+                        sync_id.clone(),
+                        RemoteCategory {
+                            id: sync_id.clone(),
+                            user_id: user_id.to_string(),
+                            name: cat.name.clone(),
+                            display_order: cat.display_order as i32,
+                            created_at: cat.created_at.clone().unwrap_or_else(|| {
+                                Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string()
+                            }),
+                            updated_at: cat.updated_at.clone().unwrap_or_else(|| {
+                                Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string()
+                            }),
+                        },
+                    )
+                })
+            })
+            .collect();
+        let remote_todo_lookup: HashMap<String, RemoteTodo> = all_todos
+            .iter()
+            .filter_map(|todo| {
+                todo.sync_id.as_ref().map(|sync_id| {
+                    (
+                        sync_id.clone(),
+                        RemoteTodo {
+                            id: sync_id.clone(),
+                            user_id: user_id.to_string(),
+                            category_id: todo.category_id.and_then(|category_id| {
+                                cat_id_to_sync_id.get(&category_id).cloned()
+                            }),
+                            text: todo.text.clone(),
+                            done: todo.done,
+                            display_order: todo.display_order as i32,
+                            memo: todo.memo.clone(),
+                            repeat_type: todo.repeat_type.to_str().to_string(),
+                            repeat_detail: todo.repeat_detail.clone(),
+                            next_due_at: todo.next_due_at.clone(),
+                            last_completed_at: todo.last_completed_at.clone(),
+                            track_streak: todo.track_streak,
+                            reminder_at: todo.reminder_at.clone(),
+                            linked_app: todo.linked_app.clone(),
+                            created_at: todo.created_at.clone().unwrap_or_else(|| {
+                                Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string()
+                            }),
+                            updated_at: todo.updated_at.clone().unwrap_or_else(|| {
+                                Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string()
+                            }),
+                        },
+                    )
+                })
+            })
+            .collect();
+
+        CompletionLogRepository::prune_stale_logs(conn).map_err(|e| e.to_string())?;
+
         let mut todo_id_to_sync_id: HashMap<i64, String> = HashMap::new();
         for todo in &all_todos {
             if let Some(sync_id) = &todo.sync_id {
@@ -127,14 +193,24 @@ impl SyncService {
             }
         }
         for todo in &pending_todos {
-            if let Some(sync_id) = &todo.sync_id {
-                todo_id_to_sync_id.insert(todo.id, sync_id.clone());
+            if todo.sync_status != SyncStatus::Deleted {
+                if let Some(sync_id) = &todo.sync_id {
+                    todo_id_to_sync_id.insert(todo.id, sync_id.clone());
+                }
             }
         }
 
         let local_completion_logs = Self::collect_completion_logs(conn, &todo_id_to_sync_id)?;
 
-        let pending_tags = Self::collect_pending_tags(conn)?;
+        let mut pending_tags = Self::collect_pending_tags(conn)?;
+        for tag in &mut pending_tags {
+            if tag.sync_status == SyncStatus::Pending && tag.sync_id.is_none() {
+                let new_sync_id = Uuid::new_v4().to_string();
+                TagRepository::assign_sync_id(conn, tag.id, &new_sync_id)
+                    .map_err(|e| e.to_string())?;
+                tag.sync_id = Some(new_sync_id);
+            }
+        }
 
         let all_tags = TagRepository::get_all(conn).map_err(|e| e.to_string())?;
         let mut tag_id_to_sync_id: HashMap<i64, String> = HashMap::new();
@@ -149,8 +225,21 @@ impl SyncService {
             }
         }
 
-        let pending_todo_tags =
+        let mut pending_todo_tags =
             Self::collect_pending_todo_tags(conn, &todo_id_to_sync_id, &tag_id_to_sync_id)?;
+        for todo_tag in &mut pending_todo_tags {
+            if todo_tag.sync_status == SyncStatus::Pending && todo_tag.sync_id.is_none() {
+                let new_sync_id = Uuid::new_v4().to_string();
+                TodoTagRepository::assign_sync_id(
+                    conn,
+                    todo_tag.todo_id,
+                    todo_tag.tag_id,
+                    &new_sync_id,
+                )
+                .map_err(|e| e.to_string())?;
+                todo_tag.sync_id = Some(new_sync_id);
+            }
+        }
 
         let result = rt.block_on(async {
             let mut result = SyncResult::default();
@@ -160,9 +249,15 @@ impl SyncService {
                     .await?;
             let pushed_todos =
                 Self::push_todos_async(client, access_token, user_id, &pending_todos).await?;
-            let pushed_logs =
-                Self::push_completion_logs_async(client, access_token, user_id, &local_completion_logs)
-                    .await?;
+            let pushed_logs = Self::push_completion_logs_async(
+                client,
+                access_token,
+                user_id,
+                &local_completion_logs,
+                &remote_todo_lookup,
+                &remote_category_lookup,
+            )
+            .await?;
             let pushed_tags =
                 Self::push_tags_async(client, access_token, user_id, &pending_tags).await?;
             let pushed_todo_tags =
@@ -173,7 +268,7 @@ impl SyncService {
                 + pushed_todos.len()
                 + pushed_logs
                 + pushed_tags.len()
-                + pushed_todo_tags;
+                + pushed_todo_tags.len();
 
             let remote_categories = client.fetch_categories(access_token).await?;
             let remote_todos = client.fetch_todos(access_token).await?;
@@ -184,19 +279,18 @@ impl SyncService {
                 .await
                 .unwrap_or_default();
 
-            Ok::<_, String>(
-                (
-                    result,
-                    pushed_cats,
-                    pushed_todos,
-                    pushed_tags,
-                    remote_categories,
-                    remote_todos,
-                    remote_completion_logs,
-                    remote_tags,
-                    remote_todo_tags,
-                ),
-            )
+            Ok::<_, String>((
+                result,
+                pushed_cats,
+                pushed_todos,
+                pushed_tags,
+                pushed_todo_tags,
+                remote_categories,
+                remote_todos,
+                remote_completion_logs,
+                remote_tags,
+                remote_todo_tags,
+            ))
         })?;
 
         let (
@@ -204,6 +298,7 @@ impl SyncService {
             pushed_cats,
             pushed_todos,
             pushed_tags,
+            pushed_todo_tags,
             remote_categories,
             remote_todos,
             remote_completion_logs,
@@ -253,7 +348,26 @@ impl SyncService {
             }
         }
 
-        let updated_local_categories = CategoryRepository::get_all(conn).map_err(|e| e.to_string())?;
+        for (todo_id, tag_id, sync_id) in pushed_todo_tags {
+            if let Some(todo_tag) = pending_todo_tags
+                .iter()
+                .find(|tt| tt.todo_id == todo_id && tt.tag_id == tag_id)
+            {
+                if todo_tag.sync_id.is_none() {
+                    TodoTagRepository::update_sync_id(conn, todo_id, tag_id, &sync_id)
+                        .map_err(|e| e.to_string())?;
+                }
+                if todo_tag.sync_status == SyncStatus::Deleted {
+                    TodoTagRepository::delete(conn, todo_id, tag_id).map_err(|e| e.to_string())?;
+                } else {
+                    TodoTagRepository::mark_synced(conn, todo_id, tag_id)
+                        .map_err(|e| e.to_string())?;
+                }
+            }
+        }
+
+        let updated_local_categories =
+            CategoryRepository::get_all(conn).map_err(|e| e.to_string())?;
         let updated_local_todos = TodoRepository::get_all(conn).map_err(|e| e.to_string())?;
 
         let pulled = Self::apply_remote_changes(

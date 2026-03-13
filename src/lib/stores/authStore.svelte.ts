@@ -12,6 +12,20 @@ function clearPendingOAuthCallbacks(): void {
   pendingOAuthReject = null;
 }
 
+function rejectPendingOAuth(error: unknown): void {
+  if (pendingOAuthReject) {
+    pendingOAuthReject(error instanceof Error ? error : new Error(String(error)));
+    clearPendingOAuthCallbacks();
+  }
+}
+
+function resolvePendingOAuth(session: AuthSession): void {
+  if (pendingOAuthResolve) {
+    pendingOAuthResolve(session);
+    clearPendingOAuthCallbacks();
+  }
+}
+
 function createOAuthCallbackPromise(timeoutMs: number): Promise<AuthSession> {
   return new Promise<AuthSession>((resolve, reject) => {
     pendingOAuthResolve = resolve;
@@ -26,22 +40,6 @@ function createOAuthCallbackPromise(timeoutMs: number): Promise<AuthSession> {
   });
 }
 
-// Called from deep link handler when OAuth callback is received
-export async function handleOAuthCallback(code: string): Promise<void> {
-  try {
-    const session = await authApi.completeMobileGoogleOAuth(code);
-    if (pendingOAuthResolve) {
-      pendingOAuthResolve(session);
-      clearPendingOAuthCallbacks();
-    }
-  } catch (error) {
-    if (pendingOAuthReject) {
-      pendingOAuthReject(error instanceof Error ? error : new Error(String(error)));
-      clearPendingOAuthCallbacks();
-    }
-  }
-}
-
 class AuthStore {
   isLoggedIn = $state(false);
   isLoading = $state(true);
@@ -54,10 +52,16 @@ class AuthStore {
     this.isLoggedIn = false;
   }
 
-  private async completeSignIn(sessionPromise: Promise<AuthSession>): Promise<void> {
-    this.session = await sessionPromise;
+  private async setAuthenticatedSession(session: AuthSession): Promise<AuthSession> {
+    this.session = session;
     this.isLoggedIn = true;
     this.user = await authApi.getUserProfile();
+    return session;
+  }
+
+  private async completeSignIn(sessionPromise: Promise<AuthSession>): Promise<AuthSession> {
+    const session = await sessionPromise;
+    return this.setAuthenticatedSession(session);
   }
 
   private async withLoading<T>(operation: () => Promise<T>): Promise<T> {
@@ -137,12 +141,26 @@ class AuthStore {
         await openUrl(oauthUrl);
 
         // 4. Wait for the callback (handled by deep link listener)
-        await this.completeSignIn(sessionPromise);
+        await sessionPromise;
       });
     } catch (error) {
       console.error('Google sign in (Mobile) failed:', error);
       throw error;
     }
+  }
+
+  async completeGoogleMobileOAuthCallback(code: string): Promise<void> {
+    try {
+      const session = await this.completeSignIn(authApi.completeMobileGoogleOAuth(code));
+      resolvePendingOAuth(session);
+    } catch (error) {
+      rejectPendingOAuth(error);
+      throw error;
+    }
+  }
+
+  handleGoogleMobileOAuthError(error: unknown): void {
+    rejectPendingOAuth(error);
   }
 
   async signOut(): Promise<void> {
@@ -173,3 +191,12 @@ class AuthStore {
 }
 
 export const authStore = new AuthStore();
+
+// Called from deep link handler when OAuth callback is received
+export async function handleOAuthCallback(code: string): Promise<void> {
+  await authStore.completeGoogleMobileOAuthCallback(code);
+}
+
+export function handleOAuthCallbackError(error: unknown): void {
+  authStore.handleGoogleMobileOAuthError(error);
+}
