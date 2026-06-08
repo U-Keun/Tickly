@@ -55,7 +55,7 @@
 
 <div class="flex-shrink-0">
   <div
-    class="flex min-h-[58px] items-center gap-2.5 rounded-[0_24px_0_24px] border-[3px] border-[var(--color-ink)] bg-[var(--color-white)] px-2.5 py-1.5 shadow-sm"
+    class="flex min-h-[64px] items-center gap-2.5 rounded-[0_24px_0_24px] border-[3px] border-[var(--color-ink)] bg-[var(--color-white)] px-2.5 py-2 shadow-sm"
     aria-disabled={disabled}
   >
     <div

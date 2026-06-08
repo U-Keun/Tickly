@@ -2,6 +2,7 @@
   import type { V2Category, V2TodoItem } from '../../types';
   import { i18n } from '$lib/i18n';
   import V2ConfirmModal from './V2ConfirmModal.svelte';
+  import V2ItemDetailSheet from './V2ItemDetailSheet.svelte';
   import V2LeafCommandBar from './V2LeafCommandBar.svelte';
   import V2LeafTodoItem from './V2LeafTodoItem.svelte';
 
@@ -54,6 +55,8 @@
   let editingCategoryName = $state('');
   let isReorderMode = $state(false);
   let didApplyInitialReorderMode = $state(false);
+  let itemPendingEdit = $state<V2TodoItem | null>(null);
+  let isSavingItemEdit = $state(false);
   let itemPendingDeletion = $state<V2TodoItem | null>(null);
   let isDeletingItem = $state(false);
 
@@ -115,6 +118,26 @@
   function cancelCategoryEdit(): void {
     editingCategoryId = null;
     editingCategoryName = '';
+  }
+
+  function requestEditItem(item: V2TodoItem): void {
+    itemPendingEdit = item;
+  }
+
+  function cancelEditItem(): void {
+    if (isSavingItemEdit) return;
+    itemPendingEdit = null;
+  }
+
+  async function saveItemText(id: number, text: string): Promise<void> {
+    if (isSavingItemEdit) return;
+
+    isSavingItemEdit = true;
+    try {
+      await onUpdateItemText(id, text);
+    } finally {
+      isSavingItemEdit = false;
+    }
   }
 
   function requestDeleteItem(item: V2TodoItem): void {
@@ -313,7 +336,7 @@
                 isFirst={isFirstItem(item.id)}
                 isLast={isLastItem(item.id)}
                 {onToggleItem}
-                {onUpdateItemText}
+                onRequestEditItem={requestEditItem}
                 onRequestDeleteItem={requestDeleteItem}
                 {onMoveItem}
               />
@@ -323,6 +346,14 @@
       </div>
     </section>
   </main>
+
+  <V2ItemDetailSheet
+    show={itemPendingEdit !== null}
+    item={itemPendingEdit}
+    isSaving={isSavingItemEdit}
+    onSaveText={saveItemText}
+    onClose={cancelEditItem}
+  />
 
   <V2ConfirmModal
     show={itemPendingDeletion !== null}

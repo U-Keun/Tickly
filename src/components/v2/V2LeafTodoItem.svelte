@@ -1,21 +1,27 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
-  import { fade } from 'svelte/transition';
-  import { Pencil, Trash2 } from '@lucide/svelte';
+  import { cubicOut } from 'svelte/easing';
+  import { slide } from 'svelte/transition';
+  import { ArrowDown, ArrowUp, Pencil, Trash2 } from '@lucide/svelte';
 
   import type { V2TodoItem } from '../../types';
   import { i18n } from '$lib/i18n';
 
   type MaybePromise = void | Promise<void>;
 
+  const DRAWER_SLIDE_DURATION_MS = 280;
+  const DRAWER_CONTENT_DELAY_MS = 60;
+  const DRAWER_CONTENT_TRANSITION_MS = 160;
+  const DRAWER_CLOSE_COLLAPSE_DELAY_MS = DRAWER_CONTENT_TRANSITION_MS + DRAWER_CONTENT_DELAY_MS;
+
   interface Props {
     item: V2TodoItem;
     isReorderMode?: boolean;
     isFirst?: boolean;
     isLast?: boolean;
-    initialEditing?: boolean;
+    initialDrawerOpen?: boolean;
     onToggleItem: (id: number) => MaybePromise;
-    onUpdateItemText: (id: number, text: string) => MaybePromise;
+    onRequestEditItem: (item: V2TodoItem) => MaybePromise;
     onRequestDeleteItem: (item: V2TodoItem) => MaybePromise;
     onMoveItem: (id: number, delta: number) => MaybePromise;
   }
@@ -25,39 +31,45 @@
     isReorderMode = false,
     isFirst = false,
     isLast = false,
-    initialEditing = false,
+    initialDrawerOpen = false,
     onToggleItem,
-    onUpdateItemText,
+    onRequestEditItem,
     onRequestDeleteItem,
     onMoveItem
   }: Props = $props();
 
-  let isEditing = $state(false);
-  let draftText = $state('');
-  let isSaving = $state(false);
+  let isDrawerOpen = $state(false);
+  let isDrawerRendered = $state(false);
   let displayedDone = $state(false);
   let textDone = $state(false);
   let tickPulse = $state(false);
   let tickAnimationKey = $state(0);
   let isToggling = $state(false);
-  let inputElement = $state<HTMLInputElement | null>(null);
-  let didApplyInitialEditing = $state(false);
+  let isDrawerContentVisible = $state(false);
+  let didApplyInitialDrawerOpen = $state(false);
   let lastSyncedItemId = $state<number | null>(null);
   let lastSyncedDone = $state<boolean | null>(null);
   let textDoneTimer: ReturnType<typeof setTimeout> | null = null;
   let tickPulseTimer: ReturnType<typeof setTimeout> | null = null;
+  let drawerContentTimer: ReturnType<typeof setTimeout> | null = null;
+  let drawerId = $derived(`v2-todo-drawer-${item.id}`);
 
   $effect(() => {
-    if (didApplyInitialEditing) return;
-    if (initialEditing) {
-      isEditing = true;
-      draftText = item.text;
+    if (didApplyInitialDrawerOpen) return;
+    if (initialDrawerOpen) {
+      openDrawer();
     }
-    didApplyInitialEditing = true;
+    didApplyInitialDrawerOpen = true;
   });
 
   $effect(() => {
-    if (item.id === lastSyncedItemId && item.done === lastSyncedDone) return;
+    const itemChanged = item.id !== lastSyncedItemId;
+    if (!itemChanged && item.done === lastSyncedDone) return;
+
+    if (itemChanged && lastSyncedItemId !== null) {
+      resetDrawer();
+    }
+
     setDisplayedDone(item.done, false);
     lastSyncedItemId = item.id;
     lastSyncedDone = item.done;
@@ -66,6 +78,7 @@
   onDestroy(() => {
     clearTextDoneTimer();
     clearTickPulseTimer();
+    clearDrawerContentTimer();
   });
 
   function clearTextDoneTimer(): void {
@@ -80,19 +93,63 @@
     tickPulseTimer = null;
   }
 
-  function focusInput(): void {
-    setTimeout(() => inputElement?.focus(), 0);
+  function clearDrawerContentTimer(): void {
+    if (!drawerContentTimer) return;
+    clearTimeout(drawerContentTimer);
+    drawerContentTimer = null;
   }
 
-  function beginEdit(): void {
-    isEditing = true;
-    draftText = item.text;
-    focusInput();
+  function prefersReducedMotion(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
 
-  function cancelEdit(): void {
-    isEditing = false;
-    draftText = '';
+  function resetDrawer(): void {
+    clearDrawerContentTimer();
+    isDrawerOpen = false;
+    isDrawerRendered = false;
+    isDrawerContentVisible = false;
+  }
+
+  function openDrawer(): void {
+    clearDrawerContentTimer();
+    isDrawerOpen = true;
+    isDrawerRendered = true;
+
+    if (prefersReducedMotion()) {
+      isDrawerContentVisible = true;
+      return;
+    }
+
+    isDrawerContentVisible = false;
+    drawerContentTimer = setTimeout(() => {
+      isDrawerContentVisible = true;
+      drawerContentTimer = null;
+    }, DRAWER_SLIDE_DURATION_MS + DRAWER_CONTENT_DELAY_MS);
+  }
+
+  function closeDrawer(): void {
+    clearDrawerContentTimer();
+    isDrawerOpen = false;
+    isDrawerContentVisible = false;
+
+    if (prefersReducedMotion() || !isDrawerRendered) {
+      isDrawerRendered = false;
+      return;
+    }
+
+    drawerContentTimer = setTimeout(() => {
+      isDrawerRendered = false;
+      drawerContentTimer = null;
+    }, DRAWER_CLOSE_COLLAPSE_DELAY_MS);
+  }
+
+  function toggleDrawer(): void {
+    if (isDrawerOpen) {
+      closeDrawer();
+      return;
+    }
+
+    openDrawer();
   }
 
   function setDisplayedDone(nextDone: boolean, shouldAnimate: boolean): void {
@@ -140,33 +197,31 @@
     }
   }
 
-  async function submitEdit(event: SubmitEvent): Promise<void> {
-    event.preventDefault();
-    const trimmedText = draftText.trim();
-    if (!trimmedText || isSaving) return;
+  async function handleRequestEdit(): Promise<void> {
+    await onRequestEditItem(item);
+  }
 
-    isSaving = true;
-    try {
-      await onUpdateItemText(item.id, trimmedText);
-      isEditing = false;
-      draftText = '';
-    } finally {
-      isSaving = false;
-    }
+  async function handleRequestDelete(): Promise<void> {
+    await onRequestDeleteItem(item);
+  }
+
+  async function handleMoveItem(delta: number): Promise<void> {
+    await onMoveItem(item.id, delta);
   }
 </script>
 
 <article
-  class={`rounded-[0_24px_0_24px] border-2 border-[var(--color-ink)] px-2.5 py-2 shadow-sm transition-colors ${
+  style={`--drawer-content-duration: ${DRAWER_CONTENT_TRANSITION_MS}ms;`}
+  class={`rounded-[0_24px_0_24px] border-2 border-[var(--color-ink)] p-2 shadow-sm transition-colors ${
     displayedDone
       ? 'bg-[var(--color-canvas)]'
       : 'bg-[var(--color-paper)]'
   }`}
 >
-  <div class="flex min-h-10 items-center gap-2.5">
+  <div class="flex min-h-11 items-center gap-2.5">
     <button
       type="button"
-      class={`grid h-10 w-10 flex-shrink-0 place-items-center border-2 transition-colors ${
+      class={`grid h-11 w-11 flex-shrink-0 place-items-center border-2 transition-colors ${
         displayedDone
           ? 'rounded-[12px] border-[var(--color-ink)] bg-[var(--color-white)] text-[var(--color-ink)]'
           : 'rounded-[12px] border-[var(--color-ink)] bg-[var(--color-white)] text-transparent hover:bg-[var(--color-canvas)] active:bg-[var(--color-canvas)]'
@@ -191,128 +246,83 @@
       {/if}
     </button>
 
-    {#if isEditing}
-      <form
-        class="flex min-w-0 flex-1 items-center gap-1.5"
-        onsubmit={submitEdit}
+    <div
+      class="flex min-w-0 flex-1 items-center"
+    >
+      <button
+        type="button"
+        class={`flex min-h-11 min-w-0 flex-1 items-center rounded-[12px] pr-1 text-left text-base leading-6 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ink)] ${
+          textDone
+            ? 'text-[var(--color-ink-muted)]'
+            : 'text-[var(--color-ink)]'
+        }`}
+        aria-expanded={isDrawerOpen}
+        aria-controls={drawerId}
+        title={item.text}
+        onclick={toggleDrawer}
       >
-        <input
-          bind:this={inputElement}
-          bind:value={draftText}
-          class="min-h-10 min-w-0 flex-1 bg-transparent px-0 text-[15px] leading-5 text-[var(--color-ink)] outline-none"
-          aria-label={i18n.t('v2EditItem')}
-          autocomplete="off"
-        />
-        <div class="flex flex-shrink-0 items-center gap-1.5" in:fade={{ duration: 120 }}>
-          <button
-            type="submit"
-            class="grid h-10 w-10 place-items-center rounded-[12px] bg-[var(--color-accent-mint-strong)] text-[var(--color-ink)] disabled:cursor-not-allowed disabled:opacity-40"
-            aria-label={i18n.t('v2SaveItem')}
-            title={i18n.t('v2SaveItem')}
-            disabled={!draftText.trim() || isSaving}
-          >
-            <svg class="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2.6"
-                d="m5 12.5 4.2 4.2L19 7"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
-            class="grid h-10 w-10 place-items-center rounded-[12px] bg-transparent text-[var(--color-ink)] transition-colors hover:bg-[var(--color-canvas)] active:bg-[var(--color-canvas)]"
-            aria-label={i18n.t('cancel')}
-            title={i18n.t('cancel')}
-            onclick={cancelEdit}
-          >
-            <svg class="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2.6"
-                d="M6 18 18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-      </form>
-    {:else}
-      <div
-        class="flex min-w-0 flex-1 items-center gap-1.5"
-      >
-        <p
-          class={`min-w-0 flex-1 truncate pr-1 text-[15px] leading-5 ${
-            textDone
-              ? 'text-[var(--color-ink-muted)]'
-              : 'text-[var(--color-ink)]'
-          }`}
-          title={item.text}
-        >
+        <span class="min-w-0 flex-1 truncate">
           <span class="tickText" class:tickTextDone={textDone}>{item.text}</span>
-        </p>
+        </span>
+      </button>
+    </div>
+  </div>
 
-        <div class="flex flex-shrink-0 items-center gap-1.5" in:fade={{ duration: 120 }}>
-          <button
-            type="button"
-            class="grid h-10 w-10 place-items-center rounded-[12px] bg-transparent text-[var(--color-ink)] transition-colors hover:bg-[var(--color-canvas)] active:bg-[var(--color-canvas)]"
-            aria-label={i18n.t('v2EditItem')}
-            title={i18n.t('v2EditItem')}
-            onclick={beginEdit}
-          >
-            <Pencil size={22} strokeWidth={2.3} />
-          </button>
-          <button
-            type="button"
-            class="grid h-10 w-10 place-items-center rounded-[12px] bg-transparent text-[var(--color-ink)] transition-colors hover:bg-[var(--color-accent-peach)] active:bg-[var(--color-accent-peach)]"
-            aria-label={i18n.t('v2DeleteItem')}
-            title={i18n.t('v2DeleteItem')}
-            onclick={() => onRequestDeleteItem(item)}
-          >
-            <Trash2 size={22} strokeWidth={2.3} />
-          </button>
-
-          {#if isReorderMode}
+  {#if isDrawerRendered}
+    <div
+      id={drawerId}
+      class="mt-2 overflow-hidden"
+      transition:slide={{ duration: DRAWER_SLIDE_DURATION_MS, easing: cubicOut }}
+    >
+      <div class="drawerSurface" class:drawerSurfaceVisible={isDrawerContentVisible}>
+        <div class="drawerContent" class:drawerContentVisible={isDrawerContentVisible}>
+          <div class="drawerActions">
             <button
               type="button"
-              class="grid h-10 w-10 place-items-center rounded-[12px] border border-[var(--color-stroke)] bg-[var(--color-paper)] text-[var(--color-ink)] disabled:opacity-40"
-              aria-label={i18n.t('v2MoveUp')}
-              title={i18n.t('v2MoveUp')}
-              disabled={isFirst}
-              onclick={() => onMoveItem(item.id, -1)}
+              class="drawerActionButton drawerActionEdit"
+              aria-label={i18n.t('v2EditItem')}
+              title={i18n.t('v2EditItem')}
+              onclick={() => void handleRequestEdit()}
             >
-              <svg class="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2.4"
-                  d="m7 14 5-5 5 5"
-                />
-              </svg>
+              <Pencil size={20} strokeWidth={2.4} />
             </button>
+
+            {#if isReorderMode}
+              <button
+                type="button"
+                class="drawerActionButton drawerActionNeutral"
+                aria-label={i18n.t('v2MoveUp')}
+                title={i18n.t('v2MoveUp')}
+                disabled={isFirst}
+                onclick={() => void handleMoveItem(-1)}
+              >
+                <ArrowUp size={20} strokeWidth={2.4} />
+              </button>
+              <button
+                type="button"
+                class="drawerActionButton drawerActionNeutral"
+                aria-label={i18n.t('v2MoveDown')}
+                title={i18n.t('v2MoveDown')}
+                disabled={isLast}
+                onclick={() => void handleMoveItem(1)}
+              >
+                <ArrowDown size={20} strokeWidth={2.4} />
+              </button>
+            {/if}
             <button
               type="button"
-              class="grid h-10 w-10 place-items-center rounded-[12px] border border-[var(--color-stroke)] bg-[var(--color-paper)] text-[var(--color-ink)] disabled:opacity-40"
-              aria-label={i18n.t('v2MoveDown')}
-              title={i18n.t('v2MoveDown')}
-              disabled={isLast}
-              onclick={() => onMoveItem(item.id, 1)}
+              class="drawerActionButton drawerActionDelete"
+              aria-label={i18n.t('v2DeleteItem')}
+              title={i18n.t('v2DeleteItem')}
+              onclick={() => void handleRequestDelete()}
             >
-              <svg class="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2.4"
-                  d="m7 10 5 5 5-5"
-                />
-              </svg>
+              <Trash2 size={20} strokeWidth={2.4} />
             </button>
-          {/if}
+          </div>
         </div>
       </div>
-    {/if}
-  </div>
+    </div>
+  {/if}
 </article>
 
 <style>
@@ -352,6 +362,117 @@
     animation: tick-line 320ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
   }
 
+  .drawerSurface {
+    position: relative;
+    border-radius: 0 18px 0 18px;
+    background-color: transparent;
+    padding: 8px;
+    transition: background-color var(--drawer-content-duration) ease-out;
+  }
+
+  .drawerSurface::before {
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--color-ink);
+    border-radius: inherit;
+    content: '';
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--drawer-content-duration) ease-out;
+  }
+
+  .drawerSurfaceVisible {
+    background-color: var(--color-white);
+  }
+
+  .drawerSurfaceVisible::before {
+    opacity: 1;
+  }
+
+  .drawerContent {
+    position: relative;
+    z-index: 1;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-2px);
+    transition:
+      opacity var(--drawer-content-duration) ease-out,
+      transform var(--drawer-content-duration) ease-out;
+  }
+
+  .drawerContentVisible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  .drawerActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .drawerActionButton {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    border: 0;
+    border-radius: 999px;
+    color: var(--color-ink);
+    cursor: pointer;
+    transition:
+      background-color 160ms ease-out,
+      opacity 160ms ease-out,
+      transform 160ms ease-out;
+  }
+
+  .drawerActionButton:hover {
+    transform: translateY(-1px);
+  }
+
+  .drawerActionButton:active {
+    transform: translateY(0);
+  }
+
+  .drawerActionButton:focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 3px;
+  }
+
+  .drawerActionButton:disabled {
+    cursor: not-allowed;
+    opacity: 0.35;
+    transform: none;
+  }
+
+  .drawerActionEdit {
+    background: var(--color-accent-sky);
+  }
+
+  .drawerActionEdit:hover,
+  .drawerActionEdit:active {
+    background: var(--color-accent-sky-strong);
+  }
+
+  .drawerActionNeutral {
+    background: var(--color-paper);
+  }
+
+  .drawerActionNeutral:hover,
+  .drawerActionNeutral:active {
+    background: var(--color-canvas);
+  }
+
+  .drawerActionDelete {
+    background: var(--color-accent-peach);
+  }
+
+  .drawerActionDelete:hover,
+  .drawerActionDelete:active {
+    background: var(--color-accent-peach-strong);
+  }
+
   @keyframes tick-pop {
     0% {
       transform: scale(0.96);
@@ -384,6 +505,23 @@
     .tickCheck path {
       animation: none;
       stroke-dashoffset: 0;
+    }
+
+    .drawerContent {
+      opacity: 1;
+      pointer-events: auto;
+      transform: none;
+      transition: none;
+    }
+
+    .drawerSurface {
+      background-color: var(--color-white);
+      transition: none;
+    }
+
+    .drawerSurface::before {
+      opacity: 1;
+      transition: none;
     }
 
     .tickTextDone::after {

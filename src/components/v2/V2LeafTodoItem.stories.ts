@@ -22,9 +22,9 @@ const meta = {
     isReorderMode: false,
     isFirst: false,
     isLast: false,
-    initialEditing: false,
+    initialDrawerOpen: false,
     onToggleItem: async () => {},
-    onUpdateItemText: async () => {},
+    onRequestEditItem: async () => {},
     onRequestDeleteItem: async () => {},
     onMoveItem: async () => {}
   },
@@ -49,9 +49,9 @@ export const Completed: Story = {
   }
 };
 
-export const Editing: Story = {
+export const DrawerOpen: Story = {
   args: {
-    initialEditing: true
+    initialDrawerOpen: true
   }
 };
 
@@ -70,6 +70,13 @@ export const ReorderMiddle: Story = {
   }
 };
 
+export const ReorderDrawerOpen: Story = {
+  args: {
+    isReorderMode: true,
+    initialDrawerOpen: true
+  }
+};
+
 export const ReorderFirst: Story = {
   args: {
     isReorderMode: true,
@@ -81,5 +88,21 @@ export const ReorderLast: Story = {
   args: {
     isReorderMode: true,
     isLast: true
+  }
+};
+
+export const ReorderDrawerFirst: Story = {
+  args: {
+    isReorderMode: true,
+    isFirst: true,
+    initialDrawerOpen: true
+  }
+};
+
+export const ReorderDrawerLast: Story = {
+  args: {
+    isReorderMode: true,
+    isLast: true,
+    initialDrawerOpen: true
   }
 };
