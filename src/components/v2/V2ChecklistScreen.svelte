@@ -1,7 +1,9 @@
 <script lang="ts">
   import type { V2Category, V2TodoItem } from '../../types';
   import { i18n } from '$lib/i18n';
+  import V2ConfirmModal from './V2ConfirmModal.svelte';
   import V2LeafCommandBar from './V2LeafCommandBar.svelte';
+  import V2LeafTodoItem from './V2LeafTodoItem.svelte';
 
   type MaybePromise = void | Promise<void>;
 
@@ -50,10 +52,10 @@
   let newCategoryName = $state('');
   let editingCategoryId = $state<number | null>(null);
   let editingCategoryName = $state('');
-  let editingItemId = $state<number | null>(null);
-  let editingItemText = $state('');
   let isReorderMode = $state(false);
   let didApplyInitialReorderMode = $state(false);
+  let itemPendingDeletion = $state<V2TodoItem | null>(null);
+  let isDeletingItem = $state(false);
 
   let selectedCategory = $derived(
     categories.find((category) => category.id === selectedCategoryId) ?? null
@@ -115,25 +117,27 @@
     editingCategoryName = '';
   }
 
-  function beginItemEdit(item: V2TodoItem): void {
-    editingItemId = item.id;
-    editingItemText = item.text;
+  function requestDeleteItem(item: V2TodoItem): void {
+    itemPendingDeletion = item;
   }
 
-  async function submitItemEdit(event: SubmitEvent, itemId: number): Promise<void> {
-    event.preventDefault();
-    const trimmedText = editingItemText.trim();
-    if (!trimmedText) return;
-
-    await onUpdateItemText(itemId, trimmedText);
-    editingItemId = null;
-    editingItemText = '';
+  function cancelDeleteItem(): void {
+    if (isDeletingItem) return;
+    itemPendingDeletion = null;
   }
 
-  function cancelItemEdit(): void {
-    editingItemId = null;
-    editingItemText = '';
+  async function confirmDeleteItem(): Promise<void> {
+    if (!itemPendingDeletion || isDeletingItem) return;
+
+    isDeletingItem = true;
+    try {
+      await onDeleteItem(itemPendingDeletion.id);
+      itemPendingDeletion = null;
+    } finally {
+      isDeletingItem = false;
+    }
   }
+
 </script>
 
 <div class="app-container bg-canvas text-ink flex flex-col">
@@ -294,101 +298,43 @@
         />
       </div>
 
-      <div class="todo-list-scroll rounded-md border border-stroke bg-paper">
+      <div class="todo-list-scroll">
         {#if items.length === 0}
-          <div class="px-6 py-10 text-center text-ink-muted">
+          <div class="rounded-[0_24px_0_24px] border-2 border-[var(--color-ink)] bg-[var(--color-white)] px-6 py-10 text-center text-ink-muted shadow-sm">
             <p class="font-medium text-ink">{i18n.t('v2EmptyItemsTitle')}</p>
             <p class="mt-1 text-sm">{i18n.t('v2EmptyItemsSubtitle')}</p>
           </div>
         {:else}
-          <div class="flex flex-col divide-y divide-stroke">
+          <div class="flex flex-col gap-2 pb-16">
             {#each items as item (item.id)}
-              <div class="flex gap-3 bg-white px-3 py-3">
-                <button
-                  type="button"
-                  class={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${
-                    item.done
-                      ? 'border-accent-mint-strong bg-accent-mint text-ink'
-                      : 'border-stroke bg-paper text-ink-muted'
-                  }`}
-                  aria-label={item.done ? i18n.t('v2RestoreItem') : i18n.t('v2CompleteItem')}
-                  onclick={() => onToggleItem(item.id)}
-                >
-                  {item.done ? 'OK' : ''}
-                </button>
-
-                <div class="min-w-0 flex-1">
-                  {#if editingItemId === item.id}
-                    <form class="flex gap-2" onsubmit={(event) => submitItemEdit(event, item.id)}>
-                      <input
-                        class="min-h-11 min-w-0 flex-1 rounded-md border border-stroke bg-paper px-3 text-base text-ink"
-                        bind:value={editingItemText}
-                        aria-label={i18n.t('v2EditItem')}
-                      />
-                      <button
-                        type="submit"
-                        class="min-h-11 rounded-md bg-accent-mint-strong px-3 text-sm font-medium text-ink"
-                      >
-                        {i18n.t('v2SaveItem')}
-                      </button>
-                      <button
-                        type="button"
-                        class="min-h-11 rounded-md border border-stroke bg-white px-3 text-sm text-ink"
-                        onclick={cancelItemEdit}
-                      >
-                        {i18n.t('cancel')}
-                      </button>
-                    </form>
-                  {:else}
-                    <p
-                      class={`break-words text-base leading-6 ${
-                        item.done ? 'text-ink-muted line-through' : 'text-ink'
-                      }`}
-                    >
-                      {item.text}
-                    </p>
-                    <div class="mt-2 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        class="min-h-11 rounded-md border border-stroke bg-paper px-3 text-sm text-ink"
-                        onclick={() => beginItemEdit(item)}
-                      >
-                        {i18n.t('v2EditItem')}
-                      </button>
-                      <button
-                        type="button"
-                        class="min-h-11 rounded-md border border-accent-peach-strong bg-paper px-3 text-sm text-ink"
-                        onclick={() => onDeleteItem(item.id)}
-                      >
-                        {i18n.t('v2DeleteItem')}
-                      </button>
-
-                      {#if isReorderMode}
-                        <button
-                          type="button"
-                          class="min-h-11 rounded-md border border-stroke bg-paper px-3 text-sm text-ink disabled:opacity-40"
-                          disabled={isFirstItem(item.id)}
-                          onclick={() => onMoveItem(item.id, -1)}
-                        >
-                          {i18n.t('v2MoveUp')}
-                        </button>
-                        <button
-                          type="button"
-                          class="min-h-11 rounded-md border border-stroke bg-paper px-3 text-sm text-ink disabled:opacity-40"
-                          disabled={isLastItem(item.id)}
-                          onclick={() => onMoveItem(item.id, 1)}
-                        >
-                          {i18n.t('v2MoveDown')}
-                        </button>
-                      {/if}
-                    </div>
-                  {/if}
-                </div>
-              </div>
+              <V2LeafTodoItem
+                {item}
+                {isReorderMode}
+                isFirst={isFirstItem(item.id)}
+                isLast={isLastItem(item.id)}
+                {onToggleItem}
+                {onUpdateItemText}
+                onRequestDeleteItem={requestDeleteItem}
+                {onMoveItem}
+              />
             {/each}
           </div>
         {/if}
       </div>
     </section>
   </main>
+
+  <V2ConfirmModal
+    show={itemPendingDeletion !== null}
+    title={i18n.t('v2DeleteItemConfirmTitle')}
+    message={itemPendingDeletion
+      ? i18n.t('v2DeleteItemConfirmMessageTemplate')(itemPendingDeletion.text)
+      : ''}
+    confirmLabel={isDeletingItem ? i18n.t('v2DeletingItem') : i18n.t('v2DeleteItemConfirmAction')}
+    cancelLabel={i18n.t('cancel')}
+    tone="danger"
+    isBusy={isDeletingItem}
+    onConfirm={confirmDeleteItem}
+    onCancel={cancelDeleteItem}
+  />
 </div>
