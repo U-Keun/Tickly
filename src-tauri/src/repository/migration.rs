@@ -1,5 +1,7 @@
 use rusqlite::Connection;
 
+use super::V2ChecklistRepository;
+
 pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
     migrate_add_category_id(conn)?;
     migrate_add_display_order_to_todos(conn)?;
@@ -16,6 +18,7 @@ pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
     migrate_create_tags(conn)?;
     migrate_create_todo_tags(conn)?;
     migrate_add_linked_app(conn)?;
+    migrate_create_v2_checklist_tables(conn)?;
     Ok(())
 }
 
@@ -287,5 +290,11 @@ fn migrate_create_todo_tags(conn: &Connection) -> Result<(), rusqlite::Error> {
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_todo_tags_sync_id ON todo_tags(sync_id)",
         [],
     )?;
+    Ok(())
+}
+
+fn migrate_create_v2_checklist_tables(conn: &Connection) -> Result<(), rusqlite::Error> {
+    V2ChecklistRepository::create_tables(conn)?;
+    V2ChecklistRepository::ensure_default_category(conn)?;
     Ok(())
 }

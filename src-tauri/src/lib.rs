@@ -132,7 +132,19 @@ pub fn run() {
             connect_realtime,
             disconnect_realtime,
             get_realtime_status,
-            is_realtime_connected
+            is_realtime_connected,
+            // v2 local checklist commands
+            v2_get_categories,
+            v2_create_category,
+            v2_update_category,
+            v2_delete_category,
+            v2_reorder_categories,
+            v2_get_items,
+            v2_create_item,
+            v2_update_item_text,
+            v2_toggle_item,
+            v2_delete_item,
+            v2_reorder_items
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -220,6 +220,36 @@ export const ko = {
 
   // Common
   saving: '저장 중...',
+
+  // v2 local checklist
+  v2Title: 'Tickly v2',
+  v2Subtitle: '로컬 체크리스트 재구축',
+  v2BackHome: 'v1 홈',
+  v2Refresh: '새로고침',
+  v2Loading: '불러오는 중...',
+  v2ClearInput: '입력 지우기',
+  v2Categories: '카테고리',
+  v2NewCategoryPlaceholder: '새 카테고리 이름',
+  v2AddCategory: '카테고리 추가',
+  v2EditCategory: '카테고리 수정',
+  v2SaveCategory: '저장',
+  v2DeleteCategory: '카테고리 삭제',
+  v2MoveLeft: '왼쪽',
+  v2MoveRight: '오른쪽',
+  v2Items: '항목',
+  v2NewItemPlaceholder: '새 항목',
+  v2AddItem: '항목 추가',
+  v2EmptyItemsTitle: '아직 항목이 없습니다.',
+  v2EmptyItemsSubtitle: '이 카테고리에 첫 항목을 추가해보세요.',
+  v2CompleteItem: '항목 완료',
+  v2RestoreItem: '항목 되돌리기',
+  v2EditItem: '항목 수정',
+  v2SaveItem: '저장',
+  v2DeleteItem: '항목 삭제',
+  v2MoveUp: '위로',
+  v2MoveDown: '아래로',
+  v2ReorderMode: '정렬',
+  v2ExitReorderMode: '정렬 종료',
 };
 
 export type Translations = typeof ko;

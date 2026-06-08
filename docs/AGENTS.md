@@ -1,0 +1,16 @@
+# AGENTS.md - Documentation
+
+Apply the root `AGENTS.md` first. This file adds rules for `docs/`.
+
+## Documentation Roles
+
+- `development-principles.md` records how the project is worked on.
+- `roadmap.md` records product/version direction.
+- `v2-notes/` records short stage-by-stage explanations for the v2 rebuild.
+
+## Writing Rules
+
+- Keep notes concise and decision-oriented.
+- Include code paths only when they help the reader connect architecture to implementation.
+- Prefer small Mermaid diagrams for core boundaries and data flow.
+- Update docs when a change affects how future agents or the user should understand the project.

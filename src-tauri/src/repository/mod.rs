@@ -9,6 +9,7 @@ mod sync_repo;
 mod tag_repo;
 mod todo_repo;
 mod todo_tag_repo;
+mod v2_checklist_repo;
 
 pub use auth_repo::AuthRepository;
 pub use category_repo::CategoryRepository;
@@ -20,3 +21,4 @@ pub use sync_repo::SyncRepository;
 pub use tag_repo::TagRepository;
 pub use todo_repo::TodoRepository;
 pub use todo_tag_repo::TodoTagRepository;
+pub use v2_checklist_repo::V2ChecklistRepository;

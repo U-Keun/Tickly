@@ -155,6 +155,24 @@ export interface TrackedItem {
   category_id: number | null;
 }
 
+export interface V2Category {
+  id: number;
+  name: string;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface V2TodoItem {
+  id: number;
+  category_id: number;
+  text: string;
+  done: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 // Auth types
 export type AuthProvider = 'apple' | 'google';
 

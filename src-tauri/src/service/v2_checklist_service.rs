@@ -1,0 +1,159 @@
+use rusqlite::Connection;
+
+use crate::models::{V2Category, V2TodoItem};
+use crate::repository::V2ChecklistRepository;
+
+pub struct V2ChecklistService;
+
+impl V2ChecklistService {
+    pub fn get_categories(conn: &Connection) -> Result<Vec<V2Category>, String> {
+        V2ChecklistRepository::ensure_default_category(conn).map_err(|error| error.to_string())?;
+        V2ChecklistRepository::get_categories(conn).map_err(|error| error.to_string())
+    }
+
+    pub fn create_category(conn: &Connection, name: &str) -> Result<V2Category, String> {
+        let trimmed_name = Self::trim_required(name, "Category name")?;
+        V2ChecklistRepository::create_category(conn, trimmed_name)
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn update_category(conn: &Connection, id: i64, name: &str) -> Result<(), String> {
+        let trimmed_name = Self::trim_required(name, "Category name")?;
+        V2ChecklistRepository::update_category(conn, id, trimmed_name)
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn delete_category(conn: &Connection, id: i64) -> Result<(), String> {
+        let category_count =
+            V2ChecklistRepository::count_categories(conn).map_err(|error| error.to_string())?;
+        if category_count <= 1 {
+            return Err("At least one category is required.".to_string());
+        }
+
+        V2ChecklistRepository::delete_category(conn, id).map_err(|error| error.to_string())
+    }
+
+    pub fn reorder_categories(conn: &Connection, category_ids: &[i64]) -> Result<(), String> {
+        V2ChecklistRepository::reorder_categories(conn, category_ids)
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn get_items(conn: &Connection, category_id: i64) -> Result<Vec<V2TodoItem>, String> {
+        Self::require_category(conn, category_id)?;
+        V2ChecklistRepository::get_items(conn, category_id).map_err(|error| error.to_string())
+    }
+
+    pub fn create_item(
+        conn: &Connection,
+        category_id: i64,
+        text: &str,
+    ) -> Result<V2TodoItem, String> {
+        Self::require_category(conn, category_id)?;
+        let trimmed_text = Self::trim_required(text, "Item text")?;
+        V2ChecklistRepository::create_item(conn, category_id, trimmed_text)
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn update_item_text(conn: &Connection, id: i64, text: &str) -> Result<(), String> {
+        let trimmed_text = Self::trim_required(text, "Item text")?;
+        V2ChecklistRepository::update_item_text(conn, id, trimmed_text)
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn toggle_item(conn: &Connection, id: i64) -> Result<V2TodoItem, String> {
+        let Some(item) =
+            V2ChecklistRepository::get_item_by_id(conn, id).map_err(|error| error.to_string())?
+        else {
+            return Err("Item not found.".to_string());
+        };
+
+        V2ChecklistRepository::set_item_done(conn, id, !item.done)
+            .map_err(|error| error.to_string())?;
+
+        V2ChecklistRepository::get_item_by_id(conn, id)
+            .map_err(|error| error.to_string())?
+            .ok_or_else(|| "Item not found after toggle.".to_string())
+    }
+
+    pub fn delete_item(conn: &Connection, id: i64) -> Result<(), String> {
+        V2ChecklistRepository::delete_item(conn, id).map_err(|error| error.to_string())
+    }
+
+    pub fn reorder_items(
+        conn: &Connection,
+        category_id: i64,
+        item_ids: &[i64],
+    ) -> Result<(), String> {
+        Self::require_category(conn, category_id)?;
+        V2ChecklistRepository::reorder_items(conn, category_id, item_ids)
+            .map_err(|error| error.to_string())
+    }
+
+    fn trim_required<'a>(value: &'a str, label: &str) -> Result<&'a str, String> {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            Err(format!("{label} cannot be empty."))
+        } else {
+            Ok(trimmed)
+        }
+    }
+
+    fn require_category(conn: &Connection, category_id: i64) -> Result<(), String> {
+        match V2ChecklistRepository::get_category_by_id(conn, category_id)
+            .map_err(|error| error.to_string())?
+        {
+            Some(_) => Ok(()),
+            None => Err("Category not found.".to_string()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn setup_conn() -> Connection {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        V2ChecklistRepository::create_tables(&conn).expect("v2 schema");
+        V2ChecklistRepository::ensure_default_category(&conn).expect("default category");
+        conn
+    }
+
+    #[test]
+    fn rejects_empty_category_names() {
+        let conn = setup_conn();
+        let error = V2ChecklistService::create_category(&conn, "  ").unwrap_err();
+
+        assert!(error.contains("Category name"));
+    }
+
+    #[test]
+    fn prevents_deleting_last_category() {
+        let conn = setup_conn();
+        let home = V2ChecklistService::get_categories(&conn).unwrap()[0].clone();
+        let error = V2ChecklistService::delete_category(&conn, home.id).unwrap_err();
+
+        assert!(error.contains("At least one category"));
+    }
+
+    #[test]
+    fn creates_and_toggles_item() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        let item = V2ChecklistService::create_item(&conn, category_id, "  Wallet  ").unwrap();
+
+        assert_eq!(item.text, "Wallet");
+        assert!(!item.done);
+
+        let toggled = V2ChecklistService::toggle_item(&conn, item.id).unwrap();
+        assert!(toggled.done);
+    }
+
+    #[test]
+    fn rejects_items_for_missing_categories() {
+        let conn = setup_conn();
+        let error = V2ChecklistService::create_item(&conn, 999, "Umbrella").unwrap_err();
+
+        assert!(error.contains("Category not found"));
+    }
+}

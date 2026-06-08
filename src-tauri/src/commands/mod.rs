@@ -12,6 +12,7 @@ mod streak_commands;
 mod sync_commands;
 mod tag_commands;
 mod todo_commands;
+mod v2_checklist_commands;
 mod widget_commands;
 
 pub(super) fn with_db<T, E, F>(state: &State<'_, AppState>, action: F) -> Result<T, String>
@@ -32,4 +33,5 @@ pub use streak_commands::*;
 pub use sync_commands::*;
 pub use tag_commands::*;
 pub use todo_commands::*;
+pub use v2_checklist_commands::*;
 pub use widget_commands::*;
