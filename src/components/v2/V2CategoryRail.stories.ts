@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/sveltekit';
 
 import type { V2Category } from '../../types';
 import V2CategoryRail from './V2CategoryRail.svelte';
+import V2CategoryRailHorizontalScrollStory from './V2CategoryRailHorizontalScrollStory.svelte';
 
 const categories: V2Category[] = [
   {
@@ -97,5 +98,14 @@ export const LongName: Story = {
       }
     ],
     selectedCategoryId: 4
+  }
+};
+
+export const HorizontalScroll: StoryObj<typeof V2CategoryRailHorizontalScrollStory> = {
+  render: () => ({
+    Component: V2CategoryRailHorizontalScrollStory
+  }),
+  parameters: {
+    layout: 'fullscreen'
   }
 };
