@@ -1,6 +1,6 @@
 use rusqlite::{params, Connection};
 
-use crate::models::{V2Category, V2TodoItem};
+use crate::models::{V2Category, V2ItemSearchResult, V2TodoItem};
 
 pub struct V2ChecklistRepository;
 
@@ -78,6 +78,39 @@ impl V2ChecklistRepository {
             created_at: row.get(5)?,
             updated_at: row.get(6)?,
         })
+    }
+
+    fn row_to_search_result(row: &rusqlite::Row) -> Result<V2ItemSearchResult, rusqlite::Error> {
+        Ok(V2ItemSearchResult {
+            item: V2TodoItem {
+                id: row.get(0)?,
+                category_id: row.get(1)?,
+                text: row.get(2)?,
+                done: row.get(3)?,
+                display_order: row.get(4)?,
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
+            },
+            category: V2Category {
+                id: row.get(7)?,
+                name: row.get(8)?,
+                display_order: row.get(9)?,
+                created_at: row.get(10)?,
+                updated_at: row.get(11)?,
+            },
+        })
+    }
+
+    fn like_pattern(query: &str) -> String {
+        let mut pattern = String::from("%");
+        for character in query.chars() {
+            if matches!(character, '%' | '_' | '\\') {
+                pattern.push('\\');
+            }
+            pattern.push(character);
+        }
+        pattern.push('%');
+        pattern
     }
 
     pub fn count_categories(conn: &Connection) -> Result<i64, rusqlite::Error> {
@@ -225,6 +258,39 @@ impl V2ChecklistRepository {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(items)
+    }
+
+    pub fn search_items(
+        conn: &Connection,
+        query: &str,
+        limit: i64,
+    ) -> Result<Vec<V2ItemSearchResult>, rusqlite::Error> {
+        let pattern = Self::like_pattern(query);
+        let sql = "\
+            SELECT
+                t.id,
+                t.category_id,
+                t.text,
+                t.done,
+                t.display_order,
+                t.created_at,
+                t.updated_at,
+                c.id,
+                c.name,
+                c.display_order,
+                c.created_at,
+                c.updated_at
+             FROM v2_todos t
+             INNER JOIN v2_categories c ON c.id = t.category_id
+             WHERE t.text LIKE ?1 ESCAPE '\\'
+             ORDER BY c.display_order ASC, t.done ASC, t.display_order ASC
+             LIMIT ?2";
+        let mut stmt = conn.prepare(&sql)?;
+        let results = stmt
+            .query_map(params![pattern, limit], Self::row_to_search_result)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(results)
     }
 
     pub fn get_item_by_id(

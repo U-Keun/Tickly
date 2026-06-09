@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
 
   import V2ChecklistScreen from '../../components/v2/V2ChecklistScreen.svelte';
@@ -20,16 +19,7 @@
   categories={v2ChecklistStore.categories}
   selectedCategoryId={v2ChecklistStore.selectedCategoryId}
   items={v2ChecklistStore.items}
-  isLoading={v2ChecklistStore.isLoading}
   errorMessage={v2ChecklistStore.errorMessage}
-  onBackHome={() => goto('/')}
-  onRefresh={async () => {
-    try {
-      await v2ChecklistStore.load();
-    } catch {
-      // The v2 store owns the visible error banner.
-    }
-  }}
   onSelectCategory={v2ChecklistStore.selectCategory}
   onAddCategory={v2ChecklistStore.addCategory}
   onUpdateCategory={v2ChecklistStore.updateCategory}
@@ -39,5 +29,6 @@
   onToggleItem={v2ChecklistStore.toggleItem}
   onUpdateItemText={v2ChecklistStore.updateItemText}
   onDeleteItem={v2ChecklistStore.deleteItem}
-  onMoveItem={v2ChecklistStore.moveItem}
+  onReorderItems={v2ChecklistStore.reorderItems}
+  onSearchItems={v2ChecklistStore.searchItems}
 />

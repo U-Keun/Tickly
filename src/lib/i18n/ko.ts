@@ -228,6 +228,12 @@ export const ko = {
   v2Refresh: '새로고침',
   v2Loading: '불러오는 중...',
   v2ClearInput: '입력 지우기',
+  v2EnterSearch: '항목 검색',
+  v2ExitSearch: '검색 종료',
+  v2SearchPlaceholder: '항목 검색',
+  v2SearchSuggestions: '검색 추천',
+  v2Searching: '검색 중...',
+  v2NoSearchResultsTemplate: (query: string) => `"${query}"와 일치하는 항목이 없습니다.`,
   v2Categories: '카테고리',
   v2NewCategoryPlaceholder: '새 카테고리 이름',
   v2AddCategory: '카테고리 추가',
@@ -262,10 +268,6 @@ export const ko = {
   v2DeleteItemConfirmMessageTemplate: (text: string) => `"${text}" 항목이 삭제됩니다.`,
   v2DeleteItemConfirmAction: '삭제',
   v2DeletingItem: '삭제 중...',
-  v2MoveUp: '위로',
-  v2MoveDown: '아래로',
-  v2ReorderMode: '정렬',
-  v2ExitReorderMode: '정렬 종료',
 };
 
 export type Translations = typeof ko;

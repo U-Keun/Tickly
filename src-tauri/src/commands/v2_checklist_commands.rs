@@ -1,7 +1,7 @@
 use tauri::State;
 
 use super::with_db;
-use crate::models::{V2Category, V2TodoItem};
+use crate::models::{V2Category, V2ItemSearchResult, V2TodoItem};
 use crate::service::V2ChecklistService;
 use crate::AppState;
 
@@ -37,6 +37,17 @@ pub fn v2_reorder_categories(category_ids: Vec<i64>, state: State<AppState>) -> 
 #[tauri::command]
 pub fn v2_get_items(category_id: i64, state: State<AppState>) -> Result<Vec<V2TodoItem>, String> {
     with_db(&state, |db| V2ChecklistService::get_items(db, category_id))
+}
+
+#[tauri::command]
+pub fn v2_search_items(
+    query: String,
+    limit: i64,
+    state: State<AppState>,
+) -> Result<Vec<V2ItemSearchResult>, String> {
+    with_db(&state, |db| {
+        V2ChecklistService::search_items(db, &query, limit)
+    })
 }
 
 #[tauri::command]

@@ -1,25 +1,53 @@
 <script lang="ts">
+  import { ArrowLeft, Plus, Search, X } from '@lucide/svelte';
+
   import { i18n } from '$lib/i18n';
 
   type MaybePromise = void | Promise<void>;
+  type CommandMode = 'add' | 'search';
 
   interface Props {
     disabled?: boolean;
     initialInput?: string;
+    mode?: CommandMode;
+    searchQuery?: string;
     onAddItem: (text: string) => MaybePromise;
+    onEnterSearch?: () => MaybePromise;
+    onExitSearch?: () => MaybePromise;
+    onSearchQueryChange?: (query: string) => void;
+    onSearchInputFocus?: () => void;
   }
 
-  let { disabled = false, initialInput = '', onAddItem }: Props = $props();
+  let {
+    disabled = false,
+    initialInput = '',
+    mode = 'add',
+    searchQuery = '',
+    onAddItem,
+    onEnterSearch,
+    onExitSearch,
+    onSearchQueryChange,
+    onSearchInputFocus
+  }: Props = $props();
 
-  let input = $state('');
+  let addInput = $state('');
   let isSubmitting = $state(false);
   let inputElement = $state<HTMLInputElement | null>(null);
   let didApplyInitialInput = $state(false);
+  let lastMode = $state<CommandMode>('add');
+  let inputValue = $derived(mode === 'search' ? searchQuery : addInput);
+  let trimmedInput = $derived(inputValue.trim());
 
   $effect(() => {
     if (didApplyInitialInput) return;
-    input = initialInput;
+    addInput = initialInput;
     didApplyInitialInput = true;
+  });
+
+  $effect(() => {
+    if (mode === lastMode) return;
+    lastMode = mode;
+    focusInput();
   });
 
   function focusInput(): void {
@@ -27,18 +55,31 @@
   }
 
   function clearInput(): void {
-    input = '';
+    if (mode === 'search') {
+      onSearchQueryChange?.('');
+    } else {
+      addInput = '';
+    }
     focusInput();
   }
 
+  function handleInput(event: Event): void {
+    const value = (event.currentTarget as HTMLInputElement).value;
+    if (mode === 'search') {
+      onSearchQueryChange?.(value);
+    } else {
+      addInput = value;
+    }
+  }
+
   async function handleSubmit(): Promise<void> {
-    const trimmedInput = input.trim();
+    if (mode === 'search') return;
     if (!trimmedInput || disabled || isSubmitting) return;
 
     isSubmitting = true;
     try {
       await onAddItem(trimmedInput);
-      input = '';
+      addInput = '';
     } catch {
       // The v2 store owns the visible error banner; keep the draft in place.
     } finally {
@@ -61,38 +102,47 @@
     aria-disabled={disabled}
   >
     <div
-      class="grid h-11 w-11 flex-shrink-0 place-items-center rounded-full text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-canvas)] active:bg-[var(--color-canvas)]"
-      aria-hidden="true"
+      class="grid h-11 w-11 flex-shrink-0 place-items-center rounded-full text-[var(--color-ink)] transition-colors hover:bg-[var(--color-canvas)] active:bg-[var(--color-canvas)]"
     >
-      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2.2"
-          d="M6.5 17.5c6.4.3 10.9-4.2 11-11-6.8.1-11.3 4.6-11 11z"
-        />
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2.2"
-          d="M7.5 16.5 17 7"
-        />
-      </svg>
+      {#if mode === 'search'}
+        <button
+          type="button"
+          class="grid h-11 w-11 place-items-center rounded-full transition-colors hover:bg-[var(--color-canvas)]"
+          aria-label={i18n.t('v2ExitSearch')}
+          title={i18n.t('v2ExitSearch')}
+          onclick={() => void onExitSearch?.()}
+        >
+          <ArrowLeft size={22} strokeWidth={2.5} aria-hidden="true" />
+        </button>
+      {:else}
+        <button
+          type="button"
+          class="grid h-11 w-11 place-items-center rounded-full transition-colors hover:bg-[var(--color-canvas)]"
+          aria-label={i18n.t('v2EnterSearch')}
+          title={i18n.t('v2EnterSearch')}
+          disabled={disabled}
+          onclick={() => void onEnterSearch?.()}
+        >
+          <Search size={21} strokeWidth={2.5} aria-hidden="true" />
+        </button>
+      {/if}
     </div>
 
     <input
       bind:this={inputElement}
-      bind:value={input}
+      value={inputValue}
       type="text"
       class="min-h-11 min-w-0 flex-1 bg-transparent text-base text-[var(--color-ink)] outline-none placeholder:text-[var(--color-ink-muted)] disabled:opacity-50"
-      placeholder={i18n.t('v2NewItemPlaceholder')}
-      aria-label={i18n.t('v2NewItemPlaceholder')}
+      placeholder={mode === 'search' ? i18n.t('v2SearchPlaceholder') : i18n.t('v2NewItemPlaceholder')}
+      aria-label={mode === 'search' ? i18n.t('v2SearchPlaceholder') : i18n.t('v2NewItemPlaceholder')}
       autocomplete="off"
       {disabled}
+      oninput={handleInput}
+      onfocus={() => mode === 'search' && onSearchInputFocus?.()}
       onkeydown={handleKeydown}
     />
 
-    {#if input.trim()}
+    {#if trimmedInput}
       <button
         type="button"
         class="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[14px] text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-canvas)]"
@@ -100,33 +150,21 @@
         title={i18n.t('v2ClearInput')}
         onclick={clearInput}
       >
-        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2.4"
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
+        <X size={18} strokeWidth={2.5} aria-hidden="true" />
       </button>
     {/if}
 
-    <button
-      type="button"
-      class="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[14px] bg-[var(--color-accent-sky-strong)] text-[var(--color-white)] transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
-      aria-label={i18n.t('v2AddItem')}
-      title={i18n.t('v2AddItem')}
-      disabled={!input.trim() || disabled || isSubmitting}
-      onclick={handleSubmit}
-    >
-      <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2.4"
-          d="M12 5v14M5 12h14"
-        />
-      </svg>
-    </button>
+    {#if mode === 'add'}
+      <button
+        type="button"
+        class="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[14px] bg-[var(--color-accent-sky-strong)] text-[var(--color-white)] transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label={i18n.t('v2AddItem')}
+        title={i18n.t('v2AddItem')}
+        disabled={!trimmedInput || disabled || isSubmitting}
+        onclick={handleSubmit}
+      >
+        <Plus size={25} strokeWidth={2.5} aria-hidden="true" />
+      </button>
+    {/if}
   </div>
 </div>

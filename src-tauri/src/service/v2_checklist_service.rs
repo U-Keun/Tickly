@@ -1,6 +1,6 @@
 use rusqlite::Connection;
 
-use crate::models::{V2Category, V2TodoItem};
+use crate::models::{V2Category, V2ItemSearchResult, V2TodoItem};
 use crate::repository::V2ChecklistRepository;
 
 pub struct V2ChecklistService;
@@ -41,6 +41,21 @@ impl V2ChecklistService {
     pub fn get_items(conn: &Connection, category_id: i64) -> Result<Vec<V2TodoItem>, String> {
         Self::require_category(conn, category_id)?;
         V2ChecklistRepository::get_items(conn, category_id).map_err(|error| error.to_string())
+    }
+
+    pub fn search_items(
+        conn: &Connection,
+        query: &str,
+        limit: i64,
+    ) -> Result<Vec<V2ItemSearchResult>, String> {
+        let trimmed_query = query.trim();
+        if trimmed_query.is_empty() || limit <= 0 {
+            return Ok(Vec::new());
+        }
+
+        let safe_limit = limit.min(50);
+        V2ChecklistRepository::search_items(conn, trimmed_query, safe_limit)
+            .map_err(|error| error.to_string())
     }
 
     pub fn create_item(
@@ -155,5 +170,57 @@ mod tests {
         let error = V2ChecklistService::create_item(&conn, 999, "Umbrella").unwrap_err();
 
         assert!(error.contains("Category not found"));
+    }
+
+    #[test]
+    fn search_returns_empty_for_blank_query() {
+        let conn = setup_conn();
+        let results = V2ChecklistService::search_items(&conn, "  ", 8).unwrap();
+
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn search_returns_matching_items_with_categories() {
+        let conn = setup_conn();
+        let home = V2ChecklistService::get_categories(&conn).unwrap()[0].clone();
+        let travel = V2ChecklistService::create_category(&conn, "Travel").unwrap();
+        V2ChecklistService::create_item(&conn, home.id, "Work wallet").unwrap();
+        V2ChecklistService::create_item(&conn, travel.id, "Travel wallet").unwrap();
+
+        let results = V2ChecklistService::search_items(&conn, "wallet", 8).unwrap();
+
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].category.name, "Home");
+        assert_eq!(results[0].item.text, "Work wallet");
+        assert_eq!(results[1].category.name, "Travel");
+        assert_eq!(results[1].item.text, "Travel wallet");
+    }
+
+    #[test]
+    fn search_orders_pending_before_done_within_category() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        let done = V2ChecklistService::create_item(&conn, category_id, "Charge cable").unwrap();
+        let pending =
+            V2ChecklistService::create_item(&conn, category_id, "Charge battery").unwrap();
+        V2ChecklistService::toggle_item(&conn, done.id).unwrap();
+
+        let results = V2ChecklistService::search_items(&conn, "Charge", 8).unwrap();
+
+        assert_eq!(results[0].item.id, pending.id);
+        assert_eq!(results[1].item.id, done.id);
+    }
+
+    #[test]
+    fn search_respects_limit() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        V2ChecklistService::create_item(&conn, category_id, "Wallet").unwrap();
+        V2ChecklistService::create_item(&conn, category_id, "Wallet backup").unwrap();
+
+        let results = V2ChecklistService::search_items(&conn, "Wallet", 1).unwrap();
+
+        assert_eq!(results.len(), 1);
     }
 }

@@ -119,7 +119,7 @@
         {@const isSelected = category.id === selectedCategoryId}
         <button
           type="button"
-          class={`relative z-10 flex min-h-10 max-w-44 shrink-0 items-center justify-center rounded-[12px] border-2 border-transparent px-4 text-sm font-semibold transition-colors ${
+          class={`relative z-10 flex min-h-10 max-w-44 shrink-0 items-center justify-center rounded-[12px] border-2 border-transparent px-4 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${
             isSelected
               ? 'text-[var(--color-ink)]'
               : 'text-[var(--color-ink-muted)] hover:bg-[var(--color-canvas)] hover:text-[var(--color-ink)] active:bg-[var(--color-mist)]'
@@ -138,7 +138,7 @@
   <div class="flex shrink-0 items-center gap-2">
     <button
       type="button"
-      class="flex h-11 w-11 items-center justify-center rounded-full border-2 border-[var(--color-ink)] bg-[var(--color-white)] text-[var(--color-ink)] transition-colors hover:bg-[var(--color-accent-sky)]"
+      class="flex h-11 w-11 items-center justify-center rounded-full border-2 border-[var(--color-ink)] bg-[var(--color-white)] text-[var(--color-ink)] transition-colors hover:bg-[var(--color-accent-sky)] disabled:cursor-not-allowed disabled:opacity-45"
       aria-label={i18n.t('v2AddCategory')}
       title={i18n.t('v2AddCategory')}
       onclick={onCreateCategory}

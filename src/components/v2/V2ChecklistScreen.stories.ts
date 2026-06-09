@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/sveltekit';
 
-import type { V2Category, V2TodoItem } from '../../types';
+import type { V2Category, V2ItemSearchResult, V2TodoItem } from '../../types';
 import V2ChecklistScreen from './V2ChecklistScreen.svelte';
 
 const categories: V2Category[] = [
@@ -48,6 +48,25 @@ const items: V2TodoItem[] = [
   }
 ];
 
+const searchResults: V2ItemSearchResult[] = [
+  {
+    item: items[0],
+    category: categories[0]
+  },
+  {
+    item: {
+      id: 6,
+      category_id: 2,
+      text: 'Travel wallet pouch',
+      done: false,
+      display_order: 1000,
+      created_at: '2026-06-08T00:00:00Z',
+      updated_at: '2026-06-08T00:00:00Z'
+    },
+    category: categories[1]
+  }
+];
+
 const meta = {
   title: 'v2/V2ChecklistScreen',
   component: V2ChecklistScreen,
@@ -56,11 +75,7 @@ const meta = {
     categories,
     selectedCategoryId: 1,
     items,
-    isLoading: false,
     errorMessage: null,
-    initialReorderMode: false,
-    onBackHome: () => {},
-    onRefresh: () => {},
     onSelectCategory: () => {},
     onAddCategory: async () => {},
     onUpdateCategory: async () => {},
@@ -70,7 +85,11 @@ const meta = {
     onToggleItem: async () => {},
     onUpdateItemText: async () => {},
     onDeleteItem: async () => {},
-    onMoveItem: async () => {}
+    onReorderItems: async () => {},
+    onSearchItems: async (query: string, limit: number) =>
+      searchResults
+        .filter((result) => result.item.text.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
+        .slice(0, limit)
   }
 } satisfies Meta<typeof V2ChecklistScreen>;
 
@@ -103,24 +122,44 @@ export const CompletedItems: Story = {
   }
 };
 
-export const ManyCategories: Story = {
+export const SearchActive: Story = {
   args: {
-    categories: [
-      ...categories,
-      {
-        id: 4,
-        name: 'Groceries',
-        display_order: 4000,
-        created_at: '2026-06-08T00:00:00Z',
-        updated_at: '2026-06-08T00:00:00Z'
-      }
-    ],
-    selectedCategoryId: 3
+    initialSearchMode: true,
+    initialSearchQuery: 'wallet'
   }
 };
 
-export const ReorderMode: Story = {
+export const LongListDragReady: Story = {
   args: {
-    initialReorderMode: true
+    items: [
+      ...items,
+      {
+        id: 3,
+        category_id: 1,
+        text: 'Keys',
+        done: false,
+        display_order: 3000,
+        created_at: '2026-06-08T00:00:00Z',
+        updated_at: '2026-06-08T00:00:00Z'
+      },
+      {
+        id: 4,
+        category_id: 1,
+        text: 'Water bottle',
+        done: false,
+        display_order: 4000,
+        created_at: '2026-06-08T00:00:00Z',
+        updated_at: '2026-06-08T00:00:00Z'
+      },
+      {
+        id: 5,
+        category_id: 1,
+        text: 'Portable charger',
+        done: true,
+        display_order: 5000,
+        created_at: '2026-06-08T00:00:00Z',
+        updated_at: '2026-06-08T00:00:00Z'
+      }
+    ]
   }
 };

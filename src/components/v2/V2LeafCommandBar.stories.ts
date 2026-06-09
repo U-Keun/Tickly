@@ -9,7 +9,13 @@ const meta = {
   args: {
     disabled: false,
     initialInput: 'Wallet',
-    onAddItem: async () => {}
+    mode: 'add',
+    searchQuery: '',
+    onAddItem: async () => {},
+    onEnterSearch: async () => {},
+    onExitSearch: async () => {},
+    onSearchQueryChange: () => {},
+    onSearchInputFocus: () => {}
   },
   parameters: {
     layout: 'centered'
@@ -31,6 +37,14 @@ export const Empty: Story = {
 export const Disabled: Story = {
   args: {
     disabled: true,
+    initialInput: ''
+  }
+};
+
+export const SearchMode: Story = {
+  args: {
+    mode: 'search',
+    searchQuery: 'wallet',
     initialInput: ''
   }
 };

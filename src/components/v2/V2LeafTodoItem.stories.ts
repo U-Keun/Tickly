@@ -19,14 +19,10 @@ const meta = {
   tags: ['autodocs'],
   args: {
     item,
-    isReorderMode: false,
-    isFirst: false,
-    isLast: false,
     initialDrawerOpen: false,
     onToggleItem: async () => {},
     onRequestEditItem: async () => {},
-    onRequestDeleteItem: async () => {},
-    onMoveItem: async () => {}
+    onRequestDeleteItem: async () => {}
   },
   parameters: {
     layout: 'padded'
@@ -61,48 +57,5 @@ export const LongText: Story = {
       ...item,
       text: 'Umbrella before leaving for a very long commute day with errands after work'
     }
-  }
-};
-
-export const ReorderMiddle: Story = {
-  args: {
-    isReorderMode: true
-  }
-};
-
-export const ReorderDrawerOpen: Story = {
-  args: {
-    isReorderMode: true,
-    initialDrawerOpen: true
-  }
-};
-
-export const ReorderFirst: Story = {
-  args: {
-    isReorderMode: true,
-    isFirst: true
-  }
-};
-
-export const ReorderLast: Story = {
-  args: {
-    isReorderMode: true,
-    isLast: true
-  }
-};
-
-export const ReorderDrawerFirst: Story = {
-  args: {
-    isReorderMode: true,
-    isFirst: true,
-    initialDrawerOpen: true
-  }
-};
-
-export const ReorderDrawerLast: Story = {
-  args: {
-    isReorderMode: true,
-    isLast: true,
-    initialDrawerOpen: true
   }
 };

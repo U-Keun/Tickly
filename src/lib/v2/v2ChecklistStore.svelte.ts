@@ -1,4 +1,4 @@
-import type { V2Category, V2TodoItem } from '../../types';
+import type { V2Category, V2ItemSearchResult, V2TodoItem } from '../../types';
 import * as v2ChecklistApi from '../api/v2ChecklistApi';
 
 let categories = $state<V2Category[]>([]);
@@ -181,6 +181,16 @@ async function addItem(text: string): Promise<void> {
   }
 }
 
+async function searchItems(query: string, limit: number): Promise<V2ItemSearchResult[]> {
+  errorMessage = null;
+
+  try {
+    return await v2ChecklistApi.v2SearchItems(query, limit);
+  } catch (error) {
+    throw setError(error, 'Failed to search v2 items.');
+  }
+}
+
 async function updateItemText(id: number, text: string): Promise<void> {
   errorMessage = null;
 
@@ -220,7 +230,19 @@ async function moveItem(id: number, delta: number): Promise<void> {
 
   const movedRaw = moveInList(items, id, delta);
   if (movedRaw === items) return;
-  const moved = reindexItems(movedRaw);
+  await reorderItems(movedRaw.map((item) => item.id));
+}
+
+async function reorderItems(itemIds: number[]): Promise<void> {
+  if (selectedCategoryId === null) return;
+
+  const itemsById = new Map(items.map((item) => [item.id, item]));
+  const orderedItems = itemIds
+    .map((id) => itemsById.get(id))
+    .filter((item): item is V2TodoItem => item !== undefined);
+  if (orderedItems.length !== items.length) return;
+
+  const moved = reindexItems(orderedItems);
 
   errorMessage = null;
   try {
@@ -258,8 +280,10 @@ export const v2ChecklistStore = {
   deleteCategory,
   moveCategory,
   addItem,
+  searchItems,
   updateItemText,
   toggleItem,
   deleteItem,
-  moveItem
+  moveItem,
+  reorderItems
 };

@@ -2,7 +2,8 @@
   import { onDestroy } from 'svelte';
   import { cubicOut } from 'svelte/easing';
   import { slide } from 'svelte/transition';
-  import { ArrowDown, ArrowUp, Pencil, Trash2 } from '@lucide/svelte';
+  import { Pencil, Trash2 } from '@lucide/svelte';
+  import { dragHandle } from 'svelte-dnd-action';
 
   import type { V2TodoItem } from '../../types';
   import { i18n } from '$lib/i18n';
@@ -16,26 +17,20 @@
 
   interface Props {
     item: V2TodoItem;
-    isReorderMode?: boolean;
-    isFirst?: boolean;
-    isLast?: boolean;
     initialDrawerOpen?: boolean;
+    isTextClickSuppressed?: boolean;
     onToggleItem: (id: number) => MaybePromise;
     onRequestEditItem: (item: V2TodoItem) => MaybePromise;
     onRequestDeleteItem: (item: V2TodoItem) => MaybePromise;
-    onMoveItem: (id: number, delta: number) => MaybePromise;
   }
 
   let {
     item,
-    isReorderMode = false,
-    isFirst = false,
-    isLast = false,
     initialDrawerOpen = false,
+    isTextClickSuppressed = false,
     onToggleItem,
     onRequestEditItem,
-    onRequestDeleteItem,
-    onMoveItem
+    onRequestDeleteItem
   }: Props = $props();
 
   let isDrawerOpen = $state(false);
@@ -152,6 +147,15 @@
     openDrawer();
   }
 
+  function handleTextClick(event: MouseEvent): void {
+    if (isTextClickSuppressed) {
+      event.preventDefault();
+      return;
+    }
+
+    toggleDrawer();
+  }
+
   function setDisplayedDone(nextDone: boolean, shouldAnimate: boolean): void {
     displayedDone = nextDone;
     clearTextDoneTimer();
@@ -207,13 +211,6 @@
     await onRequestDeleteItem(item);
   }
 
-  async function handleMoveItem(delta: number): Promise<void> {
-    try {
-      await onMoveItem(item.id, delta);
-    } catch {
-      // The v2 store owns the visible error banner; keep the drawer open.
-    }
-  }
 </script>
 
 <article
@@ -262,10 +259,12 @@
             ? 'text-[var(--color-ink-muted)]'
             : 'text-[var(--color-ink)]'
         }`}
+        use:dragHandle
         aria-expanded={isDrawerOpen}
         aria-controls={drawerId}
         title={item.text}
-        onclick={toggleDrawer}
+        oncontextmenu={(event) => event.preventDefault()}
+        onclick={handleTextClick}
       >
         <span class="min-w-0 flex-1 truncate">
           <span class="tickText" class:tickTextDone={textDone}>{item.text}</span>
@@ -293,28 +292,6 @@
               <Pencil size={20} strokeWidth={2.4} />
             </button>
 
-            {#if isReorderMode}
-              <button
-                type="button"
-                class="drawerActionButton drawerActionNeutral"
-                aria-label={i18n.t('v2MoveUp')}
-                title={i18n.t('v2MoveUp')}
-                disabled={isFirst}
-                onclick={() => void handleMoveItem(-1)}
-              >
-                <ArrowUp size={20} strokeWidth={2.4} />
-              </button>
-              <button
-                type="button"
-                class="drawerActionButton drawerActionNeutral"
-                aria-label={i18n.t('v2MoveDown')}
-                title={i18n.t('v2MoveDown')}
-                disabled={isLast}
-                onclick={() => void handleMoveItem(1)}
-              >
-                <ArrowDown size={20} strokeWidth={2.4} />
-              </button>
-            {/if}
             <button
               type="button"
               class="drawerActionButton drawerActionDelete"

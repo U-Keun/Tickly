@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { V2Category, V2TodoItem } from '../../types';
+  import type { V2Category, V2ItemSearchResult, V2TodoItem } from '../../types';
   import V2ChecklistScreen from './V2ChecklistScreen.svelte';
 
   const now = '2026-06-08T00:00:00Z';
@@ -220,12 +220,29 @@
     );
   }
 
-  async function moveItem(id: number, delta: number): Promise<void> {
+  async function reorderItems(itemIds: number[]): Promise<void> {
     if (selectedCategoryId === null) return;
 
-    const moved = moveInList(items, id, delta);
-    if (moved === items) return;
-    setItemsForCategory(selectedCategoryId, moved);
+    const itemsById = new Map(items.map((item) => [item.id, item]));
+    const nextItems = itemIds
+      .map((id) => itemsById.get(id))
+      .filter((item): item is V2TodoItem => item !== undefined);
+    if (nextItems.length !== items.length) return;
+
+    setItemsForCategory(selectedCategoryId, nextItems);
+  }
+
+  async function searchItems(query: string, limit: number): Promise<V2ItemSearchResult[]> {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    if (!normalizedQuery) return [];
+
+    const results = categories.flatMap((category) =>
+      (itemsByCategory[category.id] ?? [])
+        .filter((item) => item.text.toLocaleLowerCase().includes(normalizedQuery))
+        .map((item) => ({ item, category }))
+    );
+
+    return results.slice(0, limit);
   }
 </script>
 
@@ -233,10 +250,7 @@
   {categories}
   {selectedCategoryId}
   {items}
-  isLoading={false}
   errorMessage={null}
-  onBackHome={() => {}}
-  onRefresh={() => {}}
   onSelectCategory={selectCategory}
   onAddCategory={addCategory}
   onUpdateCategory={updateCategory}
@@ -246,5 +260,6 @@
   onToggleItem={toggleItem}
   onUpdateItemText={updateItemText}
   onDeleteItem={deleteItem}
-  onMoveItem={moveItem}
+  onReorderItems={reorderItems}
+  onSearchItems={searchItems}
 />

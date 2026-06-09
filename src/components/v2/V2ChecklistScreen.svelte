@@ -1,9 +1,12 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
+  import { flip } from 'svelte/animate';
   import { cubicIn, cubicOut } from 'svelte/easing';
   import { fade, fly } from 'svelte/transition';
+  import { dragHandleZone } from 'svelte-dnd-action';
+  import type { DndEvent } from 'svelte-dnd-action';
 
-  import type { V2Category, V2TodoItem } from '../../types';
+  import type { V2Category, V2ItemSearchResult, V2TodoItem } from '../../types';
   import { i18n } from '$lib/i18n';
   import V2CategoryDetailSheet from './V2CategoryDetailSheet.svelte';
   import V2CategoryManageSheet from './V2CategoryManageSheet.svelte';
@@ -12,21 +15,23 @@
   import V2ItemDetailSheet from './V2ItemDetailSheet.svelte';
   import V2LeafCommandBar from './V2LeafCommandBar.svelte';
   import V2LeafTodoItem from './V2LeafTodoItem.svelte';
+  import V2SearchSuggestionBoard from './V2SearchSuggestionBoard.svelte';
 
   type MaybePromise = void | Promise<void>;
   const LIST_EXIT_DURATION_MS = 80;
   const LIST_EXIT_GAP_MS = 70;
   const LIST_ENTER_DURATION_MS = 160;
+  const REORDER_FLIP_DURATION_MS = 180;
+  const SEARCH_DEBOUNCE_MS = 150;
+  const SEARCH_RESULT_LIMIT = 8;
 
   interface Props {
     categories: V2Category[];
     selectedCategoryId: number | null;
     items: V2TodoItem[];
-    isLoading?: boolean;
     errorMessage?: string | null;
-    initialReorderMode?: boolean;
-    onBackHome: () => MaybePromise;
-    onRefresh: () => MaybePromise;
+    initialSearchMode?: boolean;
+    initialSearchQuery?: string;
     onSelectCategory: (id: number) => MaybePromise;
     onAddCategory: (name: string) => MaybePromise;
     onUpdateCategory: (id: number, name: string) => MaybePromise;
@@ -36,18 +41,17 @@
     onToggleItem: (id: number) => MaybePromise;
     onUpdateItemText: (id: number, text: string) => MaybePromise;
     onDeleteItem: (id: number) => MaybePromise;
-    onMoveItem: (id: number, delta: number) => MaybePromise;
+    onReorderItems: (itemIds: number[]) => MaybePromise;
+    onSearchItems: (query: string, limit: number) => Promise<V2ItemSearchResult[]>;
   }
 
   let {
     categories,
     selectedCategoryId,
     items,
-    isLoading = false,
     errorMessage = null,
-    initialReorderMode = false,
-    onBackHome,
-    onRefresh,
+    initialSearchMode = false,
+    initialSearchQuery = '',
     onSelectCategory,
     onAddCategory,
     onUpdateCategory,
@@ -57,10 +61,12 @@
     onToggleItem,
     onUpdateItemText,
     onDeleteItem,
-    onMoveItem
+    onReorderItems,
+    onSearchItems
   }: Props = $props();
 
   type CategoryDetailMode = 'create' | 'rename';
+  type ReorderGroup = 'active' | 'done';
 
   let categoryDetailMode = $state<CategoryDetailMode>('create');
   let categoryPendingDetail = $state<V2Category | null>(null);
@@ -70,12 +76,24 @@
   let isSavingCategory = $state(false);
   let isMovingCategory = $state(false);
   let isDeletingCategory = $state(false);
-  let isReorderMode = $state(false);
-  let didApplyInitialReorderMode = $state(false);
   let itemPendingEdit = $state<V2TodoItem | null>(null);
   let isSavingItemEdit = $state(false);
   let itemPendingDeletion = $state<V2TodoItem | null>(null);
   let isDeletingItem = $state(false);
+  let isSavingReorder = $state(false);
+  let searchMode = $state(false);
+  let searchQuery = $state('');
+  let appliedSearchQuery = $state('');
+  let isSuggestionBoardOpen = $state(false);
+  let didApplyInitialSearchState = $state(false);
+  let searchSuggestions = $state<V2ItemSearchResult[]>([]);
+  let isSearching = $state(false);
+  let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let searchRequestToken = 0;
+  let activeItems = $state<V2TodoItem[]>([]);
+  let doneItems = $state<V2TodoItem[]>([]);
+  let isTextClickSuppressed = $state(false);
+  let textClickSuppressTimer: ReturnType<typeof setTimeout> | null = null;
   let displayedCategoryId = $state<number | null>(null);
   let displayedItems = $state<V2TodoItem[]>([]);
   let hasDisplayedList = $state(false);
@@ -88,20 +106,19 @@
       .map((item) => `${item.id}:${item.text}:${item.done}:${item.display_order}`)
       .join('|')
   );
+  let searchTerm = $derived(searchQuery.trim().toLocaleLowerCase());
+  let hasSearchQuery = $derived(searchTerm.length > 0);
+  let appliedSearchTerm = $derived(appliedSearchQuery.trim().toLocaleLowerCase());
+  let hasAppliedSearchQuery = $derived(appliedSearchTerm.length > 0);
   let listEnterDuration = $derived(prefersReducedMotion ? 0 : LIST_ENTER_DURATION_MS);
   let listExitDuration = $derived(prefersReducedMotion ? 0 : LIST_EXIT_DURATION_MS);
   let listEnterY = $derived(prefersReducedMotion ? 0 : 4);
   let listTransitionOpacity = $derived(prefersReducedMotion ? 1 : 0.18);
+  let reorderFlipDuration = $derived(prefersReducedMotion ? 0 : REORDER_FLIP_DURATION_MS);
 
   let selectedCategory = $derived(
     categories.find((category) => category.id === selectedCategoryId) ?? null
   );
-
-  $effect(() => {
-    if (didApplyInitialReorderMode) return;
-    isReorderMode = initialReorderMode;
-    didApplyInitialReorderMode = true;
-  });
 
   function isFirstCategory(id: number): boolean {
     return categories.findIndex((category) => category.id === id) <= 0;
@@ -119,6 +136,20 @@
   function updateDisplayedList(categoryId: number | null, nextItems: V2TodoItem[]): void {
     displayedCategoryId = categoryId;
     displayedItems = nextItems;
+    splitDisplayedItems(nextItems);
+  }
+
+  function splitDisplayedItems(nextItems: V2TodoItem[]): void {
+    const nextVisibleItems = filterItemsForSearch(nextItems);
+    activeItems = nextVisibleItems.filter((item) => !item.done);
+    doneItems = nextVisibleItems.filter((item) => item.done);
+  }
+
+  function filterItemsForSearch(nextItems: V2TodoItem[]): V2TodoItem[] {
+    if (!hasAppliedSearchQuery) return nextItems;
+    return nextItems.filter((item) =>
+      item.text.toLocaleLowerCase().includes(appliedSearchTerm)
+    );
   }
 
   async function transitionDisplayedList(
@@ -150,6 +181,14 @@
   }
 
   $effect(() => {
+    if (didApplyInitialSearchState) return;
+    searchMode = initialSearchMode;
+    searchQuery = initialSearchQuery;
+    isSuggestionBoardOpen = initialSearchMode && initialSearchQuery.trim().length > 0;
+    didApplyInitialSearchState = true;
+  });
+
+  $effect(() => {
     const nextCategoryId = selectedCategoryId;
     const nextItems = items;
     itemSignature;
@@ -165,14 +204,19 @@
     void transitionDisplayedList(nextCategoryId, nextItems);
   });
 
-  function isFirstItem(id: number): boolean {
-    return displayedItems.findIndex((item) => item.id === id) <= 0;
-  }
+  $effect(() => {
+    displayedItems;
+    appliedSearchTerm;
+    if (isSavingReorder) return;
+    splitDisplayedItems(displayedItems);
+  });
 
-  function isLastItem(id: number): boolean {
-    const index = displayedItems.findIndex((item) => item.id === id);
-    return index < 0 || index >= displayedItems.length - 1;
-  }
+  $effect(() => {
+    searchMode;
+    searchTerm;
+    selectedCategoryId;
+    scheduleSearchSuggestions();
+  });
 
   function openCreateCategorySheet(): void {
     categoryDetailMode = 'create';
@@ -190,6 +234,162 @@
     if (id === selectedCategoryId) return;
 
     await onSelectCategory(id);
+  }
+
+  function clearSearchDebounceTimer(): void {
+    if (!searchDebounceTimer) return;
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = null;
+  }
+
+  function resetSearchSuggestions(): void {
+    clearSearchDebounceTimer();
+    searchRequestToken += 1;
+    searchSuggestions = [];
+    isSearching = false;
+  }
+
+  function prioritizeSearchResults(results: V2ItemSearchResult[]): V2ItemSearchResult[] {
+    if (selectedCategoryId === null) return results;
+
+    return results
+      .map((result, index) => ({ result, index }))
+      .sort((a, b) => {
+        const aSelected = a.result.category.id === selectedCategoryId;
+        const bSelected = b.result.category.id === selectedCategoryId;
+        if (aSelected !== bSelected) return aSelected ? -1 : 1;
+        return a.index - b.index;
+      })
+      .map(({ result }) => result);
+  }
+
+  function scheduleSearchSuggestions(): void {
+    clearSearchDebounceTimer();
+    const query = searchQuery.trim();
+    const token = ++searchRequestToken;
+
+    if (!searchMode || !query) {
+      searchSuggestions = [];
+      isSearching = false;
+      return;
+    }
+
+    isSearching = true;
+    searchDebounceTimer = setTimeout(() => {
+      searchDebounceTimer = null;
+      void (async () => {
+        try {
+          const results = await onSearchItems(query, SEARCH_RESULT_LIMIT);
+          if (token === searchRequestToken) {
+            searchSuggestions = prioritizeSearchResults(results);
+          }
+        } catch {
+          if (token === searchRequestToken) {
+            searchSuggestions = [];
+          }
+        } finally {
+          if (token === searchRequestToken) {
+            isSearching = false;
+          }
+        }
+      })();
+    }, SEARCH_DEBOUNCE_MS);
+  }
+
+  function enterSearchMode(): void {
+    searchMode = true;
+    isSuggestionBoardOpen = hasSearchQuery;
+  }
+
+  function exitSearchMode(): void {
+    searchMode = false;
+    searchQuery = '';
+    appliedSearchQuery = '';
+    isSuggestionBoardOpen = false;
+    resetSearchSuggestions();
+    splitDisplayedItems(displayedItems);
+  }
+
+  function updateSearchQuery(query: string): void {
+    searchQuery = query;
+    isSuggestionBoardOpen = query.trim().length > 0;
+    if (!query.trim()) {
+      appliedSearchQuery = '';
+    }
+  }
+
+  function openSearchSuggestionBoard(): void {
+    if (searchMode && hasSearchQuery) {
+      isSuggestionBoardOpen = true;
+    }
+  }
+
+  async function selectSearchSuggestion(result: V2ItemSearchResult): Promise<void> {
+    isSuggestionBoardOpen = false;
+    appliedSearchQuery = searchQuery.trim();
+    if (result.category.id === selectedCategoryId) return;
+
+    try {
+      await onSelectCategory(result.category.id);
+    } catch {
+      // The v2 store owns the visible error banner; keep the search query in place.
+    }
+  }
+
+  function suppressTextClickFor(durationMs: number): void {
+    if (textClickSuppressTimer) {
+      clearTimeout(textClickSuppressTimer);
+    }
+
+    isTextClickSuppressed = true;
+    textClickSuppressTimer = setTimeout(() => {
+      isTextClickSuppressed = false;
+      textClickSuppressTimer = null;
+    }, durationMs);
+  }
+
+  function reorderGroupItems(group: ReorderGroup, nextItems: V2TodoItem[]): void {
+    if (group === 'active') {
+      activeItems = nextItems;
+      return;
+    }
+
+    doneItems = nextItems;
+  }
+
+  function orderedReorderItemIds(): number[] {
+    return [...activeItems, ...doneItems].map((item) => item.id);
+  }
+
+  function keepDraggedItemQuiet(element: HTMLElement | undefined): void {
+    if (!element) return;
+    element.style.outline = 'none';
+  }
+
+  function handleReorderConsider(
+    group: ReorderGroup,
+    event: CustomEvent<DndEvent<V2TodoItem>>
+  ): void {
+    reorderGroupItems(group, event.detail.items);
+    suppressTextClickFor(900);
+  }
+
+  async function handleReorderFinalize(
+    group: ReorderGroup,
+    event: CustomEvent<DndEvent<V2TodoItem>>
+  ): Promise<void> {
+    reorderGroupItems(group, event.detail.items);
+    if (isSavingReorder) return;
+
+    isSavingReorder = true;
+    try {
+      await onReorderItems(orderedReorderItemIds());
+    } catch {
+      splitDisplayedItems(displayedItems);
+    } finally {
+      isSavingReorder = false;
+      suppressTextClickFor(280);
+    }
   }
 
   function requestRenameCategory(): void {
@@ -322,70 +522,48 @@
     };
   });
 
+  onDestroy(() => {
+    clearSearchDebounceTimer();
+    if (textClickSuppressTimer) {
+      clearTimeout(textClickSuppressTimer);
+      textClickSuppressTimer = null;
+    }
+  });
+
 </script>
 
 <div class="app-container bg-canvas text-ink flex flex-col">
-  <header
-    class="shrink-0 border-b border-stroke bg-paper px-4 pb-3 pt-[calc(var(--safe-area-top)+12px)]"
-  >
-    <div class="mx-auto flex w-full max-w-2xl items-center justify-between gap-3">
-      <div class="min-w-0">
-        <p class="text-xs font-semibold uppercase tracking-normal text-ink-muted">
-          {i18n.t('v2Subtitle')}
-        </p>
-        <h1 class="truncate text-lg font-semibold text-ink">{i18n.t('v2Title')}</h1>
-      </div>
-
-      <div class="flex shrink-0 items-center gap-2">
-        <button
-          type="button"
-          class="min-h-11 rounded-md border border-stroke bg-white px-3 text-sm font-medium text-ink"
-          onclick={onRefresh}
-        >
-          {i18n.t('v2Refresh')}
-        </button>
-        <button
-          type="button"
-          class="min-h-11 rounded-md bg-ink px-3 text-sm font-medium text-white"
-          onclick={onBackHome}
-        >
-          {i18n.t('v2BackHome')}
-        </button>
-      </div>
-    </div>
-  </header>
-
   <main class="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
-    {#if errorMessage}
-      <div class="mx-4 mt-3 rounded-md border border-accent-peach-strong bg-accent-peach px-3 py-2 text-sm text-ink">
-        {errorMessage}
-      </div>
-    {/if}
-
-    <section class="flex min-h-0 flex-1 flex-col px-4 py-3">
-      <div class="mb-3 flex items-center justify-between gap-3">
-        <h2 class="text-sm font-semibold text-ink">{i18n.t('v2Items')}</h2>
-        <div class="flex shrink-0 items-center gap-2">
-          {#if isLoading}
-            <span class="text-sm text-ink-muted">{i18n.t('v2Loading')}</span>
-          {/if}
-          <button
-            type="button"
-            class="min-h-11 rounded-[12px] border border-[var(--color-stroke)] bg-[var(--color-white)] px-3 text-sm font-semibold text-[var(--color-ink)] transition-colors hover:border-[var(--color-ink)] disabled:opacity-40"
-            disabled={items.length === 0}
-            onclick={() => (isReorderMode = !isReorderMode)}
-          >
-            {isReorderMode ? i18n.t('v2ExitReorderMode') : i18n.t('v2ReorderMode')}
-          </button>
-        </div>
-      </div>
-
-      <div class="mb-3">
+    <section class="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-[calc(var(--safe-area-top)+12px)]">
+      <div class="relative z-30 mb-3">
         <V2LeafCommandBar
+          mode={searchMode ? 'search' : 'add'}
+          searchQuery={searchQuery}
           disabled={selectedCategoryId === null}
           onAddItem={onAddItem}
+          onEnterSearch={enterSearchMode}
+          onExitSearch={exitSearchMode}
+          onSearchQueryChange={updateSearchQuery}
+          onSearchInputFocus={openSearchSuggestionBoard}
         />
+
+        {#if searchMode && hasSearchQuery && isSuggestionBoardOpen}
+          <div class="absolute left-0 right-0 top-[calc(100%+8px)] z-40">
+            <V2SearchSuggestionBoard
+              query={searchQuery}
+              results={searchSuggestions}
+              isLoading={isSearching}
+              onSelectResult={selectSearchSuggestion}
+            />
+          </div>
+        {/if}
       </div>
+
+      {#if errorMessage}
+        <div class="mb-3 rounded-md border border-accent-peach-strong bg-accent-peach px-3 py-2 text-sm text-ink">
+          {errorMessage}
+        </div>
+      {/if}
 
       <div class="mb-3">
         <V2CategoryRail
@@ -410,25 +588,87 @@
               }}
               out:fade={{ duration: listExitDuration, easing: cubicIn }}
             >
-              {#if displayedItems.length === 0}
+              {#if activeItems.length === 0 && doneItems.length === 0}
                 <div class="rounded-[0_24px_0_24px] border-2 border-[var(--color-ink)] bg-[var(--color-white)] px-6 py-10 text-center text-ink-muted shadow-sm">
-                  <p class="font-medium text-ink">{i18n.t('v2EmptyItemsTitle')}</p>
-                  <p class="mt-1 text-sm">{i18n.t('v2EmptyItemsSubtitle')}</p>
+                  {#if hasAppliedSearchQuery}
+                    <p class="font-medium text-ink">{i18n.t('v2NoSearchResultsTemplate')(appliedSearchQuery)}</p>
+                    <p class="mt-1 text-sm">{selectedCategory?.name ?? i18n.t('v2Categories')}</p>
+                  {:else}
+                    <p class="font-medium text-ink">{i18n.t('v2EmptyItemsTitle')}</p>
+                    <p class="mt-1 text-sm">{i18n.t('v2EmptyItemsSubtitle')}</p>
+                  {/if}
                 </div>
               {:else}
                 <div class="flex flex-col gap-2 pb-16">
-                  {#each displayedItems as item (item.id)}
-                    <V2LeafTodoItem
-                      {item}
-                      {isReorderMode}
-                      isFirst={isFirstItem(item.id)}
-                      isLast={isLastItem(item.id)}
-                      {onToggleItem}
-                      onRequestEditItem={requestEditItem}
-                      onRequestDeleteItem={requestDeleteItem}
-                      {onMoveItem}
-                    />
-                  {/each}
+                  {#if activeItems.length > 0}
+                    <div
+                      use:dragHandleZone={{
+                        items: activeItems,
+                        flipDurationMs: reorderFlipDuration,
+                        type: 'v2-active-items',
+                        dragDisabled: isSavingReorder || isListSwitching || hasAppliedSearchQuery,
+                        morphDisabled: true,
+                        dropFromOthersDisabled: true,
+                        dropTargetStyle: { outline: 'none' },
+                        dropTargetClasses: [],
+                        delayTouchStart: 450,
+                        transformDraggedElement: keepDraggedItemQuiet
+                      }}
+                      onconsider={(event) => handleReorderConsider('active', event)}
+                      onfinalize={(event) => void handleReorderFinalize('active', event)}
+                      class="flex flex-col gap-2"
+                    >
+                      {#each activeItems as item (item.id)}
+                        <div
+                          animate:flip={{ duration: reorderFlipDuration }}
+                          class="outline-none focus:outline-none focus-visible:outline-none"
+                        >
+                          <V2LeafTodoItem
+                            {item}
+                            {onToggleItem}
+                            isTextClickSuppressed={isTextClickSuppressed}
+                            onRequestEditItem={requestEditItem}
+                            onRequestDeleteItem={requestDeleteItem}
+                          />
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
+
+                  {#if doneItems.length > 0}
+                    <div
+                      use:dragHandleZone={{
+                        items: doneItems,
+                        flipDurationMs: reorderFlipDuration,
+                        type: 'v2-done-items',
+                        dragDisabled: isSavingReorder || isListSwitching || hasAppliedSearchQuery,
+                        morphDisabled: true,
+                        dropFromOthersDisabled: true,
+                        dropTargetStyle: { outline: 'none' },
+                        dropTargetClasses: [],
+                        delayTouchStart: 450,
+                        transformDraggedElement: keepDraggedItemQuiet
+                      }}
+                      onconsider={(event) => handleReorderConsider('done', event)}
+                      onfinalize={(event) => void handleReorderFinalize('done', event)}
+                      class="flex flex-col gap-2"
+                    >
+                      {#each doneItems as item (item.id)}
+                        <div
+                          animate:flip={{ duration: reorderFlipDuration }}
+                          class="outline-none focus:outline-none focus-visible:outline-none"
+                        >
+                          <V2LeafTodoItem
+                            {item}
+                            {onToggleItem}
+                            isTextClickSuppressed={isTextClickSuppressed}
+                            onRequestEditItem={requestEditItem}
+                            onRequestDeleteItem={requestDeleteItem}
+                          />
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
                 </div>
               {/if}
             </div>

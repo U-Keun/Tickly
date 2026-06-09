@@ -173,6 +173,11 @@ export interface V2TodoItem {
   updated_at: string;
 }
 
+export interface V2ItemSearchResult {
+  item: V2TodoItem;
+  category: V2Category;
+}
+
 // Auth types
 export type AuthProvider = 'apple' | 'google';
 

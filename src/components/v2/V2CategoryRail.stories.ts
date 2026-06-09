@@ -56,35 +56,6 @@ export const SelectedMiddle: Story = {
   }
 };
 
-export const ManyCategories: Story = {
-  args: {
-    categories: [
-      ...categories,
-      {
-        id: 4,
-        name: 'Groceries',
-        display_order: 4000,
-        created_at: '2026-06-08T00:00:00Z',
-        updated_at: '2026-06-08T00:00:00Z'
-      },
-      {
-        id: 5,
-        name: 'Reading',
-        display_order: 5000,
-        created_at: '2026-06-08T00:00:00Z',
-        updated_at: '2026-06-08T00:00:00Z'
-      },
-      {
-        id: 6,
-        name: 'Long walks',
-        display_order: 6000,
-        created_at: '2026-06-08T00:00:00Z',
-        updated_at: '2026-06-08T00:00:00Z'
-      }
-    ]
-  }
-};
-
 export const LongName: Story = {
   args: {
     categories: [

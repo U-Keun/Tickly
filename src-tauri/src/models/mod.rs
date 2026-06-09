@@ -17,7 +17,7 @@ pub use realtime::{
 pub use sync::{AuthProvider, AuthSession, SyncResult, SyncStatus, SyncStatusInfo, UserProfile};
 pub use tag::{Tag, TodoTag};
 pub use todo_item::{RepeatType, TodoItem};
-pub use v2_checklist::{V2Category, V2TodoItem};
+pub use v2_checklist::{V2Category, V2ItemSearchResult, V2TodoItem};
 pub use widget::{
     WidgetCategoryPendingItem, WidgetCategorySummary, WidgetSnapshot, WidgetTheme, WidgetTodoItem,
 };

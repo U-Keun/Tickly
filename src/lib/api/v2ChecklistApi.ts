@@ -1,5 +1,5 @@
 import { invoke } from './client';
-import type { V2Category, V2TodoItem } from '../../types';
+import type { V2Category, V2ItemSearchResult, V2TodoItem } from '../../types';
 
 export async function v2GetCategories(): Promise<V2Category[]> {
   return invoke<V2Category[]>('v2_get_categories');
@@ -23,6 +23,13 @@ export async function v2ReorderCategories(categoryIds: number[]): Promise<void> 
 
 export async function v2GetItems(categoryId: number): Promise<V2TodoItem[]> {
   return invoke<V2TodoItem[]>('v2_get_items', { categoryId });
+}
+
+export async function v2SearchItems(
+  query: string,
+  limit: number
+): Promise<V2ItemSearchResult[]> {
+  return invoke<V2ItemSearchResult[]>('v2_search_items', { query, limit });
 }
 
 export async function v2CreateItem(

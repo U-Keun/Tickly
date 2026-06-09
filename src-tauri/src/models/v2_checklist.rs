@@ -19,3 +19,9 @@ pub struct V2TodoItem {
     pub created_at: String,
     pub updated_at: String,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct V2ItemSearchResult {
+    pub item: V2TodoItem,
+    pub category: V2Category,
+}
