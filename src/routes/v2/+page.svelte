@@ -24,7 +24,7 @@
   onAddCategory={v2ChecklistStore.addCategory}
   onUpdateCategory={v2ChecklistStore.updateCategory}
   onDeleteCategory={v2ChecklistStore.deleteCategory}
-  onMoveCategory={v2ChecklistStore.moveCategory}
+  onReorderCategories={v2ChecklistStore.reorderCategories}
   onAddItem={v2ChecklistStore.addItem}
   onToggleItem={v2ChecklistStore.toggleItem}
   onUpdateItemText={v2ChecklistStore.updateItemText}

@@ -157,7 +157,17 @@ async function deleteCategory(id: number): Promise<void> {
 async function moveCategory(id: number, delta: number): Promise<void> {
   const movedRaw = moveInList(categories, id, delta);
   if (movedRaw === categories) return;
-  const moved = reindexCategories(movedRaw);
+  await reorderCategories(movedRaw.map((category) => category.id));
+}
+
+async function reorderCategories(categoryIds: number[]): Promise<void> {
+  const categoriesById = new Map(categories.map((category) => [category.id, category]));
+  const orderedCategories = categoryIds
+    .map((id) => categoriesById.get(id))
+    .filter((category): category is V2Category => category !== undefined);
+  if (orderedCategories.length !== categories.length) return;
+
+  const moved = reindexCategories(orderedCategories);
 
   errorMessage = null;
   try {
@@ -279,6 +289,7 @@ export const v2ChecklistStore = {
   updateCategory,
   deleteCategory,
   moveCategory,
+  reorderCategories,
   addItem,
   searchItems,
   updateItemText,

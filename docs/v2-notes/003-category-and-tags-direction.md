@@ -28,6 +28,7 @@ flowchart TB
   Rail --> List["Displayed item list"]
   Rail --> Add["Create category sheet"]
   Rail --> Manage["Manage category sheet"]
+  Rail --> Reorder["Long press reorder mode"]
   Manage --> Confirm["Delete confirm modal"]
 ```
 
@@ -62,6 +63,8 @@ References:
 - The selected segment is rendered by a separate measured indicator, not by putting background/border styles on each selected button.
 - Add and manage stay as round tools outside the segmented group.
 - Create and rename use bottom sheets. Delete uses the v2 confirm modal because it also deletes the category's items.
+- Category order uses a deliberate iOS-style reorder mode: long press enters the mode, categories wiggle lightly, and the full segment can be dragged.
+- Category deletion stays in the manage bottom sheet. Reorder mode does not show delete badges because the category rail is already compact.
 
 ## Motion Decisions
 
@@ -74,13 +77,15 @@ References:
 - The v2 store updates the selected category and loaded items together, so real `/v2` usage avoids animating stale items into the new category state.
 - During the short list switch, row pointer events are disabled to avoid acting on a disappearing row.
 - Reduced motion keeps the same state changes but removes visible slide and smooth movement.
+- Reduced motion also removes the category reorder wiggle while preserving full-segment drag.
 
 ## Implementation Boundary
 
 - This slice changes only the v2 category surface.
 - Category segments select a primary category.
 - Category create, rename, delete, and move actions live in bottom sheets and confirm modals.
-- Tags, search, sidebars, and drag reorder stay out of scope.
+- Category reorder uses the existing v2 reorder command and does not change the SQLite schema.
+- Tags, sidebars, and category delete badges stay out of scope.
 
 ## Implementation Checkpoint
 
@@ -88,8 +93,9 @@ This slice now adds:
 
 - `V2CategoryRail` as the inline segmented category switcher.
 - `V2CategoryDetailSheet` for category create and rename.
-- `V2CategoryManageSheet` for rename, delete request, and category move actions.
+- `V2CategoryManageSheet` for rename, delete request, and entering category order editing.
 - Category delete confirmation through the existing v2 confirm modal style.
+- Long-press category reorder with light wiggle, a `Done` control, and full-segment drag.
 - Store error propagation so sheets close only after successful mutations.
 - Storybook coverage for rail states, category sheets, manage sheet states, and interactive category switching.
 - Documentation for category/tag roles and the selected motion model.

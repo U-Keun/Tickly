@@ -23,6 +23,7 @@
   }));
 
   let selectedCategoryId = $state(7);
+  let isReorderMode = $state(false);
 </script>
 
 <div class="min-h-screen bg-[var(--color-canvas)] p-4">
@@ -30,11 +31,20 @@
     <V2CategoryRail
       {categories}
       {selectedCategoryId}
+      {isReorderMode}
       onSelectCategory={async (id) => {
         selectedCategoryId = id;
       }}
       onCreateCategory={() => {}}
       onManageCategory={() => {}}
+      onEnterReorderMode={() => {
+        isReorderMode = true;
+      }}
+      onFinishReorderMode={() => {
+        isReorderMode = false;
+      }}
+      onReorderConsider={() => {}}
+      onReorderFinalize={async () => {}}
     />
   </div>
 </div>

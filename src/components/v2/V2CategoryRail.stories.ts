@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from '@storybook/sveltekit';
 import type { V2Category } from '../../types';
 import V2CategoryRail from './V2CategoryRail.svelte';
 import V2CategoryRailHorizontalScrollStory from './V2CategoryRailHorizontalScrollStory.svelte';
+import V2CategoryRailReorderStory from './V2CategoryRailReorderStory.svelte';
 
 const categories: V2Category[] = [
   {
@@ -35,9 +36,15 @@ const meta = {
   args: {
     categories,
     selectedCategoryId: 1,
+    isReorderMode: false,
+    isReorderBusy: false,
     onSelectCategory: async () => {},
     onCreateCategory: () => {},
-    onManageCategory: () => {}
+    onManageCategory: () => {},
+    onEnterReorderMode: () => {},
+    onFinishReorderMode: () => {},
+    onReorderConsider: () => {},
+    onReorderFinalize: async () => {}
   },
   parameters: {
     layout: 'padded'
@@ -69,6 +76,15 @@ export const LongName: Story = {
       }
     ],
     selectedCategoryId: 4
+  }
+};
+
+export const ReorderMode: StoryObj<typeof V2CategoryRailReorderStory> = {
+  render: () => ({
+    Component: V2CategoryRailReorderStory
+  }),
+  parameters: {
+    layout: 'fullscreen'
   }
 };
 

@@ -80,7 +80,7 @@ const meta = {
     onAddCategory: async () => {},
     onUpdateCategory: async () => {},
     onDeleteCategory: async () => {},
-    onMoveCategory: async () => {},
+    onReorderCategories: async () => {},
     onAddItem: async () => {},
     onToggleItem: async () => {},
     onUpdateItemText: async () => {},
@@ -126,6 +126,12 @@ export const SearchActive: Story = {
   args: {
     initialSearchMode: true,
     initialSearchQuery: 'wallet'
+  }
+};
+
+export const CategoryReorderMode: Story = {
+  args: {
+    initialCategoryReorderMode: true
   }
 };
 

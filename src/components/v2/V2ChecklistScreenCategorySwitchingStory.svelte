@@ -113,17 +113,6 @@
     }));
   }
 
-  function moveInList<T extends { id: number }>(list: T[], id: number, delta: number): T[] {
-    const index = list.findIndex((item) => item.id === id);
-    const nextIndex = index + delta;
-    if (index < 0 || nextIndex < 0 || nextIndex >= list.length) return list;
-
-    const nextList = [...list];
-    const [item] = nextList.splice(index, 1);
-    nextList.splice(nextIndex, 0, item);
-    return nextList;
-  }
-
   function setItemsForCategory(categoryId: number, nextItems: V2TodoItem[]): void {
     itemsByCategory = {
       ...itemsByCategory,
@@ -169,10 +158,14 @@
     }
   }
 
-  async function moveCategory(id: number, delta: number): Promise<void> {
-    const moved = moveInList(categories, id, delta);
-    if (moved === categories) return;
-    categories = reindexCategories(moved);
+  async function reorderCategories(categoryIds: number[]): Promise<void> {
+    const categoriesById = new Map(categories.map((category) => [category.id, category]));
+    const nextCategories = categoryIds
+      .map((id) => categoriesById.get(id))
+      .filter((category): category is V2Category => category !== undefined);
+    if (nextCategories.length !== categories.length) return;
+
+    categories = reindexCategories(nextCategories);
   }
 
   async function addItem(text: string): Promise<void> {
@@ -255,7 +248,7 @@
   onAddCategory={addCategory}
   onUpdateCategory={updateCategory}
   onDeleteCategory={deleteCategory}
-  onMoveCategory={moveCategory}
+  onReorderCategories={reorderCategories}
   onAddItem={addItem}
   onToggleItem={toggleItem}
   onUpdateItemText={updateItemText}

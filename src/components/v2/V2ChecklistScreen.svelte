@@ -32,11 +32,12 @@
     errorMessage?: string | null;
     initialSearchMode?: boolean;
     initialSearchQuery?: string;
+    initialCategoryReorderMode?: boolean;
     onSelectCategory: (id: number) => MaybePromise;
     onAddCategory: (name: string) => MaybePromise;
     onUpdateCategory: (id: number, name: string) => MaybePromise;
     onDeleteCategory: (id: number) => MaybePromise;
-    onMoveCategory: (id: number, delta: number) => MaybePromise;
+    onReorderCategories: (categoryIds: number[]) => MaybePromise;
     onAddItem: (text: string) => MaybePromise;
     onToggleItem: (id: number) => MaybePromise;
     onUpdateItemText: (id: number, text: string) => MaybePromise;
@@ -52,11 +53,12 @@
     errorMessage = null,
     initialSearchMode = false,
     initialSearchQuery = '',
+    initialCategoryReorderMode = false,
     onSelectCategory,
     onAddCategory,
     onUpdateCategory,
     onDeleteCategory,
-    onMoveCategory,
+    onReorderCategories,
     onAddItem,
     onToggleItem,
     onUpdateItemText,
@@ -74,8 +76,9 @@
   let showCategoryManageSheet = $state(false);
   let categoryPendingDeletion = $state<V2Category | null>(null);
   let isSavingCategory = $state(false);
-  let isMovingCategory = $state(false);
   let isDeletingCategory = $state(false);
+  let isCategoryReorderMode = $state(false);
+  let isSavingCategoryOrder = $state(false);
   let itemPendingEdit = $state<V2TodoItem | null>(null);
   let isSavingItemEdit = $state(false);
   let itemPendingDeletion = $state<V2TodoItem | null>(null);
@@ -92,6 +95,7 @@
   let searchRequestToken = 0;
   let activeItems = $state<V2TodoItem[]>([]);
   let doneItems = $state<V2TodoItem[]>([]);
+  let categoryReorderDraft = $state<V2Category[] | null>(null);
   let isTextClickSuppressed = $state(false);
   let textClickSuppressTimer: ReturnType<typeof setTimeout> | null = null;
   let displayedCategoryId = $state<number | null>(null);
@@ -104,6 +108,11 @@
   let itemSignature = $derived(
     items
       .map((item) => `${item.id}:${item.text}:${item.done}:${item.display_order}`)
+      .join('|')
+  );
+  let categorySignature = $derived(
+    categories
+      .map((category) => `${category.id}:${category.name}:${category.display_order}`)
       .join('|')
   );
   let searchTerm = $derived(searchQuery.trim().toLocaleLowerCase());
@@ -119,15 +128,7 @@
   let selectedCategory = $derived(
     categories.find((category) => category.id === selectedCategoryId) ?? null
   );
-
-  function isFirstCategory(id: number): boolean {
-    return categories.findIndex((category) => category.id === id) <= 0;
-  }
-
-  function isLastCategory(id: number): boolean {
-    const index = categories.findIndex((category) => category.id === id);
-    return index < 0 || index >= categories.length - 1;
-  }
+  let displayedCategories = $derived(categoryReorderDraft ?? categories);
 
   function wait(ms: number): Promise<void> {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -185,6 +186,7 @@
     searchMode = initialSearchMode;
     searchQuery = initialSearchQuery;
     isSuggestionBoardOpen = initialSearchMode && initialSearchQuery.trim().length > 0;
+    isCategoryReorderMode = initialCategoryReorderMode && categories.length > 1;
     didApplyInitialSearchState = true;
   });
 
@@ -212,6 +214,17 @@
   });
 
   $effect(() => {
+    categorySignature;
+    isSavingCategoryOrder;
+    if (!isSavingCategoryOrder) {
+      categoryReorderDraft = null;
+    }
+    if (isCategoryReorderMode && categories.length <= 1) {
+      isCategoryReorderMode = false;
+    }
+  });
+
+  $effect(() => {
     searchMode;
     searchTerm;
     selectedCategoryId;
@@ -219,6 +232,8 @@
   });
 
   function openCreateCategorySheet(): void {
+    if (isCategoryReorderMode) return;
+
     categoryDetailMode = 'create';
     categoryPendingDetail = null;
     showCategoryManageSheet = false;
@@ -226,11 +241,48 @@
   }
 
   function openCategoryManageSheet(category: V2Category): void {
+    if (isCategoryReorderMode) return;
     categoryPendingDetail = category;
     showCategoryManageSheet = true;
   }
 
+  function enterCategoryReorderMode(): void {
+    if (categories.length <= 1) return;
+
+    isCategoryReorderMode = true;
+    isSuggestionBoardOpen = false;
+    showCategoryManageSheet = false;
+    showCategoryDetailSheet = false;
+    categoryPendingDetail = null;
+  }
+
+  function finishCategoryReorderMode(): void {
+    if (isSavingCategoryOrder) return;
+
+    isCategoryReorderMode = false;
+    categoryReorderDraft = null;
+  }
+
+  function handleCategoryReorderConsider(nextCategories: V2Category[]): void {
+    categoryReorderDraft = nextCategories;
+  }
+
+  async function handleCategoryReorderFinalize(nextCategories: V2Category[]): Promise<void> {
+    categoryReorderDraft = nextCategories;
+    if (isSavingCategoryOrder) return;
+
+    isSavingCategoryOrder = true;
+    try {
+      await onReorderCategories(nextCategories.map((category) => category.id));
+    } catch {
+      categoryReorderDraft = null;
+    } finally {
+      isSavingCategoryOrder = false;
+    }
+  }
+
   async function selectCategoryWithTransition(id: number): Promise<void> {
+    if (isCategoryReorderMode) return;
     if (id === selectedCategoryId) return;
 
     await onSelectCategory(id);
@@ -297,6 +349,8 @@
   }
 
   function enterSearchMode(): void {
+    if (isCategoryReorderMode) return;
+
     searchMode = true;
     isSuggestionBoardOpen = hasSearchQuery;
   }
@@ -401,6 +455,11 @@
     showCategoryDetailSheet = true;
   }
 
+  function requestEditCategoryOrder(): void {
+    showCategoryManageSheet = false;
+    enterCategoryReorderMode();
+  }
+
   function closeCategoryDetailSheet(): void {
     if (isSavingCategory) return;
 
@@ -409,7 +468,7 @@
   }
 
   function closeCategoryManageSheet(): void {
-    if (isMovingCategory || isDeletingCategory) return;
+    if (isDeletingCategory) return;
 
     showCategoryManageSheet = false;
   }
@@ -426,17 +485,6 @@
       }
     } finally {
       isSavingCategory = false;
-    }
-  }
-
-  async function moveSelectedCategory(delta: number): Promise<void> {
-    if (!selectedCategory || isMovingCategory) return;
-
-    isMovingCategory = true;
-    try {
-      await onMoveCategory(selectedCategory.id, delta);
-    } finally {
-      isMovingCategory = false;
     }
   }
 
@@ -539,7 +587,7 @@
         <V2LeafCommandBar
           mode={searchMode ? 'search' : 'add'}
           searchQuery={searchQuery}
-          disabled={selectedCategoryId === null}
+          disabled={selectedCategoryId === null || isCategoryReorderMode}
           onAddItem={onAddItem}
           onEnterSearch={enterSearchMode}
           onExitSearch={exitSearchMode}
@@ -567,11 +615,17 @@
 
       <div class="mb-3">
         <V2CategoryRail
-          {categories}
+          categories={displayedCategories}
           {selectedCategoryId}
+          isReorderMode={isCategoryReorderMode}
+          isReorderBusy={isSavingCategoryOrder}
           onSelectCategory={selectCategoryWithTransition}
           onCreateCategory={openCreateCategorySheet}
           onManageCategory={openCategoryManageSheet}
+          onEnterReorderMode={enterCategoryReorderMode}
+          onFinishReorderMode={finishCategoryReorderMode}
+          onReorderConsider={handleCategoryReorderConsider}
+          onReorderFinalize={handleCategoryReorderFinalize}
         />
       </div>
 
@@ -606,7 +660,11 @@
                         items: activeItems,
                         flipDurationMs: reorderFlipDuration,
                         type: 'v2-active-items',
-                        dragDisabled: isSavingReorder || isListSwitching || hasAppliedSearchQuery,
+                        dragDisabled:
+                          isSavingReorder ||
+                          isListSwitching ||
+                          hasAppliedSearchQuery ||
+                          isCategoryReorderMode,
                         morphDisabled: true,
                         dropFromOthersDisabled: true,
                         dropTargetStyle: { outline: 'none' },
@@ -641,7 +699,11 @@
                         items: doneItems,
                         flipDurationMs: reorderFlipDuration,
                         type: 'v2-done-items',
-                        dragDisabled: isSavingReorder || isListSwitching || hasAppliedSearchQuery,
+                        dragDisabled:
+                          isSavingReorder ||
+                          isListSwitching ||
+                          hasAppliedSearchQuery ||
+                          isCategoryReorderMode,
                         morphDisabled: true,
                         dropFromOthersDisabled: true,
                         dropTargetStyle: { outline: 'none' },
@@ -691,12 +753,10 @@
     show={showCategoryManageSheet}
     category={selectedCategory}
     isOnlyCategory={categories.length <= 1}
-    isFirst={selectedCategory ? isFirstCategory(selectedCategory.id) : true}
-    isLast={selectedCategory ? isLastCategory(selectedCategory.id) : true}
-    isBusy={isMovingCategory || isDeletingCategory}
+    isBusy={isDeletingCategory}
     onRename={requestRenameCategory}
+    onEditOrder={requestEditCategoryOrder}
     onDeleteRequest={requestDeleteCategory}
-    onMove={moveSelectedCategory}
     onClose={closeCategoryManageSheet}
   />
 

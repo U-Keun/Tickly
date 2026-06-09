@@ -19,12 +19,10 @@ const meta = {
     show: true,
     category,
     isOnlyCategory: false,
-    isFirst: false,
-    isLast: false,
     isBusy: false,
     onRename: () => {},
+    onEditOrder: () => {},
     onDeleteRequest: () => {},
-    onMove: async () => {},
     onClose: () => {}
   },
   parameters: {
@@ -38,24 +36,6 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
-export const FirstCategory: Story = {
-  args: {
-    category: {
-      ...category,
-      id: 1,
-      name: 'Home',
-      display_order: 1000
-    },
-    isFirst: true
-  }
-};
-
-export const LastCategory: Story = {
-  args: {
-    isLast: true
-  }
-};
-
 export const OnlyCategory: Story = {
   args: {
     category: {
@@ -65,8 +45,6 @@ export const OnlyCategory: Story = {
       display_order: 1000
     },
     isOnlyCategory: true,
-    isFirst: true,
-    isLast: true
   }
 };
 
