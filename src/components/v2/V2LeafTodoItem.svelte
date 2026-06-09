@@ -192,6 +192,8 @@
     isToggling = true;
     try {
       await onToggleItem(item.id);
+    } catch {
+      setDisplayedDone(item.done, false);
     } finally {
       isToggling = false;
     }
@@ -206,7 +208,11 @@
   }
 
   async function handleMoveItem(delta: number): Promise<void> {
-    await onMoveItem(item.id, delta);
+    try {
+      await onMoveItem(item.id, delta);
+    } catch {
+      // The v2 store owns the visible error banner; keep the drawer open.
+    }
   }
 </script>
 

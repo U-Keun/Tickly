@@ -47,9 +47,11 @@ function reindexItems(nextItems: V2TodoItem[]): V2TodoItem[] {
   }));
 }
 
-function setError(error: unknown, fallback: string): void {
-  errorMessage = error instanceof Error ? error.message : String(error || fallback);
+function setError(error: unknown, fallback: string): Error {
+  const nextError = error instanceof Error ? error : new Error(String(error || fallback));
+  errorMessage = nextError.message;
   console.error(fallback, error);
+  return nextError;
 }
 
 async function loadItemsForSelectedCategory(): Promise<void> {
@@ -84,20 +86,21 @@ async function load(): Promise<void> {
 
     await loadItemsForSelectedCategory();
   } catch (error) {
-    setError(error, 'Failed to load v2 checklist.');
+    throw setError(error, 'Failed to load v2 checklist.');
   } finally {
     isLoading = false;
   }
 }
 
 async function selectCategory(categoryId: number): Promise<void> {
-  selectedCategoryId = categoryId;
   errorMessage = null;
 
   try {
-    await loadItemsForSelectedCategory();
+    const nextItems = sortItems(await v2ChecklistApi.v2GetItems(categoryId));
+    selectedCategoryId = categoryId;
+    items = nextItems;
   } catch (error) {
-    setError(error, 'Failed to select v2 category.');
+    throw setError(error, 'Failed to select v2 category.');
   }
 }
 
@@ -110,7 +113,7 @@ async function addCategory(name: string): Promise<void> {
     selectedCategoryId = category.id;
     items = [];
   } catch (error) {
-    setError(error, 'Failed to add v2 category.');
+    throw setError(error, 'Failed to add v2 category.');
   }
 }
 
@@ -124,7 +127,7 @@ async function updateCategory(id: number, name: string): Promise<void> {
       category.id === id ? { ...category, name: trimmedName } : category
     );
   } catch (error) {
-    setError(error, 'Failed to update v2 category.');
+    throw setError(error, 'Failed to update v2 category.');
   }
 }
 
@@ -137,11 +140,17 @@ async function deleteCategory(id: number): Promise<void> {
     categories = nextCategories;
 
     if (selectedCategoryId === id) {
-      selectedCategoryId = nextCategories[0]?.id ?? null;
-      await loadItemsForSelectedCategory();
+      const nextSelectedCategoryId = nextCategories[0]?.id ?? null;
+      const nextItems =
+        nextSelectedCategoryId === null
+          ? []
+          : sortItems(await v2ChecklistApi.v2GetItems(nextSelectedCategoryId));
+
+      selectedCategoryId = nextSelectedCategoryId;
+      items = nextItems;
     }
   } catch (error) {
-    setError(error, 'Failed to delete v2 category.');
+    throw setError(error, 'Failed to delete v2 category.');
   }
 }
 
@@ -155,8 +164,8 @@ async function moveCategory(id: number, delta: number): Promise<void> {
     await v2ChecklistApi.v2ReorderCategories(moved.map((category) => category.id));
     categories = moved;
   } catch (error) {
-    setError(error, 'Failed to reorder v2 categories.');
     await load();
+    throw setError(error, 'Failed to reorder v2 categories.');
   }
 }
 
@@ -168,7 +177,7 @@ async function addItem(text: string): Promise<void> {
     const item = await v2ChecklistApi.v2CreateItem(selectedCategoryId, text);
     items = sortItems([...items, item]);
   } catch (error) {
-    setError(error, 'Failed to add v2 item.');
+    throw setError(error, 'Failed to add v2 item.');
   }
 }
 
@@ -180,7 +189,7 @@ async function updateItemText(id: number, text: string): Promise<void> {
     const trimmedText = text.trim();
     items = items.map((item) => (item.id === id ? { ...item, text: trimmedText } : item));
   } catch (error) {
-    setError(error, 'Failed to update v2 item.');
+    throw setError(error, 'Failed to update v2 item.');
   }
 }
 
@@ -191,7 +200,7 @@ async function toggleItem(id: number): Promise<void> {
     const updatedItem = await v2ChecklistApi.v2ToggleItem(id);
     items = sortItems(items.map((item) => (item.id === id ? updatedItem : item)));
   } catch (error) {
-    setError(error, 'Failed to toggle v2 item.');
+    throw setError(error, 'Failed to toggle v2 item.');
   }
 }
 
@@ -202,7 +211,7 @@ async function deleteItem(id: number): Promise<void> {
     await v2ChecklistApi.v2DeleteItem(id);
     items = items.filter((item) => item.id !== id);
   } catch (error) {
-    setError(error, 'Failed to delete v2 item.');
+    throw setError(error, 'Failed to delete v2 item.');
   }
 }
 
@@ -221,8 +230,8 @@ async function moveItem(id: number, delta: number): Promise<void> {
     );
     items = sortItems(moved);
   } catch (error) {
-    setError(error, 'Failed to reorder v2 items.');
     await loadItemsForSelectedCategory();
+    throw setError(error, 'Failed to reorder v2 items.');
   }
 }
 

@@ -39,6 +39,8 @@
     try {
       await onAddItem(trimmedInput);
       input = '';
+    } catch {
+      // The v2 store owns the visible error banner; keep the draft in place.
     } finally {
       isSubmitting = false;
       focusInput();

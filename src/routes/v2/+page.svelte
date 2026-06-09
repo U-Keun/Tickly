@@ -12,7 +12,7 @@
     initializeTheme();
     initializeFonts();
     void i18n.loadLocale();
-    void v2ChecklistStore.load();
+    void v2ChecklistStore.load().catch(() => undefined);
   });
 </script>
 
@@ -23,7 +23,13 @@
   isLoading={v2ChecklistStore.isLoading}
   errorMessage={v2ChecklistStore.errorMessage}
   onBackHome={() => goto('/')}
-  onRefresh={v2ChecklistStore.load}
+  onRefresh={async () => {
+    try {
+      await v2ChecklistStore.load();
+    } catch {
+      // The v2 store owns the visible error banner.
+    }
+  }}
   onSelectCategory={v2ChecklistStore.selectCategory}
   onAddCategory={v2ChecklistStore.addCategory}
   onUpdateCategory={v2ChecklistStore.updateCategory}

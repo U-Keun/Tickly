@@ -52,8 +52,12 @@
     event.preventDefault();
     if (!item || !trimmedText || isSaving) return;
 
-    await onSaveText(item.id, trimmedText);
-    onClose();
+    try {
+      await onSaveText(item.id, trimmedText);
+      onClose();
+    } catch {
+      // The v2 store owns the visible error banner; keep the sheet open.
+    }
   }
 </script>
 
