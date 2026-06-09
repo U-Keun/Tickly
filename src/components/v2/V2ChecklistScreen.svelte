@@ -643,7 +643,7 @@
               out:fade={{ duration: listExitDuration, easing: cubicIn }}
             >
               {#if activeItems.length === 0 && doneItems.length === 0}
-                <div class="rounded-[0_24px_0_24px] border-2 border-[var(--color-ink)] bg-[var(--color-white)] px-6 py-10 text-center text-ink-muted shadow-sm">
+                <div class="px-6 py-10 text-center text-ink-muted">
                   {#if hasAppliedSearchQuery}
                     <p class="font-medium text-ink">{i18n.t('v2NoSearchResultsTemplate')(appliedSearchQuery)}</p>
                     <p class="mt-1 text-sm">{selectedCategory?.name ?? i18n.t('v2Categories')}</p>
