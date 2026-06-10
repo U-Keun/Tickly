@@ -24,7 +24,7 @@
   const LIST_EXIT_GAP_MS = 70;
   const LIST_ENTER_DURATION_MS = 160;
   const REORDER_FLIP_DURATION_MS = 180;
-  const TODO_COMPLETION_MOVE_DURATION_MS = 340;
+  const TODO_COMPLETION_MOVE_DURATION_MS = 420;
   const TODO_COMPLETION_CHECKBOX_HOP_LEAD_MS = 1060;
   const TODO_COMPLETION_MOVE_CLEANUP_MS = TODO_COMPLETION_MOVE_DURATION_MS + 80;
   const TODO_COMPLETION_FANFARE_DURATION_MS = 560;
@@ -133,6 +133,7 @@
   let completionMoveToken = 0;
   let completionFanfareToken = 0;
   const itemNodes = new Map<number, HTMLElement>();
+  const itemShiftAnimations = new Map<number, Animation>();
   let movingItemId = $state<number | null>(null);
   let completionMoveOverlay = $state<CompletionMoveOverlay | null>(null);
   let completionFanfareOverlay = $state<CompletionFanfareOverlay | null>(null);
@@ -162,6 +163,7 @@
   let listEnterY = $derived(prefersReducedMotion ? 0 : 4);
   let listTransitionOpacity = $derived(prefersReducedMotion ? 1 : 0.18);
   let reorderFlipDuration = $derived(prefersReducedMotion ? 0 : REORDER_FLIP_DURATION_MS);
+  let itemFlipDuration = $derived(movingItemId !== null ? 0 : reorderFlipDuration);
 
   let selectedCategory = $derived(
     categories.find((category) => category.id === selectedCategoryId) ?? null
@@ -179,6 +181,16 @@
       width: rect.width,
       height: rect.height
     };
+  }
+
+  function snapshotItemRects(): Map<number, RectSnapshot> {
+    const rects = new Map<number, RectSnapshot>();
+
+    itemNodes.forEach((node, id) => {
+      rects.set(id, snapshotRect(node.getBoundingClientRect()));
+    });
+
+    return rects;
   }
 
   function snapshotCompletionMoveHtml(node: HTMLElement): string {
@@ -211,8 +223,55 @@
     };
   }
 
+  function clearItemShiftAnimations(): void {
+    itemShiftAnimations.forEach((animation) => {
+      animation.cancel();
+    });
+    itemShiftAnimations.clear();
+  }
+
+  function animateItemShifts(beforeRects: Map<number, RectSnapshot>, movingId: number): void {
+    clearItemShiftAnimations();
+    if (prefersReducedMotion) return;
+
+    beforeRects.forEach((before, id) => {
+      if (id === movingId) return;
+
+      const node = itemNodes.get(id);
+      if (!node) return;
+
+      const after = node.getBoundingClientRect();
+      const deltaX = before.left - after.left;
+      const deltaY = before.top - after.top;
+      if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) return;
+
+      const animation = node.animate(
+        [
+          { transform: `translate3d(${deltaX}px, ${deltaY}px, 0)` },
+          { transform: 'translate3d(0, 0, 0)' }
+        ],
+        {
+          duration: TODO_COMPLETION_MOVE_DURATION_MS,
+          easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)'
+        }
+      );
+
+      itemShiftAnimations.set(id, animation);
+
+      const clearAnimation = () => {
+        if (itemShiftAnimations.get(id) === animation) {
+          itemShiftAnimations.delete(id);
+        }
+      };
+
+      animation.onfinish = clearAnimation;
+      animation.oncancel = clearAnimation;
+    });
+  }
+
   function clearCompletionMove(): void {
     completionMoveToken += 1;
+    clearItemShiftAnimations();
 
     if (completionMoveTimer) {
       clearTimeout(completionMoveTimer);
@@ -702,6 +761,7 @@
 
     const sourceRect = snapshotRect(sourceNode.getBoundingClientRect());
     const sourceHtml = snapshotCompletionMoveHtml(sourceNode);
+    const beforeRects = snapshotItemRects();
 
     clearCompletionMove();
     const moveToken = ++completionMoveToken;
@@ -720,6 +780,7 @@
     try {
       await onToggleItem(id);
       await tick();
+      animateItemShifts(beforeRects, id);
 
       const targetNode = itemNodes.get(id);
       if (!targetNode) {
@@ -997,6 +1058,7 @@
     clearSearchDebounceTimer();
     clearCompletionMove();
     clearCompletionFanfare();
+    clearItemShiftAnimations();
     if (textClickSuppressTimer) {
       clearTimeout(textClickSuppressTimer);
       textClickSuppressTimer = null;
@@ -1104,7 +1166,7 @@
                       {#each activeItems as item (item.id)}
                         <div
                           use:trackItemNode={item.id}
-                          animate:flip={{ duration: reorderFlipDuration }}
+                          animate:flip={{ duration: itemFlipDuration }}
                           class={`relative z-10 outline-none focus:outline-none focus-visible:outline-none ${
                             movingItemId === item.id ? 'completionMoveHidden' : ''
                           }`}
@@ -1147,7 +1209,7 @@
                       {#each doneItems as item (item.id)}
                         <div
                           use:trackItemNode={item.id}
-                          animate:flip={{ duration: reorderFlipDuration }}
+                          animate:flip={{ duration: itemFlipDuration }}
                           class={`relative z-10 outline-none focus:outline-none focus-visible:outline-none ${
                             movingItemId === item.id ? 'completionMoveHidden' : ''
                           }`}
