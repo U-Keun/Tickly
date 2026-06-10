@@ -21,7 +21,7 @@ export const fontPresets: FontPreset[] = [
   {
     id: 'monospace',
     name: '모노스페이스',
-    fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+    fontFamily: 'Menlo, Monaco, "SF Mono", "Apple SD Gothic Neo", "Noto Sans KR", monospace',
   },
 ];
 
@@ -34,7 +34,7 @@ export const fontSizes: Record<FontSize, { label: string; base: number }> = {
 
 export function getDefaultFontSettings(): FontSettings {
   return {
-    presetId: 'system',
+    presetId: 'monospace',
     size: 'medium',
   };
 }
