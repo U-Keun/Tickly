@@ -213,7 +213,7 @@
   });
 </script>
 
-<div class="flex w-full min-w-0 items-center rounded-[16px] border-2 border-[var(--color-stroke)] bg-[rgb(255_255_255_/_0.7)] p-1">
+<div class="flex w-full min-w-0 items-center rounded-[16px] border-2 border-[var(--color-stroke)] bg-gradient-to-b from-[rgb(255_255_255_/_0.9)] to-[rgb(255_255_255_/_0.62)] p-1">
   <div class="min-w-0 flex-1 basis-0">
     <div class="scrollbar-hide min-w-0 overflow-x-auto">
       <div class="relative min-w-full">

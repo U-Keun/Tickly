@@ -1426,22 +1426,24 @@
         </div>
       {/if}
 
-      <div class="mb-4">
-        <V2CategoryRail
-          categories={displayedCategories}
-          {selectedCategoryId}
-          isReorderMode={isCategoryReorderMode}
-          isReorderBusy={isSavingCategoryOrder}
-          onSelectCategory={selectCategoryWithTransition}
-          onManageCategory={openCategoryManageSheet}
-          onEnterReorderMode={enterCategoryReorderMode}
-          onFinishReorderMode={finishCategoryReorderMode}
-          onReorderConsider={handleCategoryReorderConsider}
-          onReorderFinalize={handleCategoryReorderFinalize}
-        />
-      </div>
-
       <div class="todo-list-scroll w-full min-w-0 max-w-full" aria-busy={isListSwitching}>
+        <div class="categoryRailSticky sticky top-0 z-30 mb-4">
+          <div class="relative z-10">
+            <V2CategoryRail
+              categories={displayedCategories}
+              {selectedCategoryId}
+              isReorderMode={isCategoryReorderMode}
+              isReorderBusy={isSavingCategoryOrder}
+              onSelectCategory={selectCategoryWithTransition}
+              onManageCategory={openCategoryManageSheet}
+              onEnterReorderMode={enterCategoryReorderMode}
+              onFinishReorderMode={finishCategoryReorderMode}
+              onReorderConsider={handleCategoryReorderConsider}
+              onReorderFinalize={handleCategoryReorderFinalize}
+            />
+          </div>
+        </div>
+
         <div class={`grid min-h-full w-full min-w-0 max-w-full overflow-hidden ${isListSwitching ? 'pointer-events-none' : ''}`}>
           {#if isListContentVisible}
             <div
@@ -1689,6 +1691,29 @@
     z-index: 20;
     color: var(--color-ink);
     pointer-events: none;
+  }
+
+  .categoryRailSticky::before {
+    position: absolute;
+    inset: -8px -2px -24px;
+    z-index: 0;
+    content: '';
+    background: var(--color-canvas);
+    pointer-events: none;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      #000 0%,
+      rgb(0 0 0 / 0.88) 38%,
+      rgb(0 0 0 / 0.42) 76%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      #000 0%,
+      rgb(0 0 0 / 0.88) 38%,
+      rgb(0 0 0 / 0.42) 76%,
+      transparent 100%
+    );
   }
 
   @media (prefers-reduced-motion: reduce) {

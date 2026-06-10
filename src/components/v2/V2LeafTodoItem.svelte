@@ -531,12 +531,13 @@
     align-items: center;
     justify-content: flex-end;
     overflow: hidden;
+    padding-right: 4px;
   }
 
   .rowTagPill {
     display: inline-flex;
     min-width: 0;
-    max-width: 100%;
+    max-width: calc(100% - 4px);
     align-items: center;
     gap: 2px;
     border-radius: 999px;
@@ -623,6 +624,7 @@
     display: -webkit-box;
     margin: 0;
     overflow: hidden;
+    padding-inline: 4px;
     color: var(--color-ink);
     font-size: 16px;
     font-weight: 600;
@@ -638,6 +640,7 @@
     display: -webkit-box;
     margin: 0;
     overflow: hidden;
+    padding-inline: 4px;
     color: var(--color-ink-muted);
     font-size: 14px;
     line-height: 1.45;
@@ -653,6 +656,7 @@
     flex-wrap: wrap;
     gap: 6px;
     min-width: 0;
+    padding-inline: 4px;
   }
 
   .drawerTagPill {
