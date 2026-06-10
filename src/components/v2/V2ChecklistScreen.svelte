@@ -28,6 +28,9 @@
   const TODO_COMPLETION_CHECKBOX_HOP_LEAD_MS = 1060;
   const TODO_COMPLETION_MOVE_CLEANUP_MS = TODO_COMPLETION_MOVE_DURATION_MS + 80;
   const TODO_COMPLETION_FANFARE_DURATION_MS = 560;
+  const ITEM_ENTRY_DURATION_MS = 300;
+  const ITEM_ENTRY_CLEANUP_MS = ITEM_ENTRY_DURATION_MS + 100;
+  const ITEM_EXIT_DURATION_MS = 300;
   const SEARCH_DEBOUNCE_MS = 150;
   const SEARCH_RESULT_LIMIT = 8;
 
@@ -130,6 +133,8 @@
   let completionMoveFrame: number | null = null;
   let completionMoveFinishFrame: number | null = null;
   let completionFanfareTimer: ReturnType<typeof setTimeout> | null = null;
+  let enteringItemTimers = new Map<number, ReturnType<typeof setTimeout>>();
+  const itemExitAnimations = new Map<number, Animation>();
   let completionMoveToken = 0;
   let completionFanfareToken = 0;
   const itemNodes = new Map<number, HTMLElement>();
@@ -137,6 +142,8 @@
   let movingItemId = $state<number | null>(null);
   let completionMoveOverlay = $state<CompletionMoveOverlay | null>(null);
   let completionFanfareOverlay = $state<CompletionFanfareOverlay | null>(null);
+  let enteringItemIds = $state<Set<number>>(new Set());
+  let exitingItemIds = $state<Set<number>>(new Set());
   let displayedCategoryId = $state<number | null>(null);
   let displayedItems = $state<V2TodoItem[]>([]);
   let hasDisplayedList = $state(false);
@@ -172,6 +179,26 @@
 
   function wait(ms: number): Promise<void> {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  function itemEntry(node: Element, params: { enabled: boolean }) {
+    if (!params.enabled || prefersReducedMotion) {
+      return { duration: 0 };
+    }
+
+    const element = node as HTMLElement;
+    const height = element.offsetHeight;
+
+    return {
+      duration: ITEM_ENTRY_DURATION_MS,
+      easing: cubicOut,
+      css: (t: number) => `
+        max-height: ${height * t}px;
+        opacity: ${t};
+        overflow: hidden;
+        transform: translateY(${10 * (1 - t)}px);
+      `
+    };
   }
 
   function snapshotRect(rect: DOMRect): RectSnapshot {
@@ -228,6 +255,164 @@
       animation.cancel();
     });
     itemShiftAnimations.clear();
+  }
+
+  function clearEnteringItems(): void {
+    enteringItemTimers.forEach((timer) => clearTimeout(timer));
+    enteringItemTimers.clear();
+    enteringItemIds = new Set();
+  }
+
+  function clearEnteringItem(id: number): void {
+    const timer = enteringItemTimers.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      enteringItemTimers.delete(id);
+    }
+
+    if (!enteringItemIds.has(id)) return;
+
+    const nextEnteringIds = new Set(enteringItemIds);
+    nextEnteringIds.delete(id);
+    enteringItemIds = nextEnteringIds;
+  }
+
+  function setExitingItem(id: number, isExiting: boolean): void {
+    const nextExitingIds = new Set(exitingItemIds);
+
+    if (isExiting) {
+      nextExitingIds.add(id);
+    } else {
+      nextExitingIds.delete(id);
+    }
+
+    exitingItemIds = nextExitingIds;
+  }
+
+  function clearExitingItem(id: number): void {
+    const animation = itemExitAnimations.get(id);
+    if (animation) {
+      animation.cancel();
+      itemExitAnimations.delete(id);
+    }
+
+    const node = itemNodes.get(id);
+    if (node) {
+      node.style.overflow = '';
+      node.style.maxHeight = '';
+      node.style.willChange = '';
+    }
+
+    if (exitingItemIds.has(id)) {
+      setExitingItem(id, false);
+    }
+  }
+
+  function clearItemExitAnimations(): void {
+    itemExitAnimations.forEach((animation, id) => {
+      animation.cancel();
+      const node = itemNodes.get(id);
+      if (node) {
+        node.style.overflow = '';
+        node.style.maxHeight = '';
+        node.style.willChange = '';
+      }
+    });
+    itemExitAnimations.clear();
+    exitingItemIds = new Set();
+  }
+
+  function canAnimateItemEntry(categoryId: number | null): boolean {
+    return (
+      hasDisplayedList &&
+      displayedCategoryId === categoryId &&
+      !prefersReducedMotion &&
+      !hasAppliedSearchQuery &&
+      !isListSwitching &&
+      !isCategoryReorderMode &&
+      !isSavingReorder &&
+      movingItemId === null
+    );
+  }
+
+  function canAnimateItemExit(): boolean {
+    return (
+      !prefersReducedMotion &&
+      !hasAppliedSearchQuery &&
+      !isListSwitching &&
+      !isCategoryReorderMode &&
+      !isSavingReorder &&
+      movingItemId === null
+    );
+  }
+
+  function markEnteringItems(categoryId: number | null, nextItems: V2TodoItem[]): void {
+    if (!canAnimateItemEntry(categoryId)) return;
+
+    const previousIds = new Set(displayedItems.map((item) => item.id));
+    const nextEnteringIds = nextItems
+      .filter((item) => !item.done && !previousIds.has(item.id))
+      .map((item) => item.id);
+
+    if (nextEnteringIds.length === 0) return;
+
+    enteringItemIds = new Set([...enteringItemIds, ...nextEnteringIds]);
+
+    nextEnteringIds.forEach((id) => {
+      const existingTimer = enteringItemTimers.get(id);
+      if (existingTimer) clearTimeout(existingTimer);
+
+      const timer = setTimeout(() => {
+        clearEnteringItem(id);
+      }, ITEM_ENTRY_CLEANUP_MS);
+
+      enteringItemTimers.set(id, timer);
+    });
+  }
+
+  async function animateItemExit(id: number): Promise<boolean> {
+    if (!canAnimateItemExit()) return false;
+
+    const node = itemNodes.get(id);
+    if (!node) return false;
+
+    clearEnteringItem(id);
+    setExitingItem(id, true);
+
+    const height = node.offsetHeight;
+    node.style.overflow = 'hidden';
+    node.style.maxHeight = `${height}px`;
+    node.style.willChange = 'max-height, opacity, transform';
+
+    const animation = node.animate(
+      [
+        {
+          maxHeight: `${height}px`,
+          opacity: '1',
+          transform: 'translateY(0)'
+        },
+        {
+          maxHeight: '0px',
+          opacity: '0',
+          transform: 'translateY(10px)'
+        }
+      ],
+      {
+        duration: ITEM_EXIT_DURATION_MS,
+        easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+        fill: 'forwards'
+      }
+    );
+
+    itemExitAnimations.set(id, animation);
+
+    try {
+      await animation.finished;
+    } catch {
+      return false;
+    }
+
+    return true;
   }
 
   function animateItemShifts(beforeRects: Map<number, RectSnapshot>, movingId: number): void {
@@ -376,6 +561,7 @@
     nextItems: V2TodoItem[]
   ): Promise<void> {
     const token = ++listTransitionToken;
+    clearEnteringItems();
 
     if (prefersReducedMotion) {
       updateDisplayedList(categoryId, nextItems);
@@ -414,6 +600,7 @@
     itemSignature;
 
     if (!hasDisplayedList || displayedCategoryId === null || nextCategoryId === displayedCategoryId) {
+      markEnteringItems(nextCategoryId, nextItems);
       updateDisplayedList(nextCategoryId, nextItems);
       hasDisplayedList = true;
       isListContentVisible = true;
@@ -1029,12 +1216,21 @@
   async function confirmDeleteItem(): Promise<void> {
     if (!itemPendingDeletion || isDeletingItem) return;
 
+    const itemToDelete = itemPendingDeletion;
     isDeletingItem = true;
+    itemPendingDeletion = null;
+
     try {
-      await onDeleteItem(itemPendingDeletion.id);
-      itemPendingDeletion = null;
+      const didAnimateExit = await animateItemExit(itemToDelete.id);
+      await onDeleteItem(itemToDelete.id);
+      await tick();
+
+      if (didAnimateExit) {
+        clearExitingItem(itemToDelete.id);
+      }
     } catch {
-      // The v2 store owns the visible error banner; keep the confirm modal open.
+      clearExitingItem(itemToDelete.id);
+      // The v2 store owns the visible error banner; keep the item visible for retry.
     } finally {
       isDeletingItem = false;
     }
@@ -1059,6 +1255,8 @@
     clearCompletionMove();
     clearCompletionFanfare();
     clearItemShiftAnimations();
+    clearEnteringItems();
+    clearItemExitAnimations();
     if (textClickSuppressTimer) {
       clearTimeout(textClickSuppressTimer);
       textClickSuppressTimer = null;
@@ -1166,10 +1364,11 @@
                       {#each activeItems as item (item.id)}
                         <div
                           use:trackItemNode={item.id}
+                          in:itemEntry={{ enabled: enteringItemIds.has(item.id) }}
                           animate:flip={{ duration: itemFlipDuration }}
                           class={`relative z-10 outline-none focus:outline-none focus-visible:outline-none ${
                             movingItemId === item.id ? 'completionMoveHidden' : ''
-                          }`}
+                          } ${exitingItemIds.has(item.id) ? 'itemExitCollapsing' : ''}`}
                         >
                           <V2LeafTodoItem
                             {item}
@@ -1209,10 +1408,11 @@
                       {#each doneItems as item (item.id)}
                         <div
                           use:trackItemNode={item.id}
+                          in:itemEntry={{ enabled: enteringItemIds.has(item.id) }}
                           animate:flip={{ duration: itemFlipDuration }}
                           class={`relative z-10 outline-none focus:outline-none focus-visible:outline-none ${
                             movingItemId === item.id ? 'completionMoveHidden' : ''
-                          }`}
+                          } ${exitingItemIds.has(item.id) ? 'itemExitCollapsing' : ''}`}
                         >
                           <V2LeafTodoItem
                             {item}
@@ -1319,6 +1519,10 @@
 <style>
   .completionMoveHidden {
     opacity: 0;
+    pointer-events: none;
+  }
+
+  .itemExitCollapsing {
     pointer-events: none;
   }
 
