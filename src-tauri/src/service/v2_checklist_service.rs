@@ -75,6 +75,26 @@ impl V2ChecklistService {
             .map_err(|error| error.to_string())
     }
 
+    pub fn update_item_details(
+        conn: &Connection,
+        id: i64,
+        text: &str,
+        memo: Option<&str>,
+    ) -> Result<(), String> {
+        let trimmed_text = Self::trim_required(text, "Item text")?;
+        let normalized_memo = memo.and_then(|value| {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            }
+        });
+
+        V2ChecklistRepository::update_item_details(conn, id, trimmed_text, normalized_memo)
+            .map_err(|error| error.to_string())
+    }
+
     pub fn toggle_item(conn: &Connection, id: i64) -> Result<V2TodoItem, String> {
         let Some(item) =
             V2ChecklistRepository::get_item_by_id(conn, id).map_err(|error| error.to_string())?
@@ -158,6 +178,7 @@ mod tests {
         let item = V2ChecklistService::create_item(&conn, category_id, "  Wallet  ").unwrap();
 
         assert_eq!(item.text, "Wallet");
+        assert_eq!(item.memo, None);
         assert!(!item.done);
 
         let toggled = V2ChecklistService::toggle_item(&conn, item.id).unwrap();
@@ -195,6 +216,57 @@ mod tests {
         assert_eq!(results[0].item.text, "Work wallet");
         assert_eq!(results[1].category.name, "Travel");
         assert_eq!(results[1].item.text, "Travel wallet");
+    }
+
+    #[test]
+    fn updates_item_details_and_normalizes_blank_memo() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        let item = V2ChecklistService::create_item(&conn, category_id, "Wallet").unwrap();
+
+        V2ChecklistService::update_item_details(
+            &conn,
+            item.id,
+            "  Wallet and keys  ",
+            Some("  front pocket  "),
+        )
+        .unwrap();
+        let updated = V2ChecklistRepository::get_item_by_id(&conn, item.id)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(updated.text, "Wallet and keys");
+        assert_eq!(updated.memo.as_deref(), Some("front pocket"));
+
+        V2ChecklistService::update_item_details(&conn, item.id, "Wallet", Some("  ")).unwrap();
+        let cleared = V2ChecklistRepository::get_item_by_id(&conn, item.id)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(cleared.memo, None);
+    }
+
+    #[test]
+    fn search_matches_item_memo() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        let item = V2ChecklistService::create_item(&conn, category_id, "Passport").unwrap();
+        V2ChecklistService::update_item_details(
+            &conn,
+            item.id,
+            "Passport",
+            Some("Keep it in the blue wallet pouch."),
+        )
+        .unwrap();
+
+        let results = V2ChecklistService::search_items(&conn, "blue", 8).unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].item.id, item.id);
+        assert_eq!(
+            results[0].item.memo.as_deref(),
+            Some("Keep it in the blue wallet pouch.")
+        );
     }
 
     #[test]

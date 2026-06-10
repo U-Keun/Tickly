@@ -402,6 +402,12 @@
     >
       <div class="drawerSurface" class:drawerSurfaceVisible={isDrawerContentVisible}>
         <div class="drawerContent" class:drawerContentVisible={isDrawerContentVisible}>
+          <p class="drawerTitle">{item.text}</p>
+
+          {#if item.memo}
+            <p class="drawerMemoPreview">{item.memo}</p>
+          {/if}
+
           <div class="drawerActions">
             <button
               type="button"
@@ -546,6 +552,10 @@
   .drawerContent {
     position: relative;
     z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
     opacity: 0;
     pointer-events: none;
     transform: translateY(-2px);
@@ -564,6 +574,35 @@
     display: flex;
     justify-content: flex-end;
     gap: 8px;
+  }
+
+  .drawerTitle {
+    display: -webkit-box;
+    margin: 0;
+    overflow: hidden;
+    color: var(--color-ink);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+  }
+
+  .drawerMemoPreview {
+    display: -webkit-box;
+    margin: 0;
+    overflow: hidden;
+    color: var(--color-ink-muted);
+    font-size: 14px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
   }
 
   .drawerActionButton {

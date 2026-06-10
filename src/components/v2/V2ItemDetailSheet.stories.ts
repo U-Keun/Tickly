@@ -7,6 +7,7 @@ const item: V2TodoItem = {
   id: 1,
   category_id: 1,
   text: 'Wallet',
+  memo: null,
   done: false,
   display_order: 1000,
   created_at: '2026-06-08T00:00:00Z',
@@ -21,7 +22,7 @@ const meta = {
     show: true,
     item,
     isSaving: false,
-    onSaveText: async () => {},
+    onSaveDetails: async () => {},
     onClose: () => {}
   },
   parameters: {
@@ -40,6 +41,15 @@ export const LongItemName: Story = {
     item: {
       ...item,
       text: 'Umbrella before leaving for a very long commute day with errands after work'
+    }
+  }
+};
+
+export const WithMemo: Story = {
+  args: {
+    item: {
+      ...item,
+      memo: 'Keep this with the keys by the door.'
     }
   }
 };

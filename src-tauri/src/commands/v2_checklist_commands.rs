@@ -69,6 +69,18 @@ pub fn v2_update_item_text(id: i64, text: String, state: State<AppState>) -> Res
 }
 
 #[tauri::command]
+pub fn v2_update_item_details(
+    id: i64,
+    text: String,
+    memo: Option<String>,
+    state: State<AppState>,
+) -> Result<(), String> {
+    with_db(&state, |db| {
+        V2ChecklistService::update_item_details(db, id, &text, memo.as_deref())
+    })
+}
+
+#[tauri::command]
 pub fn v2_toggle_item(id: i64, state: State<AppState>) -> Result<V2TodoItem, String> {
     with_db(&state, |db| V2ChecklistService::toggle_item(db, id))
 }

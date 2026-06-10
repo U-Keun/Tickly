@@ -14,6 +14,17 @@
   }
 
   let { query, results = [], isLoading = false, onSelectResult }: Props = $props();
+
+  let normalizedQuery = $derived(query.trim().toLocaleLowerCase());
+
+  function getMemoSearchSnippet(result: V2ItemSearchResult): string | null {
+    const memo = result.item.memo?.trim();
+    if (!memo || !normalizedQuery) return null;
+    if (result.item.text.toLocaleLowerCase().includes(normalizedQuery)) return null;
+    if (!memo.toLocaleLowerCase().includes(normalizedQuery)) return null;
+
+    return memo.length > 72 ? `${memo.slice(0, 72).trim()}...` : memo;
+  }
 </script>
 
 <div
@@ -37,19 +48,27 @@
   {:else}
     <div class="flex flex-col gap-1">
       {#each results as result (result.item.id)}
+        {@const memoSnippet = getMemoSearchSnippet(result)}
         <button
           type="button"
-          class="flex min-h-11 min-w-0 items-center gap-3 rounded-[12px] px-3 text-left transition-colors hover:bg-[var(--color-canvas)] active:bg-[var(--color-mist)]"
+          class="flex min-h-11 min-w-0 items-center gap-3 rounded-[12px] px-3 py-1.5 text-left transition-colors hover:bg-[var(--color-canvas)] active:bg-[var(--color-mist)]"
           onclick={() => void onSelectResult(result)}
         >
-          <span
-            class={`min-w-0 flex-1 truncate text-sm font-semibold ${
-              result.item.done
-                ? 'text-[var(--color-ink-muted)] line-through decoration-2'
-                : 'text-[var(--color-ink)]'
-            }`}
-          >
-            {result.item.text}
+          <span class="min-w-0 flex-1">
+            <span
+              class={`block truncate text-sm font-semibold ${
+                result.item.done
+                  ? 'text-[var(--color-ink-muted)] line-through decoration-2'
+                  : 'text-[var(--color-ink)]'
+              }`}
+            >
+              {result.item.text}
+            </span>
+            {#if memoSnippet}
+              <span class="mt-0.5 block truncate text-xs font-medium text-[var(--color-ink-muted)]">
+                {i18n.t('v2MemoSearchSnippetTemplate')(memoSnippet)}
+              </span>
+            {/if}
           </span>
           <span class="max-w-28 shrink-0 truncate rounded-full bg-[var(--color-paper)] px-2.5 py-1 text-xs font-semibold text-[var(--color-ink-muted)]">
             {result.category.name}

@@ -15,6 +15,7 @@
     id: 1,
     category_id: 1,
     text,
+    memo: null,
     done,
     display_order: 1000,
     created_at: now,

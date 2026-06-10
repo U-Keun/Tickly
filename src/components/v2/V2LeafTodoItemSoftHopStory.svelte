@@ -8,6 +8,7 @@
     id: 1,
     category_id: 1,
     text: 'Soft hop checkbox',
+    memo: null,
     done: false,
     display_order: 1000,
     created_at: now,

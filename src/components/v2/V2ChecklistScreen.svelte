@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount, tick } from 'svelte';
+  import { onDestroy, onMount, tick, untrack } from 'svelte';
   import { flip } from 'svelte/animate';
   import { cubicIn, cubicOut } from 'svelte/easing';
   import { fade, fly } from 'svelte/transition';
@@ -50,7 +50,7 @@
     onReorderCategories: (categoryIds: number[]) => MaybePromise;
     onAddItem: (text: string) => MaybePromise;
     onToggleItem: (id: number) => MaybePromise;
-    onUpdateItemText: (id: number, text: string) => MaybePromise;
+    onUpdateItemDetails: (id: number, text: string, memo: string | null) => MaybePromise;
     onDeleteItem: (id: number) => MaybePromise;
     onReorderItems: (itemIds: number[]) => MaybePromise;
     onSearchItems: (query: string, limit: number) => Promise<V2ItemSearchResult[]>;
@@ -72,7 +72,7 @@
     onReorderCategories,
     onAddItem,
     onToggleItem,
-    onUpdateItemText,
+    onUpdateItemDetails,
     onDeleteItem,
     onReorderItems,
     onSearchItems
@@ -585,9 +585,13 @@
 
   function filterItemsForSearch(nextItems: V2TodoItem[]): V2TodoItem[] {
     if (!hasAppliedSearchQuery) return nextItems;
-    return nextItems.filter((item) =>
-      item.text.toLocaleLowerCase().includes(appliedSearchTerm)
-    );
+    return nextItems.filter((item) => {
+      const memo = item.memo ?? '';
+      return (
+        item.text.toLocaleLowerCase().includes(appliedSearchTerm) ||
+        memo.toLocaleLowerCase().includes(appliedSearchTerm)
+      );
+    });
   }
 
   async function transitionDisplayedList(
@@ -642,16 +646,18 @@
     const nextItems = items;
     itemSignature;
 
-    if (!hasDisplayedList || displayedCategoryId === null || nextCategoryId === displayedCategoryId) {
-      markEnteringItems(nextCategoryId, nextItems);
-      updateDisplayedList(nextCategoryId, nextItems);
-      hasDisplayedList = true;
-      isListContentVisible = true;
-      isListSwitching = false;
-      return;
-    }
+    untrack(() => {
+      if (!hasDisplayedList || displayedCategoryId === null || nextCategoryId === displayedCategoryId) {
+        markEnteringItems(nextCategoryId, nextItems);
+        updateDisplayedList(nextCategoryId, nextItems);
+        hasDisplayedList = true;
+        isListContentVisible = true;
+        isListSwitching = false;
+        return;
+      }
 
-    void transitionDisplayedList(nextCategoryId, nextItems);
+      void transitionDisplayedList(nextCategoryId, nextItems);
+    });
   });
 
   $effect(() => {
@@ -1230,7 +1236,7 @@
   }
 
   function requestEditItem(item: V2TodoItem): void {
-    void openItemTextSheet(item);
+    void openItemDetailSheet(item);
   }
 
   function cancelEditItem(): void {
@@ -1238,12 +1244,26 @@
     itemPendingEdit = null;
   }
 
-  async function openItemTextSheet(item: V2TodoItem): Promise<void> {
-    const nativeResult = await v2NativeSheetApi.openNativeTextSheet({
+  async function openItemDetailSheet(item: V2TodoItem): Promise<void> {
+    const nativeResult = await v2NativeSheetApi.openNativeFormSheet({
       title: i18n.t('v2EditItemDetails'),
-      label: i18n.t('v2ItemTextLabel'),
-      placeholder: i18n.t('v2ItemTextPlaceholder'),
-      initialValue: item.text,
+      fields: [
+        {
+          id: 'text',
+          kind: 'text',
+          label: i18n.t('v2ItemTextLabel'),
+          placeholder: i18n.t('v2ItemTextPlaceholder'),
+          initialValue: item.text,
+          required: true
+        },
+        {
+          id: 'memo',
+          kind: 'textarea',
+          label: i18n.t('v2ItemMemoLabel'),
+          placeholder: i18n.t('v2ItemMemoPlaceholder'),
+          initialValue: item.memo ?? ''
+        }
+      ],
       confirmLabel: i18n.t('v2SaveItem'),
       cancelLabel: i18n.t('cancel')
     });
@@ -1259,19 +1279,23 @@
 
     if (nativeResult.status === 'saved') {
       try {
-        await saveItemText(item.id, nativeResult.value);
+        await saveItemDetails(
+          item.id,
+          nativeResult.values.text ?? '',
+          nativeResult.values.memo ?? ''
+        );
       } catch {
         // The v2 store owns the visible error banner.
       }
     }
   }
 
-  async function saveItemText(id: number, text: string): Promise<void> {
+  async function saveItemDetails(id: number, text: string, memo: string | null): Promise<void> {
     if (isSavingItemEdit) return;
 
     isSavingItemEdit = true;
     try {
-      await onUpdateItemText(id, text);
+      await onUpdateItemDetails(id, text, memo);
     } finally {
       isSavingItemEdit = false;
     }
@@ -1577,7 +1601,7 @@
     show={itemPendingEdit !== null}
     item={itemPendingEdit}
     isSaving={isSavingItemEdit}
-    onSaveText={saveItemText}
+    onSaveDetails={saveItemDetails}
     onClose={cancelEditItem}
   />
 

@@ -213,6 +213,28 @@ async function updateItemText(id: number, text: string): Promise<void> {
   }
 }
 
+async function updateItemDetails(
+  id: number,
+  text: string,
+  memo: string | null
+): Promise<void> {
+  errorMessage = null;
+
+  try {
+    await v2ChecklistApi.v2UpdateItemDetails(id, text, memo);
+    const trimmedText = text.trim();
+    const trimmedMemo = memo?.trim() ?? '';
+    const normalizedMemo = trimmedMemo ? trimmedMemo : null;
+    items = items.map((item) =>
+      item.id === id
+        ? { ...item, text: trimmedText, memo: normalizedMemo }
+        : item
+    );
+  } catch (error) {
+    throw setError(error, 'Failed to update v2 item details.');
+  }
+}
+
 async function toggleItem(id: number): Promise<void> {
   errorMessage = null;
 
@@ -293,6 +315,7 @@ export const v2ChecklistStore = {
   addItem,
   searchItems,
   updateItemText,
+  updateItemDetails,
   toggleItem,
   deleteItem,
   moveItem,

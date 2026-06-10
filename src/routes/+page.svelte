@@ -27,7 +27,7 @@
   onReorderCategories={v2ChecklistStore.reorderCategories}
   onAddItem={v2ChecklistStore.addItem}
   onToggleItem={v2ChecklistStore.toggleItem}
-  onUpdateItemText={v2ChecklistStore.updateItemText}
+  onUpdateItemDetails={v2ChecklistStore.updateItemDetails}
   onDeleteItem={v2ChecklistStore.deleteItem}
   onReorderItems={v2ChecklistStore.reorderItems}
   onSearchItems={v2ChecklistStore.searchItems}

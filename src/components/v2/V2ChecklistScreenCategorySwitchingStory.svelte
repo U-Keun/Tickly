@@ -48,6 +48,7 @@
         id: 1,
         category_id: 1,
         text: 'Wallet',
+        memo: 'Keep this in the small front pocket.',
         done: false,
         display_order: 1000,
         created_at: now,
@@ -57,6 +58,7 @@
         id: 2,
         category_id: 1,
         text: 'Umbrella before leaving for a very long commute day',
+        memo: null,
         done: false,
         display_order: 2000,
         created_at: now,
@@ -68,6 +70,7 @@
         id: 3,
         category_id: 2,
         text: 'Passport',
+        memo: 'Check the hotel booking folder before packing.',
         done: false,
         display_order: 1000,
         created_at: now,
@@ -77,6 +80,7 @@
         id: 4,
         category_id: 2,
         text: 'Portable charger',
+        memo: null,
         done: true,
         display_order: 2000,
         created_at: now,
@@ -88,6 +92,7 @@
         id: 5,
         category_id: 3,
         text: 'Review v2 category surface',
+        memo: null,
         done: false,
         display_order: 1000,
         created_at: now,
@@ -182,6 +187,7 @@
       id: nextItemId,
       category_id: selectedCategoryId,
       text: text.trim(),
+      memo: null,
       done: false,
       display_order: (currentItems.length + 1) * orderStep,
       created_at: now,
@@ -201,12 +207,16 @@
     );
   }
 
-  async function updateItemText(id: number, text: string): Promise<void> {
+  async function updateItemDetails(id: number, text: string, memo: string | null): Promise<void> {
     if (selectedCategoryId === null) return;
 
     setItemsForCategory(
       selectedCategoryId,
-      items.map((item) => (item.id === id ? { ...item, text: text.trim(), updated_at: now } : item))
+      items.map((item) =>
+        item.id === id
+          ? { ...item, text: text.trim(), memo: memo?.trim() || null, updated_at: now }
+          : item
+      )
     );
   }
 
@@ -237,7 +247,11 @@
 
     const results = categories.flatMap((category) =>
       (itemsByCategory[category.id] ?? [])
-        .filter((item) => item.text.toLocaleLowerCase().includes(normalizedQuery))
+        .filter(
+          (item) =>
+            item.text.toLocaleLowerCase().includes(normalizedQuery) ||
+            (item.memo ?? '').toLocaleLowerCase().includes(normalizedQuery)
+        )
         .map((item) => ({ item, category }))
     );
 
@@ -258,7 +272,7 @@
   onReorderCategories={reorderCategories}
   onAddItem={addItem}
   onToggleItem={toggleItem}
-  onUpdateItemText={updateItemText}
+  onUpdateItemDetails={updateItemDetails}
   onDeleteItem={deleteItem}
   onReorderItems={reorderItems}
   onSearchItems={searchItems}

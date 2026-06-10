@@ -9,6 +9,7 @@ pub struct V2NativeSheetRequest {
     pub title: String,
     pub message: Option<String>,
     pub text: Option<V2NativeSheetTextRequest>,
+    pub form: Option<V2NativeSheetFormRequest>,
     pub actions: Option<Vec<V2NativeSheetActionRequest>>,
     pub cancel_label: String,
 }
@@ -20,6 +21,24 @@ pub struct V2NativeSheetTextRequest {
     pub placeholder: String,
     pub initial_value: String,
     pub confirm_label: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct V2NativeSheetFormRequest {
+    pub fields: Vec<V2NativeSheetFormFieldRequest>,
+    pub confirm_label: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct V2NativeSheetFormFieldRequest {
+    pub id: String,
+    pub kind: String,
+    pub label: String,
+    pub placeholder: String,
+    pub initial_value: String,
+    pub required: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

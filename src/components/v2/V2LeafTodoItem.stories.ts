@@ -9,6 +9,7 @@ const item: V2TodoItem = {
   id: 1,
   category_id: 1,
   text: 'Wallet',
+  memo: null,
   done: false,
   display_order: 1000,
   created_at: '2026-06-08T00:00:00Z',
@@ -49,6 +50,38 @@ export const Completed: Story = {
 
 export const DrawerOpen: Story = {
   args: {
+    initialDrawerOpen: true
+  }
+};
+
+export const MemoPreview: Story = {
+  args: {
+    item: {
+      ...item,
+      memo: 'Keep this in the small front pocket so it is easy to find before leaving.'
+    },
+    initialDrawerOpen: true
+  }
+};
+
+export const LongTitleDrawer: Story = {
+  args: {
+    item: {
+      ...item,
+      text: 'Umbrella before leaving for a very long commute day with errands after work and grocery pickup',
+      memo: null
+    },
+    initialDrawerOpen: true
+  }
+};
+
+export const LongTitleAndMemoDrawer: Story = {
+  args: {
+    item: {
+      ...item,
+      text: 'SuperLongUnbrokenChecklistItemNameThatShouldNeverPushTheCardWiderThanTheiPhoneViewportEvenWhenTheDrawerIsOpen',
+      memo: 'Check the side pocket before leaving.\nIf it rains after work, use the compact umbrella instead of the larger one in the hallway closet.\nThis memo intentionally has multiple lines so the drawer preview can be checked.'
+    },
     initialDrawerOpen: true
   }
 };

@@ -19,6 +19,7 @@ pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
     migrate_create_todo_tags(conn)?;
     migrate_add_linked_app(conn)?;
     migrate_create_v2_checklist_tables(conn)?;
+    migrate_add_v2_memo(conn)?;
     Ok(())
 }
 
@@ -296,5 +297,13 @@ fn migrate_create_todo_tags(conn: &Connection) -> Result<(), rusqlite::Error> {
 fn migrate_create_v2_checklist_tables(conn: &Connection) -> Result<(), rusqlite::Error> {
     V2ChecklistRepository::create_tables(conn)?;
     V2ChecklistRepository::ensure_default_category(conn)?;
+    Ok(())
+}
+
+fn migrate_add_v2_memo(conn: &Connection) -> Result<(), rusqlite::Error> {
+    if should_add_column(conn, "v2_todos", "memo") {
+        conn.execute("ALTER TABLE v2_todos ADD COLUMN memo TEXT", [])?;
+    }
+
     Ok(())
 }

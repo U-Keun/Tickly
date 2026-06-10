@@ -8,7 +8,7 @@ impl V2ChecklistRepository {
     const ORDER_STEP: i64 = 1000;
     const CATEGORY_COLUMNS: &'static str = "id, name, display_order, created_at, updated_at";
     const ITEM_COLUMNS: &'static str =
-        "id, category_id, text, done, display_order, created_at, updated_at";
+        "id, category_id, text, memo, done, display_order, created_at, updated_at";
 
     pub fn create_tables(conn: &Connection) -> Result<(), rusqlite::Error> {
         conn.execute_batch(
@@ -24,6 +24,7 @@ impl V2ChecklistRepository {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 category_id INTEGER NOT NULL,
                 text TEXT NOT NULL,
+                memo TEXT,
                 done BOOLEAN NOT NULL DEFAULT 0,
                 display_order INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
@@ -34,8 +35,31 @@ impl V2ChecklistRepository {
             CREATE INDEX IF NOT EXISTS idx_v2_todos_category_order
                 ON v2_todos(category_id, done, display_order);",
         )?;
+        Self::ensure_memo_column(conn)?;
 
         Ok(())
+    }
+
+    fn ensure_memo_column(conn: &Connection) -> Result<(), rusqlite::Error> {
+        if Self::v2_todos_has_column(conn, "memo")? {
+            return Ok(());
+        }
+
+        conn.execute("ALTER TABLE v2_todos ADD COLUMN memo TEXT", [])?;
+        Ok(())
+    }
+
+    fn v2_todos_has_column(conn: &Connection, column_name: &str) -> Result<bool, rusqlite::Error> {
+        let mut stmt = conn.prepare("PRAGMA table_info(v2_todos)")?;
+        let columns = stmt.query_map([], |row| row.get::<_, String>(1))?;
+
+        for column in columns {
+            if column? == column_name {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
     }
 
     pub fn ensure_default_category(conn: &Connection) -> Result<(), rusqlite::Error> {
@@ -73,10 +97,11 @@ impl V2ChecklistRepository {
             id: row.get(0)?,
             category_id: row.get(1)?,
             text: row.get(2)?,
-            done: row.get(3)?,
-            display_order: row.get(4)?,
-            created_at: row.get(5)?,
-            updated_at: row.get(6)?,
+            memo: row.get(3)?,
+            done: row.get(4)?,
+            display_order: row.get(5)?,
+            created_at: row.get(6)?,
+            updated_at: row.get(7)?,
         })
     }
 
@@ -86,17 +111,18 @@ impl V2ChecklistRepository {
                 id: row.get(0)?,
                 category_id: row.get(1)?,
                 text: row.get(2)?,
-                done: row.get(3)?,
-                display_order: row.get(4)?,
-                created_at: row.get(5)?,
-                updated_at: row.get(6)?,
+                memo: row.get(3)?,
+                done: row.get(4)?,
+                display_order: row.get(5)?,
+                created_at: row.get(6)?,
+                updated_at: row.get(7)?,
             },
             category: V2Category {
-                id: row.get(7)?,
-                name: row.get(8)?,
-                display_order: row.get(9)?,
-                created_at: row.get(10)?,
-                updated_at: row.get(11)?,
+                id: row.get(8)?,
+                name: row.get(9)?,
+                display_order: row.get(10)?,
+                created_at: row.get(11)?,
+                updated_at: row.get(12)?,
             },
         })
     }
@@ -271,6 +297,7 @@ impl V2ChecklistRepository {
                 t.id,
                 t.category_id,
                 t.text,
+                t.memo,
                 t.done,
                 t.display_order,
                 t.created_at,
@@ -283,11 +310,12 @@ impl V2ChecklistRepository {
              FROM v2_todos t
              INNER JOIN v2_categories c ON c.id = t.category_id
              WHERE t.text LIKE ?1 ESCAPE '\\'
+                OR COALESCE(t.memo, '') LIKE ?2 ESCAPE '\\'
              ORDER BY c.display_order ASC, t.done ASC, t.display_order ASC
-             LIMIT ?2";
+             LIMIT ?3";
         let mut stmt = conn.prepare(&sql)?;
         let results = stmt
-            .query_map(params![pattern, limit], Self::row_to_search_result)?
+            .query_map(params![pattern, pattern, limit], Self::row_to_search_result)?
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(results)
@@ -327,8 +355,8 @@ impl V2ChecklistRepository {
 
         conn.execute(
             "INSERT INTO v2_todos
-                (category_id, text, done, display_order, created_at, updated_at)
-             VALUES (?1, ?2, 0, ?3, ?4, ?5)",
+                (category_id, text, memo, done, display_order, created_at, updated_at)
+             VALUES (?1, ?2, NULL, 0, ?3, ?4, ?5)",
             params![category_id, text, display_order, &now, &now],
         )?;
 
@@ -336,6 +364,7 @@ impl V2ChecklistRepository {
             id: conn.last_insert_rowid(),
             category_id,
             text: text.to_string(),
+            memo: None,
             done: false,
             display_order,
             created_at: now.clone(),
@@ -348,6 +377,23 @@ impl V2ChecklistRepository {
         let updated = conn.execute(
             "UPDATE v2_todos SET text = ?1, updated_at = ?2 WHERE id = ?3",
             params![text, now, id],
+        )?;
+        if updated == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        Ok(())
+    }
+
+    pub fn update_item_details(
+        conn: &Connection,
+        id: i64,
+        text: &str,
+        memo: Option<&str>,
+    ) -> Result<(), rusqlite::Error> {
+        let now = Self::now_iso();
+        let updated = conn.execute(
+            "UPDATE v2_todos SET text = ?1, memo = ?2, updated_at = ?3 WHERE id = ?4",
+            params![text, memo, now, id],
         )?;
         if updated == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
@@ -427,6 +473,36 @@ mod tests {
         assert_eq!(categories.len(), 1);
         assert_eq!(categories[0].name, "Home");
         assert_eq!(categories[0].display_order, 1000);
+    }
+
+    #[test]
+    fn migrates_existing_v2_todos_with_memo_column() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE v2_categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                display_order INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE v2_todos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category_id INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                done BOOLEAN NOT NULL DEFAULT 0,
+                display_order INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );",
+        )
+        .expect("old v2 schema");
+
+        V2ChecklistRepository::create_tables(&conn).expect("migrated v2 schema");
+        let has_memo = V2ChecklistRepository::v2_todos_has_column(&conn, "memo").unwrap();
+
+        assert!(has_memo);
     }
 
     #[test]

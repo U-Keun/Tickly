@@ -167,6 +167,7 @@ export interface V2TodoItem {
   id: number;
   category_id: number;
   text: string;
+  memo: string | null;
   done: boolean;
   display_order: number;
   created_at: string;

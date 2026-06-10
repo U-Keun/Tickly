@@ -8,6 +8,7 @@ private struct TicklyNativeSheetRequest: Decodable {
     let title: String
     let message: String?
     let text: TicklyNativeSheetTextRequest?
+    let form: TicklyNativeSheetFormRequest?
     let actions: [TicklyNativeSheetActionRequest]?
     let cancelLabel: String
 }
@@ -17,6 +18,20 @@ private struct TicklyNativeSheetTextRequest: Decodable {
     let placeholder: String
     let initialValue: String
     let confirmLabel: String
+}
+
+private struct TicklyNativeSheetFormRequest: Decodable {
+    let fields: [TicklyNativeSheetFormFieldRequest]
+    let confirmLabel: String
+}
+
+private struct TicklyNativeSheetFormFieldRequest: Decodable {
+    let id: String
+    let kind: String
+    let label: String
+    let placeholder: String
+    let initialValue: String
+    let required: Bool?
 }
 
 private struct TicklyNativeSheetActionRequest: Decodable {
@@ -30,6 +45,7 @@ private struct TicklyNativeSheetResult: Encodable {
     let token: String
     let status: String
     let value: String?
+    let values: [String: String]?
     let actionId: String?
 }
 
@@ -89,6 +105,10 @@ private func ticklyCanRenderNativeSheet(_ request: TicklyNativeSheetRequest) -> 
         return request.text != nil
     }
 
+    if request.kind == "form" {
+        return request.form?.fields.isEmpty == false
+    }
+
     if request.kind == "actions" {
         return request.actions != nil
     }
@@ -120,6 +140,11 @@ private func ticklyPresentNativeSheet(
 private func ticklyPreferredSheetHeight(for request: TicklyNativeSheetRequest) -> CGFloat {
     if request.kind == "text" {
         return 292
+    }
+
+    if request.kind == "form" {
+        let fieldCount = CGFloat(request.form?.fields.count ?? 0)
+        return min(max(292 + fieldCount * 92, 390), 560)
     }
 
     let actionCount = CGFloat(request.actions?.count ?? 0)
@@ -173,7 +198,7 @@ private func ticklyTopViewController(from viewController: UIViewController) -> U
 }
 
 @available(iOS 15.0, *)
-private final class TicklyNativeSheetViewController: UIViewController, UIAdaptivePresentationControllerDelegate, UITextFieldDelegate {
+private final class TicklyNativeSheetViewController: UIViewController, UIAdaptivePresentationControllerDelegate, UITextFieldDelegate, UITextViewDelegate {
     fileprivate enum Style {
         static let ink = UIColor(red: 91 / 255, green: 88 / 255, blue: 82 / 255, alpha: 1)
         static let inkMuted = UIColor(red: 122 / 255, green: 119 / 255, blue: 111 / 255, alpha: 1)
@@ -192,6 +217,11 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
     private let surfaceView = UIView()
     private let surfaceFillLayer = CAShapeLayer()
     private let surfaceBorderLayer = CAShapeLayer()
+    private var formTextFields: [String: UITextField] = [:]
+    private var formTextViews: [String: UITextView] = [:]
+    private var formRequiredFieldIds = Set<String>()
+    private var textViewFieldIds: [ObjectIdentifier: String] = [:]
+    private var textViewPlaceholders: [ObjectIdentifier: String] = [:]
     private var leafTransitioningDelegate: TicklyLeafSheetTransitioningDelegate?
     private var didComplete = false
 
@@ -228,16 +258,49 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
     }
 
     func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
-        complete(status: "cancelled", value: nil, actionId: nil, shouldDismiss: false)
+        complete(status: "cancelled", value: nil, values: nil, actionId: nil, shouldDismiss: false)
     }
 
     fileprivate func requestCancelFromPresentation() {
-        complete(status: "cancelled", value: nil, actionId: nil, shouldDismiss: true)
+        complete(status: "cancelled", value: nil, values: nil, actionId: nil, shouldDismiss: true)
     }
 
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        saveText()
+        if request.kind == "form" {
+            saveForm()
+        } else {
+            saveText()
+        }
         return true
+    }
+
+    func textViewDidBeginEditing(_ textView: UITextView) {
+        let key = ObjectIdentifier(textView)
+        guard let placeholder = textViewPlaceholders[key],
+              textView.text == placeholder,
+              textView.textColor != Style.ink
+        else {
+            return
+        }
+
+        textView.text = ""
+        textView.textColor = Style.ink
+    }
+
+    func textViewDidEndEditing(_ textView: UITextView) {
+        let key = ObjectIdentifier(textView)
+        guard let placeholder = textViewPlaceholders[key],
+              textView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            return
+        }
+
+        textView.text = placeholder
+        textView.textColor = Style.inkMuted.withAlphaComponent(0.55)
+    }
+
+    func textViewDidChange(_ textView: UITextView) {
+        updateSaveButtonState()
     }
 
     private func updateSurfaceShape() {
@@ -291,6 +354,9 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
 
         if request.kind == "text", let textRequest = request.text {
             addTextContent(textRequest, to: stack)
+            updateSaveButtonState()
+        } else if request.kind == "form", let formRequest = request.form {
+            addFormContent(formRequest, to: stack)
             updateSaveButtonState()
         } else {
             addActionContent(to: stack)
@@ -398,6 +464,100 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
         stack.addArrangedSubview(buttonStack)
     }
 
+    private func addFormContent(_ formRequest: TicklyNativeSheetFormRequest, to stack: UIStackView) {
+        for field in formRequest.fields {
+            let fieldLabel = UILabel()
+            fieldLabel.text = field.label
+            fieldLabel.font = .preferredFont(forTextStyle: .subheadline)
+            fieldLabel.adjustsFontForContentSizeCategory = true
+            fieldLabel.textColor = Style.ink
+            stack.addArrangedSubview(fieldLabel)
+            stack.setCustomSpacing(8, after: fieldLabel)
+
+            if field.required ?? false {
+                formRequiredFieldIds.insert(field.id)
+            }
+
+            if field.kind == "textarea" {
+                let textView = UITextView()
+                textView.font = .preferredFont(forTextStyle: .body)
+                textView.adjustsFontForContentSizeCategory = true
+                textView.tintColor = Style.accentSkyStrong
+                textView.backgroundColor = Style.paper
+                textView.layer.cornerRadius = 14
+                textView.layer.borderColor = Style.ink.cgColor
+                textView.layer.borderWidth = 2
+                textView.keyboardDismissMode = .interactive
+                textView.delegate = self
+                textView.textContainerInset = UIEdgeInsets(top: 12, left: 10, bottom: 12, right: 10)
+                textView.heightAnchor.constraint(greaterThanOrEqualToConstant: 112).isActive = true
+                formTextViews[field.id] = textView
+                textViewFieldIds[ObjectIdentifier(textView)] = field.id
+                textViewPlaceholders[ObjectIdentifier(textView)] = field.placeholder
+
+                if field.initialValue.isEmpty {
+                    textView.text = field.placeholder
+                    textView.textColor = Style.inkMuted.withAlphaComponent(0.55)
+                } else {
+                    textView.text = field.initialValue
+                    textView.textColor = Style.ink
+                }
+
+                stack.addArrangedSubview(textView)
+            } else {
+                let fieldInput = UITextField()
+                fieldInput.text = field.initialValue
+                fieldInput.placeholder = field.placeholder
+                fieldInput.font = .preferredFont(forTextStyle: .body)
+                fieldInput.adjustsFontForContentSizeCategory = true
+                fieldInput.textColor = Style.ink
+                fieldInput.tintColor = Style.accentSkyStrong
+                fieldInput.backgroundColor = Style.paper
+                fieldInput.layer.cornerRadius = 14
+                fieldInput.layer.borderColor = Style.ink.cgColor
+                fieldInput.layer.borderWidth = 2
+                fieldInput.returnKeyType = .done
+                fieldInput.clearButtonMode = .whileEditing
+                fieldInput.autocorrectionType = .default
+                fieldInput.delegate = self
+                fieldInput.addTarget(self, action: #selector(textDidChange), for: .editingChanged)
+                fieldInput.heightAnchor.constraint(greaterThanOrEqualToConstant: 52).isActive = true
+                fieldInput.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 1))
+                fieldInput.leftViewMode = .always
+                fieldInput.rightView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 1))
+                fieldInput.rightViewMode = .always
+                formTextFields[field.id] = fieldInput
+                stack.addArrangedSubview(fieldInput)
+            }
+        }
+
+        let buttonStack = UIStackView()
+        buttonStack.axis = .horizontal
+        buttonStack.spacing = 10
+        buttonStack.distribution = .fillEqually
+
+        saveButton.configuration = buttonConfiguration(
+            title: formRequest.confirmLabel,
+            backgroundColor: Style.accentSkyStrong,
+            foregroundColor: Style.ink
+        )
+        saveButton.addTarget(self, action: #selector(saveButtonTapped), for: .touchUpInside)
+        saveButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 48).isActive = true
+
+        let cancelButton = UIButton(type: .system)
+        cancelButton.configuration = buttonConfiguration(
+            title: request.cancelLabel,
+            backgroundColor: Style.canvas,
+            foregroundColor: Style.inkMuted
+        )
+        cancelButton.addTarget(self, action: #selector(cancelButtonTapped), for: .touchUpInside)
+        cancelButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 48).isActive = true
+
+        buttonStack.addArrangedSubview(saveButton)
+        buttonStack.addArrangedSubview(cancelButton)
+        stack.addArrangedSubview(buttonStack)
+    }
+
     private func addActionContent(to stack: UIStackView) {
         let actions = request.actions ?? []
 
@@ -491,11 +651,15 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
     }
 
     @objc private func saveButtonTapped() {
-        saveText()
+        if request.kind == "form" {
+            saveForm()
+        } else {
+            saveText()
+        }
     }
 
     @objc private func cancelButtonTapped() {
-        complete(status: "cancelled", value: nil, actionId: nil, shouldDismiss: true)
+        complete(status: "cancelled", value: nil, values: nil, actionId: nil, shouldDismiss: true)
     }
 
     @objc private func actionButtonTapped(_ sender: UIButton) {
@@ -503,7 +667,7 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
             return
         }
 
-        complete(status: "action", value: nil, actionId: actionId, shouldDismiss: true)
+        complete(status: "action", value: nil, values: nil, actionId: actionId, shouldDismiss: true)
     }
 
     private func saveText() {
@@ -513,12 +677,32 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
             return
         }
 
-        complete(status: "saved", value: value, actionId: nil, shouldDismiss: true)
+        complete(status: "saved", value: value, values: nil, actionId: nil, shouldDismiss: true)
+    }
+
+    private func saveForm() {
+        guard formIsValid() else {
+            updateSaveButtonState()
+            return
+        }
+
+        var values: [String: String] = [:]
+
+        for (fieldId, fieldInput) in formTextFields {
+            values[fieldId] = (fieldInput.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        for (fieldId, textView) in formTextViews {
+            values[fieldId] = normalizedTextViewValue(textView)
+        }
+
+        complete(status: "saved", value: nil, values: values, actionId: nil, shouldDismiss: true)
     }
 
     private func updateSaveButtonState() {
-        let value = (textField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        let isEnabled = !value.isEmpty
+        let isEnabled = request.kind == "form"
+            ? formIsValid()
+            : !(textField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         saveButton.isEnabled = isEnabled
 
         var configuration = saveButton.configuration
@@ -531,7 +715,47 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
         saveButton.configuration = configuration
     }
 
-    private func complete(status: String, value: String?, actionId: String?, shouldDismiss: Bool) {
+    private func formIsValid() -> Bool {
+        for fieldId in formRequiredFieldIds {
+            if let fieldInput = formTextFields[fieldId] {
+                if (fieldInput.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    return false
+                }
+                continue
+            }
+
+            if let textView = formTextViews[fieldId] {
+                if normalizedTextViewValue(textView).isEmpty {
+                    return false
+                }
+                continue
+            }
+
+            return false
+        }
+
+        return true
+    }
+
+    private func normalizedTextViewValue(_ textView: UITextView) -> String {
+        let key = ObjectIdentifier(textView)
+        if let placeholder = textViewPlaceholders[key],
+           textView.text == placeholder,
+           textView.textColor != Style.ink
+        {
+            return ""
+        }
+
+        return textView.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func complete(
+        status: String,
+        value: String?,
+        values: [String: String]?,
+        actionId: String?,
+        shouldDismiss: Bool
+    ) {
         guard !didComplete else {
             return
         }
@@ -540,15 +764,20 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
 
         if shouldDismiss {
             dismiss(animated: true) { [weak self] in
-                self?.emitResult(status: status, value: value, actionId: actionId)
+                self?.emitResult(status: status, value: value, values: values, actionId: actionId)
             }
             return
         }
 
-        emitResult(status: status, value: value, actionId: actionId)
+        emitResult(status: status, value: value, values: values, actionId: actionId)
     }
 
-    private func emitResult(status: String, value: String?, actionId: String?) {
+    private func emitResult(
+        status: String,
+        value: String?,
+        values: [String: String]?,
+        actionId: String?
+    ) {
         guard let webView else {
             return
         }
@@ -557,6 +786,7 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
             token: request.token,
             status: status,
             value: value,
+            values: values,
             actionId: actionId
         )
 

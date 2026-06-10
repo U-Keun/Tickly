@@ -10,27 +10,31 @@
     show: boolean;
     item: V2TodoItem | null;
     isSaving?: boolean;
-    onSaveText: (id: number, text: string) => MaybePromise;
+    onSaveDetails: (id: number, text: string, memo: string | null) => MaybePromise;
     onClose: () => void;
   }
 
-  let { show, item, isSaving = false, onSaveText, onClose }: Props = $props();
+  let { show, item, isSaving = false, onSaveDetails, onClose }: Props = $props();
 
   let draftText = $state('');
+  let draftMemo = $state('');
   let preparedItemId = $state<number | null>(null);
 
   let trimmedText = $derived(draftText.trim());
+  let trimmedMemo = $derived(draftMemo.trim());
   let isVisible = $derived(show && item !== null);
 
   $effect(() => {
     if (!isVisible || !item) {
       draftText = '';
+      draftMemo = '';
       preparedItemId = null;
       return;
     }
 
     if (preparedItemId !== item.id) {
       draftText = item.text;
+      draftMemo = item.memo ?? '';
       preparedItemId = item.id;
     }
   });
@@ -45,7 +49,7 @@
     if (!item || !trimmedText || isSaving) return;
 
     try {
-      await onSaveText(item.id, trimmedText);
+      await onSaveDetails(item.id, trimmedText, trimmedMemo || null);
       onClose();
     } catch {
       // The v2 store owns the visible error banner; keep the sheet open.
@@ -71,6 +75,18 @@
           autocomplete="off"
           disabled={isSaving}
         />
+      </label>
+
+      <label class="flex flex-col gap-2">
+        <span class="text-sm font-semibold text-[var(--color-ink)]">{i18n.t('v2ItemMemoLabel')}</span>
+        <textarea
+          use:iosFocusFix
+          bind:value={draftMemo}
+          class="min-h-28 resize-none rounded-[14px] border-2 border-[var(--color-ink)] bg-[var(--color-paper)] px-4 py-3 text-base leading-6 text-[var(--color-ink)] outline-none transition-colors focus:bg-[var(--color-canvas)]"
+          placeholder={i18n.t('v2ItemMemoPlaceholder')}
+          aria-label={i18n.t('v2ItemMemoLabel')}
+          disabled={isSaving}
+        ></textarea>
       </label>
 
       <div class="flex gap-2">

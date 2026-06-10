@@ -23,6 +23,22 @@ export interface V2NativeActionSheetOptions {
   cancelLabel: string;
 }
 
+export interface V2NativeFormSheetField {
+  id: string;
+  kind: 'text' | 'textarea';
+  label: string;
+  placeholder: string;
+  initialValue: string;
+  required?: boolean;
+}
+
+export interface V2NativeFormSheetOptions {
+  title: string;
+  fields: V2NativeFormSheetField[];
+  confirmLabel: string;
+  cancelLabel: string;
+}
+
 export type V2NativeTextSheetResult =
   | { status: 'saved'; value: string }
   | { status: 'cancelled' }
@@ -30,6 +46,11 @@ export type V2NativeTextSheetResult =
 
 export type V2NativeActionSheetResult =
   | { status: 'action'; actionId: string }
+  | { status: 'cancelled' }
+  | { status: 'unavailable' };
+
+export type V2NativeFormSheetResult =
+  | { status: 'saved'; values: Record<string, string> }
   | { status: 'cancelled' }
   | { status: 'unavailable' };
 
@@ -45,6 +66,20 @@ type V2NativeSheetRequest =
         initialValue: string;
         confirmLabel: string;
       };
+      form: null;
+      actions: null;
+      cancelLabel: string;
+    }
+  | {
+      token: string;
+      kind: 'form';
+      title: string;
+      message: null;
+      text: null;
+      form: {
+        fields: V2NativeFormSheetField[];
+        confirmLabel: string;
+      };
       actions: null;
       cancelLabel: string;
     }
@@ -54,6 +89,7 @@ type V2NativeSheetRequest =
       title: string;
       message: string | null;
       text: null;
+      form: null;
       actions: V2NativeActionSheetAction[];
       cancelLabel: string;
     };
@@ -62,11 +98,13 @@ interface V2NativeSheetEventDetail {
   token: string;
   status: 'saved' | 'action' | 'cancelled';
   value?: string | null;
+  values?: Record<string, string> | null;
   actionId?: string | null;
 }
 
 type V2NativeSheetResult =
   | { status: 'saved'; value: string }
+  | { status: 'saved'; values: Record<string, string> }
   | { status: 'action'; actionId: string }
   | { status: 'cancelled' }
   | { status: 'unavailable' };
@@ -122,6 +160,24 @@ function parseEventDetail(detail: unknown): V2NativeSheetEventDetail | null {
   ) {
     return null;
   }
+  let values: Record<string, string> | null = null;
+  if (maybeDetail.values !== undefined && maybeDetail.values !== null) {
+    if (
+      !maybeDetail.values ||
+      typeof maybeDetail.values !== 'object' ||
+      Array.isArray(maybeDetail.values)
+    ) {
+      return null;
+    }
+
+    values = {};
+    for (const [key, value] of Object.entries(maybeDetail.values)) {
+      if (typeof value !== 'string') {
+        return null;
+      }
+      values[key] = value;
+    }
+  }
   if (
     maybeDetail.actionId !== undefined &&
     maybeDetail.actionId !== null &&
@@ -134,6 +190,7 @@ function parseEventDetail(detail: unknown): V2NativeSheetEventDetail | null {
     token: maybeDetail.token,
     status: maybeDetail.status,
     value: maybeDetail.value ?? null,
+    values,
     actionId: maybeDetail.actionId ?? null
   };
 }
@@ -165,6 +222,11 @@ async function openNativeSheet(request: V2NativeSheetRequest): Promise<V2NativeS
       if (!detail || detail.token !== request.token) return;
 
       if (detail.status === 'saved') {
+        if (detail.values) {
+          finish({ status: 'saved', values: detail.values });
+          return;
+        }
+
         finish({ status: 'saved', value: detail.value ?? '' });
         return;
       }
@@ -199,17 +261,46 @@ export async function openNativeTextSheet(
     kind: 'text',
     title: options.title,
     message: null,
-    text: {
-      label: options.label,
-      placeholder: options.placeholder,
-      initialValue: options.initialValue,
+      text: {
+        label: options.label,
+        placeholder: options.placeholder,
+        initialValue: options.initialValue,
+        confirmLabel: options.confirmLabel
+      },
+      form: null,
+      actions: null,
+      cancelLabel: options.cancelLabel
+  });
+
+  if (result.status === 'saved' && 'value' in result) {
+    return result;
+  }
+
+  if (result.status === 'unavailable') {
+    return result;
+  }
+
+  return { status: 'cancelled' };
+}
+
+export async function openNativeFormSheet(
+  options: V2NativeFormSheetOptions
+): Promise<V2NativeFormSheetResult> {
+  const result = await openNativeSheet({
+    token: createToken(),
+    kind: 'form',
+    title: options.title,
+    message: null,
+    text: null,
+    form: {
+      fields: options.fields,
       confirmLabel: options.confirmLabel
     },
     actions: null,
     cancelLabel: options.cancelLabel
   });
 
-  if (result.status === 'saved') {
+  if (result.status === 'saved' && 'values' in result) {
     return result;
   }
 
@@ -229,6 +320,7 @@ export async function openNativeActionSheet(
     title: options.title,
     message: options.message ?? null,
     text: null,
+    form: null,
     actions: options.actions,
     cancelLabel: options.cancelLabel
   });

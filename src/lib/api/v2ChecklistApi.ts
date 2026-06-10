@@ -43,6 +43,14 @@ export async function v2UpdateItemText(id: number, text: string): Promise<void> 
   return invoke<void>('v2_update_item_text', { id, text });
 }
 
+export async function v2UpdateItemDetails(
+  id: number,
+  text: string,
+  memo: string | null
+): Promise<void> {
+  return invoke<void>('v2_update_item_details', { id, text, memo });
+}
+
 export async function v2ToggleItem(id: number): Promise<V2TodoItem> {
   return invoke<V2TodoItem>('v2_toggle_item', { id });
 }

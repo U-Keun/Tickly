@@ -11,9 +11,10 @@ v2 keeps the item drawer small and action-focused, then uses a bottom-sheet-styl
 ```mermaid
 flowchart TB
   Row["v2 item row"] --> Drawer["inline quick drawer"]
-  Drawer --> QuickActions["edit / delete / reorder actions"]
-  QuickActions --> Sheet["text-entry detail sheet"]
-  Sheet --> Native["iOS native text request when available"]
+  Drawer --> Preview["title + memo preview"]
+  Drawer --> QuickActions["edit / delete actions"]
+  QuickActions --> Sheet["item detail sheet"]
+  Sheet --> Native["iOS native form request when available"]
   Sheet --> Web["Svelte sheet fallback"]
   QuickActions --> Confirm["delete confirm modal"]
 ```
@@ -21,8 +22,8 @@ flowchart TB
 ## Selected Decisions
 
 - Drawer trigger: tapping the text row toggles the inline drawer. The checkbox keeps its own complete/restore action.
-- Drawer role: quick actions now, future lightweight detail preview later. Direct edit inputs do not live inside the drawer.
-- Edit role: the Edit action opens the text-entry detail sheet. On iOS app runtime this uses the generic Swift native sheet with a `text` request; Storybook, desktop, and browser keep using the Svelte `V2ItemDetailSheet` fallback.
+- Drawer role: quick actions plus lightweight reading detail. The opened drawer shows the item title first and memo preview below it when present. Direct edit inputs do not live inside the drawer.
+- Edit role: the Edit action opens the item detail sheet. On iOS app runtime this uses the generic Swift native sheet with a `form` request; Storybook, desktop, and browser keep using the Svelte `V2ItemDetailSheet` fallback.
 - Delete role: the Delete action opens the confirm modal without forcing the drawer closed, so canceling returns to the same row context.
 - Reorder role: Move Up and Move Down appear inside the drawer only while reorder mode is active.
 - Motion: the drawer slides first, then its bordered content fades in after a short pause. Closing reverses that order so the content fades out before the drawer collapses.
@@ -30,17 +31,16 @@ flowchart TB
 
 ## Surface Boundary
 
-- Drawer: quick item actions and future memo/detail preview.
-- Text-entry detail sheet: item settings and editing. Native iOS owns only the temporary input UI; the Svelte screen still receives the result and saves through the existing v2 store/API flow.
+- Drawer: quick item actions, up to 4 lines of item title, and up to 4 lines of memo preview.
+- Item detail sheet: item name and memo editing. Native iOS owns only the temporary input UI; the Svelte screen still receives the result and saves through the existing v2 store/API flow.
 - Confirm modal: destructive confirmation.
 
-The first detail sheet edits only the item name because `v2_todos` does not yet include memo, tags, repeat rules, reminders, or app links. Those fields should be added to the same editing surface when the v2 data model expands.
+The first detail expansion adds `memo` to `v2_todos`. Tags, repeat rules, reminders, and app links should be added to the same editing surface when the v2 data model expands.
 
 ## Out Of Scope
 
-- No v2 schema change.
-- No memo field yet.
-- No checklist data command, repository, schema, or store change. The native sheet bridge adds only presentation commands.
+- No rich text, markdown rendering, image attachments, or link previews for memo.
+- No tag, repeat, reminder, streak, linked app, sync, widget, or graph behavior in this slice.
 - No native rewrite of confirm modal, drawer, search, item reorder, or category rail surfaces.
 - No v1 drawer, modal, or item component change.
 

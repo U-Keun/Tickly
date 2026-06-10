@@ -11,6 +11,7 @@ const results: V2ItemSearchResult[] = [
       id: 1,
       category_id: 1,
       text: 'Wallet',
+      memo: null,
       done: false,
       display_order: 1000,
       created_at: now,
@@ -29,6 +30,7 @@ const results: V2ItemSearchResult[] = [
       id: 2,
       category_id: 2,
       text: 'Portable charger before leaving for a very long commute',
+      memo: null,
       done: true,
       display_order: 2000,
       created_at: now,
@@ -38,6 +40,28 @@ const results: V2ItemSearchResult[] = [
       id: 2,
       name: 'Travel',
       display_order: 2000,
+      created_at: now,
+      updated_at: now
+    }
+  }
+];
+
+const memoResults: V2ItemSearchResult[] = [
+  {
+    item: {
+      id: 3,
+      category_id: 1,
+      text: 'Passport',
+      memo: 'Keep this in the blue travel pouch.',
+      done: false,
+      display_order: 3000,
+      created_at: now,
+      updated_at: now
+    },
+    category: {
+      id: 1,
+      name: 'Home',
+      display_order: 1000,
       created_at: now,
       updated_at: now
     }
@@ -76,5 +100,12 @@ export const Loading: Story = {
   args: {
     results: [],
     isLoading: true
+  }
+};
+
+export const MemoMatch: Story = {
+  args: {
+    query: 'blue',
+    results: memoResults
   }
 };

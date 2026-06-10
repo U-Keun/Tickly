@@ -150,6 +150,7 @@ pub fn run() {
             v2_search_items,
             v2_create_item,
             v2_update_item_text,
+            v2_update_item_details,
             v2_toggle_item,
             v2_delete_item,
             v2_reorder_items,

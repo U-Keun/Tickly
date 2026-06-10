@@ -14,6 +14,7 @@ pub struct V2TodoItem {
     pub id: i64,
     pub category_id: i64,
     pub text: String,
+    pub memo: Option<String>,
     pub done: bool,
     pub display_order: i64,
     pub created_at: String,
