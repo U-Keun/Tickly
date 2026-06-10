@@ -81,8 +81,8 @@
 >
   {#if item}
     <form class="flex flex-col gap-4" onsubmit={submitEdit}>
-      <label class="flex flex-col gap-2">
-        <span class="text-sm font-semibold text-[var(--color-ink)]">{i18n.t('v2ItemTextLabel')}</span>
+      <label class="flex flex-col">
+        <span class="sr-only">{i18n.t('v2ItemTextLabel')}</span>
         <input
           use:iosFocusFix
           bind:value={draftText}
@@ -94,8 +94,8 @@
         />
       </label>
 
-      <label class="flex flex-col gap-2">
-        <span class="text-sm font-semibold text-[var(--color-ink)]">{i18n.t('v2ItemMemoLabel')}</span>
+      <label class="flex flex-col">
+        <span class="sr-only">{i18n.t('v2ItemMemoLabel')}</span>
         <textarea
           use:iosFocusFix
           bind:value={draftMemo}
@@ -106,8 +106,8 @@
         ></textarea>
       </label>
 
-      <label class="flex flex-col gap-2">
-        <span class="text-sm font-semibold text-[var(--color-ink)]">{i18n.t('v2ItemTagsLabel')}</span>
+      <label class="flex flex-col">
+        <span class="sr-only">{i18n.t('v2ItemTagsLabel')}</span>
         <V2TagEditor
           tagNames={draftTagNames}
           {availableTags}

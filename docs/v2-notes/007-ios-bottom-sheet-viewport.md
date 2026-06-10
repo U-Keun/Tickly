@@ -22,6 +22,7 @@ The v2 issue is different. Bottom sheets open over the current screen, and iOS W
 - On iOS, disable the WKWebView scroll view's automatic content inset adjustment and pin the WKWebView/root UIView frames to their parent bounds.
 - Use one generic native sheet bridge for `text` and `actions` requests. iOS 15+ uses a custom Swift `UIPresentationController` surface; text requests use custom keyboard-frame placement, while action requests use the same Tickly colors, spacing, and button tone.
 - Use a custom Soft Leaf outer sheet for iOS native bottom-sheet surfaces. The presented view has a transparent root and an ink outer shape with an inset white fill using the Tickly Soft Leaf radius pattern: top-left `6`, top-right `24`, bottom-right `6`, bottom-left `24`.
+- Match the Svelte `V2BottomSheet` fallback to the same Soft Leaf radius pattern. Storybook, desktop, browser, and native-unavailable fallback now show the same bottom-sheet silhouette as the Swift sheet.
 - Use the same Soft Leaf language for v2 web Leaf surfaces. Standard v2 Leaf components use `6px/24px`, while compact Leaf surfaces use the same proportion, such as `5px/18px`.
 - Keep this custom presentation intentionally stable-first: backdrop tap, cancel/save/action results, keyboard movement, and a simple downward drag-dismiss are supported; full system detent parity is not part of this step.
 - Emit native sheet results only after a programmatic dismissal completes. This lets category manage actions chain into category rename text sheets without racing the still-dismissing action sheet.

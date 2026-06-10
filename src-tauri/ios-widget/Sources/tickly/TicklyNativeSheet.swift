@@ -485,20 +485,13 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
 
     private func addFormContent(_ formRequest: TicklyNativeSheetFormRequest, to stack: UIStackView) {
         for field in formRequest.fields {
-            let fieldLabel = UILabel()
-            fieldLabel.text = field.label
-            fieldLabel.font = .preferredFont(forTextStyle: .subheadline)
-            fieldLabel.adjustsFontForContentSizeCategory = true
-            fieldLabel.textColor = Style.ink
-            stack.addArrangedSubview(fieldLabel)
-            stack.setCustomSpacing(8, after: fieldLabel)
-
             if field.required ?? false {
                 formRequiredFieldIds.insert(field.id)
             }
 
             if field.kind == "tags" {
                 let tagField = TagFieldView(
+                    label: field.label,
                     placeholder: field.placeholder,
                     initialTags: field.initialTags ?? [],
                     suggestions: field.suggestions ?? [],
@@ -518,6 +511,7 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
                 textView.layer.cornerRadius = 14
                 textView.layer.borderColor = Style.ink.cgColor
                 textView.layer.borderWidth = 2
+                textView.accessibilityLabel = field.label
                 textView.keyboardDismissMode = .interactive
                 textView.delegate = self
                 textView.textContainerInset = UIEdgeInsets(top: 12, left: 10, bottom: 12, right: 10)
@@ -547,6 +541,7 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
                 fieldInput.layer.cornerRadius = 14
                 fieldInput.layer.borderColor = Style.ink.cgColor
                 fieldInput.layer.borderWidth = 2
+                fieldInput.accessibilityLabel = field.label
                 fieldInput.returnKeyType = .done
                 fieldInput.clearButtonMode = .whileEditing
                 fieldInput.autocorrectionType = .default
@@ -818,6 +813,7 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
         var onChange: (() -> Void)?
 
         private let style: Style.Type
+        private let label: String
         private let placeholder: String
         private let suggestions: [String]
         private let rootStack = UIStackView()
@@ -832,11 +828,13 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
         }
 
         init(
+            label: String,
             placeholder: String,
             initialTags: [String],
             suggestions: [String],
             style: Style.Type
         ) {
+            self.label = label
             self.placeholder = placeholder
             self.suggestions = suggestions
             self.style = style
@@ -918,6 +916,7 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
             textField.textColor = style.ink
             textField.tintColor = style.accentSkyStrong
             textField.backgroundColor = .clear
+            textField.accessibilityLabel = label
             textField.returnKeyType = .done
             textField.autocorrectionType = .default
             textField.delegate = self

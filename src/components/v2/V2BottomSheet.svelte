@@ -151,39 +151,42 @@
       style={`bottom: ${keyboardBottomInset}px; transition: bottom 180ms cubic-bezier(0.22, 1, 0.36, 1);`}
     >
       <div
-        class={`relative flex w-full max-w-md flex-col overflow-visible rounded-t-[24px] border-2 border-[var(--color-ink)] bg-[var(--color-white)] pt-3 text-[var(--color-ink)] shadow-2xl ${
-          viewportBottomGap > 0 ? 'border-b-0' : ''
-        }`}
-        style={`max-height: min(${sheetMaxHeight}px, 720px);`}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        tabindex="-1"
+        class="relative w-full max-w-md overflow-visible text-[var(--color-ink)]"
+        role="presentation"
         onclick={(event) => event.stopPropagation()}
         onkeydown={(event) => event.stopPropagation()}
         in:fly={{ y: 28, duration: 260, easing: cubicOut }}
         out:fly={{ y: 24, duration: 190, easing: cubicOut }}
       >
-        <div class="mx-auto h-1.5 w-11 rounded-full bg-[var(--color-stroke)]" aria-hidden="true"></div>
+        <div
+          class="relative z-10 flex flex-col overflow-hidden rounded-[6px_24px_6px_24px] border-2 border-[var(--color-ink)] bg-[var(--color-white)] pt-3 shadow-2xl"
+          style={`max-height: min(${sheetMaxHeight}px, 720px);`}
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+          tabindex="-1"
+        >
+          <div class="mx-auto h-1.5 w-11 rounded-full bg-[var(--color-stroke)]" aria-hidden="true"></div>
 
-        <header class="px-5 pb-4 pt-4">
-          <h2 class="text-lg font-semibold leading-6 text-[var(--color-ink)]">{title}</h2>
-          {#if description}
-            <p class="mt-2 whitespace-pre-line text-sm leading-6 text-[var(--color-ink-muted)]">
-              {description}
-            </p>
+          <header class="px-5 pb-4 pt-4">
+            <h2 class="text-lg font-semibold leading-6 text-[var(--color-ink)]">{title}</h2>
+            {#if description}
+              <p class="mt-2 whitespace-pre-line text-sm leading-6 text-[var(--color-ink-muted)]">
+                {description}
+              </p>
+            {/if}
+          </header>
+
+          {#if children}
+            <div class="min-h-0 overflow-y-auto px-5 pb-5">
+              {@render children()}
+            </div>
           {/if}
-        </header>
-
-        {#if children}
-          <div class="min-h-0 overflow-y-auto px-5 pb-5">
-            {@render children()}
-          </div>
-        {/if}
+        </div>
 
         {#if viewportBottomGap > 0}
           <div
-            class="pointer-events-none absolute left-[-2px] right-[-2px] top-full border-x-2 border-b-2 border-[var(--color-ink)] bg-[var(--color-white)]"
+            class="pointer-events-none absolute left-1 right-1 top-full bg-[var(--color-white)]"
             style={`height: ${viewportBottomGap}px;`}
             aria-hidden="true"
           ></div>
