@@ -19,6 +19,7 @@
   const CHECKBOX_CHECK_REVEAL_DELAY_MS = 260;
   const TEXT_DONE_DELAY_MS = CHECKBOX_CHECK_REVEAL_DELAY_MS + 230;
   const CHECKBOX_HOP_RESET_DELAY_MS = CHECKBOX_HOP_DURATION_MS + 40;
+  const TEXT_PRESS_RELEASE_DELAY_MS = 90;
 
   interface Props {
     item: V2TodoItem;
@@ -56,6 +57,8 @@
   let checkRevealTimer: ReturnType<typeof setTimeout> | null = null;
   let tickPulseTimer: ReturnType<typeof setTimeout> | null = null;
   let drawerContentTimer: ReturnType<typeof setTimeout> | null = null;
+  let textPressTimer: ReturnType<typeof setTimeout> | null = null;
+  let isTextPressing = $state(false);
   let checkboxButton: HTMLButtonElement | null = $state(null);
   let drawerId = $derived(`v2-todo-drawer-${item.id}`);
 
@@ -86,11 +89,18 @@
     lastSyncedDone = item.done;
   });
 
+  $effect(() => {
+    if (isTextClickSuppressed) {
+      resetTextPressState();
+    }
+  });
+
   onDestroy(() => {
     clearTextDoneTimer();
     clearCheckRevealTimer();
     clearTickPulseTimer();
     clearDrawerContentTimer();
+    clearTextPressTimer();
   });
 
   function clearTextDoneTimer(): void {
@@ -115,6 +125,25 @@
     if (!drawerContentTimer) return;
     clearTimeout(drawerContentTimer);
     drawerContentTimer = null;
+  }
+
+  function clearTextPressTimer(): void {
+    if (!textPressTimer) return;
+    clearTimeout(textPressTimer);
+    textPressTimer = null;
+  }
+
+  function resetTextPressState(): void {
+    clearTextPressTimer();
+    isTextPressing = false;
+  }
+
+  function releaseTextPressSoon(): void {
+    clearTextPressTimer();
+    textPressTimer = setTimeout(() => {
+      isTextPressing = false;
+      textPressTimer = null;
+    }, TEXT_PRESS_RELEASE_DELAY_MS);
   }
 
   function prefersReducedMotion(): boolean {
@@ -172,11 +201,25 @@
 
   function handleTextClick(event: MouseEvent): void {
     if (isTextClickSuppressed) {
+      resetTextPressState();
       event.preventDefault();
       return;
     }
 
     toggleDrawer();
+  }
+
+  function handleTextPointerDown(event: PointerEvent): void {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    if (isTextClickSuppressed) return;
+
+    clearTextPressTimer();
+    isTextPressing = true;
+  }
+
+  function handleTextPointerUp(): void {
+    if (!isTextPressing) return;
+    releaseTextPressSoon();
   }
 
   function setDisplayedDone(nextDone: boolean, shouldAnimate: boolean): void {
@@ -250,11 +293,12 @@
 
 <article
   style={`--drawer-content-duration: ${DRAWER_CONTENT_TRANSITION_MS}ms; --checkbox-hop-duration: ${CHECKBOX_HOP_DURATION_MS}ms;`}
-  class={`rounded-[6px_24px_6px_24px] border-2 border-[var(--color-ink)] p-2 shadow-sm transition-colors ${
+  class={`todoSurface rounded-[6px_24px_6px_24px] border-2 border-[var(--color-ink)] p-2 shadow-sm ${
     displayedDone
       ? 'bg-[var(--color-canvas)]'
       : 'bg-[var(--color-paper)]'
   }`}
+  class:todoSurfacePressed={isTextPressing}
 >
   <div class="flex min-h-11 items-center gap-2.5">
     <button
@@ -305,7 +349,14 @@
         aria-expanded={isDrawerOpen}
         aria-controls={drawerId}
         title={item.text}
-        oncontextmenu={(event) => event.preventDefault()}
+        oncontextmenu={(event) => {
+          event.preventDefault();
+          resetTextPressState();
+        }}
+        onpointerdown={handleTextPointerDown}
+        onpointerup={handleTextPointerUp}
+        onpointercancel={resetTextPressState}
+        onpointerleave={resetTextPressState}
         onclick={handleTextClick}
       >
         <span class="min-w-0 flex-1 truncate">
@@ -351,6 +402,20 @@
 </article>
 
 <style>
+  .todoSurface {
+    transform-origin: center;
+    transition:
+      background-color 160ms ease-out,
+      box-shadow 130ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      transform 130ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    will-change: transform;
+  }
+
+  .todoSurfacePressed {
+    box-shadow: 0 1px 0 rgb(0 0 0 / 0.08);
+    transform: translateY(1px) scale(0.992);
+  }
+
   .tickCheck path {
     stroke-dasharray: 24;
     stroke-dashoffset: 0;
@@ -546,6 +611,13 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .todoSurface,
+    .todoSurfacePressed {
+      box-shadow: var(--tw-shadow);
+      transition: background-color 160ms ease-out;
+      transform: none;
+    }
+
     .checkboxSoftHop {
       animation: none;
     }
