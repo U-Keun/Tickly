@@ -8,7 +8,7 @@ The current v2 direction is more focused: the first visible interaction should b
 
 ## Design Checkpoint
 
-`V2LeafCommandBar` is now the first major surface in the `/v2` checklist screen.
+`V2LeafCommandBar` is now the first major surface in the v2 checklist screen.
 
 ```mermaid
 flowchart TB
@@ -42,4 +42,4 @@ The main rule is that sorting controls should not push the command bar down or m
 
 - `yarn run check`.
 - `yarn storybook --smoke-test -p 6008`.
-- Manual `/v2` QA for safe-area spacing, command bar focus, category rail position, and item drawer behavior.
+- Manual `/` QA for safe-area spacing, command bar focus, category rail position, and item drawer behavior.

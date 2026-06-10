@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { flip } from 'svelte/animate';
   import { cubicIn, cubicOut } from 'svelte/easing';
   import { fade, fly } from 'svelte/transition';
@@ -10,18 +10,24 @@
   import { i18n } from '$lib/i18n';
   import V2CategoryDetailSheet from './V2CategoryDetailSheet.svelte';
   import V2CategoryManageSheet from './V2CategoryManageSheet.svelte';
+  import V2CheckboxFanfare from './V2CheckboxFanfare.svelte';
   import V2CategoryRail from './V2CategoryRail.svelte';
   import V2ConfirmModal from './V2ConfirmModal.svelte';
   import V2ItemDetailSheet from './V2ItemDetailSheet.svelte';
   import V2LeafCommandBar from './V2LeafCommandBar.svelte';
   import V2LeafTodoItem from './V2LeafTodoItem.svelte';
   import V2SearchSuggestionBoard from './V2SearchSuggestionBoard.svelte';
+  import * as v2NativeSheetApi from '$lib/api/v2NativeSheetApi';
 
   type MaybePromise = void | Promise<void>;
   const LIST_EXIT_DURATION_MS = 80;
   const LIST_EXIT_GAP_MS = 70;
   const LIST_ENTER_DURATION_MS = 160;
   const REORDER_FLIP_DURATION_MS = 180;
+  const TODO_COMPLETION_MOVE_DURATION_MS = 340;
+  const TODO_COMPLETION_CHECKBOX_HOP_LEAD_MS = 1060;
+  const TODO_COMPLETION_MOVE_CLEANUP_MS = TODO_COMPLETION_MOVE_DURATION_MS + 80;
+  const TODO_COMPLETION_FANFARE_DURATION_MS = 560;
   const SEARCH_DEBOUNCE_MS = 150;
   const SEARCH_RESULT_LIMIT = 8;
 
@@ -68,7 +74,29 @@
   }: Props = $props();
 
   type CategoryDetailMode = 'create' | 'rename';
+  type CategoryManageActionId = 'rename' | 'editOrder' | 'delete';
   type ReorderGroup = 'active' | 'done';
+  type RectSnapshot = {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  };
+  type CompletionMoveOverlay = {
+    id: number;
+    html: string;
+    from: RectSnapshot;
+    deltaX: number;
+    deltaY: number;
+    scaleX: number;
+    scaleY: number;
+    isAnimating: boolean;
+  };
+  type CompletionFanfareOverlay = {
+    id: number;
+    left: number;
+    top: number;
+  };
 
   let categoryDetailMode = $state<CategoryDetailMode>('create');
   let categoryPendingDetail = $state<V2Category | null>(null);
@@ -98,6 +126,16 @@
   let categoryReorderDraft = $state<V2Category[] | null>(null);
   let isTextClickSuppressed = $state(false);
   let textClickSuppressTimer: ReturnType<typeof setTimeout> | null = null;
+  let completionMoveTimer: ReturnType<typeof setTimeout> | null = null;
+  let completionMoveFrame: number | null = null;
+  let completionMoveFinishFrame: number | null = null;
+  let completionFanfareTimer: ReturnType<typeof setTimeout> | null = null;
+  let completionMoveToken = 0;
+  let completionFanfareToken = 0;
+  const itemNodes = new Map<number, HTMLElement>();
+  let movingItemId = $state<number | null>(null);
+  let completionMoveOverlay = $state<CompletionMoveOverlay | null>(null);
+  let completionFanfareOverlay = $state<CompletionFanfareOverlay | null>(null);
   let displayedCategoryId = $state<number | null>(null);
   let displayedItems = $state<V2TodoItem[]>([]);
   let hasDisplayedList = $state(false);
@@ -132,6 +170,127 @@
 
   function wait(ms: number): Promise<void> {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  function snapshotRect(rect: DOMRect): RectSnapshot {
+    return {
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height
+    };
+  }
+
+  function snapshotCompletionMoveHtml(node: HTMLElement): string {
+    const clone = node.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('.checkboxSoftHop').forEach((element) => {
+      element.classList.remove('checkboxSoftHop');
+    });
+    clone.querySelectorAll('.tickCheck').forEach((element) => {
+      element.querySelectorAll('path').forEach((path) => {
+        path.setAttribute('style', 'animation: none; stroke-dashoffset: 0;');
+      });
+    });
+
+    return clone.innerHTML;
+  }
+
+  function trackItemNode(node: HTMLElement, id: number): { update: (nextId: number) => void; destroy: () => void } {
+    itemNodes.set(id, node);
+
+    return {
+      update(nextId: number) {
+        if (nextId === id) return;
+        itemNodes.delete(id);
+        id = nextId;
+        itemNodes.set(id, node);
+      },
+      destroy() {
+        itemNodes.delete(id);
+      }
+    };
+  }
+
+  function clearCompletionMove(): void {
+    completionMoveToken += 1;
+
+    if (completionMoveTimer) {
+      clearTimeout(completionMoveTimer);
+      completionMoveTimer = null;
+    }
+
+    if (completionMoveFrame !== null) {
+      cancelAnimationFrame(completionMoveFrame);
+      completionMoveFrame = null;
+    }
+
+    if (completionMoveFinishFrame !== null) {
+      cancelAnimationFrame(completionMoveFinishFrame);
+      completionMoveFinishFrame = null;
+    }
+
+    completionMoveOverlay = null;
+    movingItemId = null;
+  }
+
+  function clearCompletionFanfare(): void {
+    completionFanfareToken += 1;
+
+    if (completionFanfareTimer) {
+      clearTimeout(completionFanfareTimer);
+      completionFanfareTimer = null;
+    }
+
+    completionFanfareOverlay = null;
+  }
+
+  function finishCompletionMove(id: number, token: number): void {
+    if (completionMoveTimer) {
+      clearTimeout(completionMoveTimer);
+      completionMoveTimer = null;
+    }
+
+    if (token !== completionMoveToken || completionMoveOverlay?.id !== id) return;
+
+    movingItemId = null;
+
+    completionMoveFinishFrame = requestAnimationFrame(() => {
+      completionMoveFinishFrame = requestAnimationFrame(() => {
+        completionMoveFinishFrame = null;
+        if (token === completionMoveToken && completionMoveOverlay?.id === id) {
+          completionMoveOverlay = null;
+        }
+      });
+    });
+  }
+
+  function canAnimateCompletionMove(): boolean {
+    return (
+      !prefersReducedMotion &&
+      !hasAppliedSearchQuery &&
+      !isListSwitching &&
+      !isCategoryReorderMode &&
+      !isSavingReorder
+    );
+  }
+
+  function completionMoveGhostStyle(overlay: CompletionMoveOverlay): string {
+    const transform = overlay.isAnimating
+      ? `translate3d(${overlay.deltaX}px, ${overlay.deltaY}px, 0) scale(${overlay.scaleX}, ${overlay.scaleY})`
+      : 'translate3d(0, 0, 0) scale(1)';
+
+    return [
+      `left: ${overlay.from.left}px`,
+      `top: ${overlay.from.top}px`,
+      `width: ${overlay.from.width}px`,
+      `height: ${overlay.from.height}px`,
+      `transform: ${transform}`,
+      `--completion-move-duration: ${TODO_COMPLETION_MOVE_DURATION_MS}ms`
+    ].join('; ');
+  }
+
+  function completionFanfareStyle(overlay: CompletionFanfareOverlay): string {
+    return [`left: ${overlay.left}px`, `top: ${overlay.top}px`].join('; ');
   }
 
   function updateDisplayedList(categoryId: number | null, nextItems: V2TodoItem[]): void {
@@ -234,16 +393,91 @@
   function openCreateCategorySheet(): void {
     if (isCategoryReorderMode) return;
 
-    categoryDetailMode = 'create';
-    categoryPendingDetail = null;
-    showCategoryManageSheet = false;
-    showCategoryDetailSheet = true;
+    void openCategoryTextSheet('create', null);
   }
 
   function openCategoryManageSheet(category: V2Category): void {
     if (isCategoryReorderMode) return;
+
+    void openCategoryManageActions(category);
+  }
+
+  function openWebCategoryManageSheet(category: V2Category): void {
     categoryPendingDetail = category;
     showCategoryManageSheet = true;
+  }
+
+  function canOpenWebBottomSheetFallback(): boolean {
+    return !v2NativeSheetApi.shouldUseNativeSheets();
+  }
+
+  async function openCategoryManageActions(category: V2Category): Promise<void> {
+    showCategoryManageSheet = false;
+    showCategoryDetailSheet = false;
+    categoryPendingDetail = category;
+
+    const nativeResult = await v2NativeSheetApi.openNativeActionSheet({
+      title: i18n.t('v2ManageCategory'),
+      message: category.name,
+      cancelLabel: i18n.t('cancel'),
+      actions: [
+        {
+          id: 'rename',
+          label: i18n.t('v2EditCategory'),
+          tone: 'neutral'
+        },
+        {
+          id: 'editOrder',
+          label: i18n.t('v2EditCategoryOrder'),
+          tone: 'neutral',
+          disabled: categories.length <= 1
+        },
+        {
+          id: 'delete',
+          label: i18n.t('v2DeleteCategory'),
+          tone: 'danger',
+          disabled: categories.length <= 1
+        }
+      ]
+    });
+
+    if (nativeResult.status === 'unavailable') {
+      if (!canOpenWebBottomSheetFallback()) {
+        categoryPendingDetail = null;
+        return;
+      }
+
+      openWebCategoryManageSheet(category);
+      return;
+    }
+
+    if (nativeResult.status !== 'action') {
+      categoryPendingDetail = null;
+      return;
+    }
+
+    handleNativeCategoryManageAction(category, nativeResult.actionId as CategoryManageActionId);
+  }
+
+  function handleNativeCategoryManageAction(
+    category: V2Category,
+    actionId: CategoryManageActionId
+  ): void {
+    if (actionId === 'rename') {
+      void openCategoryTextSheet('rename', category);
+      return;
+    }
+
+    if (actionId === 'editOrder') {
+      categoryPendingDetail = null;
+      enterCategoryReorderMode();
+      return;
+    }
+
+    if (actionId === 'delete' && categories.length > 1) {
+      categoryPendingDeletion = category;
+      categoryPendingDetail = null;
+    }
   }
 
   function enterCategoryReorderMode(): void {
@@ -446,13 +680,117 @@
     }
   }
 
-  function requestRenameCategory(): void {
-    if (!selectedCategory) return;
+  async function handleToggleItem(id: number): Promise<void> {
+    if (!canAnimateCompletionMove()) {
+      await onToggleItem(id);
+      return;
+    }
 
-    categoryDetailMode = 'rename';
-    categoryPendingDetail = selectedCategory;
-    showCategoryManageSheet = false;
-    showCategoryDetailSheet = true;
+    await tick();
+
+    const sourceItem = displayedItems.find((item) => item.id === id);
+    if (sourceItem && !sourceItem.done) {
+      await wait(TODO_COMPLETION_CHECKBOX_HOP_LEAD_MS);
+      await tick();
+    }
+
+    const sourceNode = itemNodes.get(id);
+    if (!sourceNode) {
+      await onToggleItem(id);
+      return;
+    }
+
+    const sourceRect = snapshotRect(sourceNode.getBoundingClientRect());
+    const sourceHtml = snapshotCompletionMoveHtml(sourceNode);
+
+    clearCompletionMove();
+    const moveToken = ++completionMoveToken;
+    completionMoveOverlay = {
+      id,
+      html: sourceHtml,
+      from: sourceRect,
+      deltaX: 0,
+      deltaY: 0,
+      scaleX: 1,
+      scaleY: 1,
+      isAnimating: false
+    };
+    movingItemId = id;
+
+    try {
+      await onToggleItem(id);
+      await tick();
+
+      const targetNode = itemNodes.get(id);
+      if (!targetNode) {
+        clearCompletionMove();
+        return;
+      }
+
+      const targetRect = snapshotRect(targetNode.getBoundingClientRect());
+      const scaleX = sourceRect.width > 0 ? targetRect.width / sourceRect.width : 1;
+      const scaleY = sourceRect.height > 0 ? targetRect.height / sourceRect.height : 1;
+
+      completionMoveOverlay = {
+        id,
+        html: sourceHtml,
+        from: sourceRect,
+        deltaX: targetRect.left - sourceRect.left,
+        deltaY: targetRect.top - sourceRect.top,
+        scaleX,
+        scaleY,
+        isAnimating: false
+      };
+
+      await tick();
+
+      completionMoveFrame = requestAnimationFrame(() => {
+        completionMoveFrame = null;
+        if (moveToken === completionMoveToken && completionMoveOverlay?.id === id) {
+          completionMoveOverlay = {
+            ...completionMoveOverlay,
+            isAnimating: true
+          };
+        }
+      });
+
+      completionMoveTimer = setTimeout(() => {
+        finishCompletionMove(id, moveToken);
+      }, TODO_COMPLETION_MOVE_CLEANUP_MS);
+    } catch (error) {
+      clearCompletionMove();
+      throw error;
+    }
+  }
+
+  function requestCompletionFanfare(rect: DOMRect): void {
+    if (prefersReducedMotion) return;
+
+    if (completionFanfareTimer) {
+      clearTimeout(completionFanfareTimer);
+      completionFanfareTimer = null;
+    }
+
+    const fanfareToken = ++completionFanfareToken;
+    completionFanfareOverlay = {
+      id: fanfareToken,
+      left: rect.right - 18,
+      top: rect.top - 20
+    };
+
+    completionFanfareTimer = setTimeout(() => {
+      if (fanfareToken === completionFanfareToken) {
+        completionFanfareOverlay = null;
+        completionFanfareTimer = null;
+      }
+    }, TODO_COMPLETION_FANFARE_DURATION_MS);
+  }
+
+  function requestRenameCategory(): void {
+    const category = categoryPendingDetail ?? selectedCategory;
+    if (!category) return;
+
+    void openCategoryTextSheet('rename', category);
   }
 
   function requestEditCategoryOrder(): void {
@@ -471,26 +809,83 @@
     if (isDeletingCategory) return;
 
     showCategoryManageSheet = false;
+    categoryPendingDetail = null;
   }
 
-  async function saveCategoryName(name: string): Promise<void> {
+  function openWebCategoryDetailSheet(mode: CategoryDetailMode, category: V2Category | null): void {
+    categoryDetailMode = mode;
+    categoryPendingDetail = category;
+    showCategoryManageSheet = false;
+    showCategoryDetailSheet = true;
+  }
+
+  async function openCategoryTextSheet(
+    mode: CategoryDetailMode,
+    category: V2Category | null
+  ): Promise<void> {
+    showCategoryManageSheet = false;
+    showCategoryDetailSheet = false;
+    categoryPendingDetail = null;
+
+    const nativeResult = await v2NativeSheetApi.openNativeTextSheet({
+      title:
+        mode === 'create'
+          ? i18n.t('v2CreateCategoryTitle')
+          : i18n.t('v2RenameCategoryTitle'),
+      label: i18n.t('v2CategoryNameLabel'),
+      placeholder: i18n.t('v2NewCategoryPlaceholder'),
+      initialValue: mode === 'rename' ? (category?.name ?? '') : '',
+      confirmLabel: i18n.t('v2SaveCategory'),
+      cancelLabel: i18n.t('cancel')
+    });
+
+    if (nativeResult.status === 'unavailable') {
+      if (!canOpenWebBottomSheetFallback()) {
+        categoryPendingDetail = null;
+        return;
+      }
+
+      openWebCategoryDetailSheet(mode, category);
+      return;
+    }
+
+    if (nativeResult.status === 'saved') {
+      try {
+        await persistCategoryName(mode, category, nativeResult.value);
+      } catch {
+        // The v2 store owns the visible error banner.
+      }
+    }
+  }
+
+  async function persistCategoryName(
+    mode: CategoryDetailMode,
+    category: V2Category | null,
+    name: string
+  ): Promise<void> {
     if (isSavingCategory) return;
 
     isSavingCategory = true;
     try {
-      if (categoryDetailMode === 'create') {
+      if (mode === 'create') {
         await onAddCategory(name);
-      } else if (categoryPendingDetail) {
-        await onUpdateCategory(categoryPendingDetail.id, name);
+      } else if (category) {
+        await onUpdateCategory(category.id, name);
       }
     } finally {
       isSavingCategory = false;
     }
   }
 
+  async function saveCategoryName(name: string): Promise<void> {
+    await persistCategoryName(categoryDetailMode, categoryPendingDetail, name);
+  }
+
   function requestDeleteCategory(): void {
-    if (!selectedCategory || categories.length <= 1) return;
-    categoryPendingDeletion = selectedCategory;
+    const category = categoryPendingDetail ?? selectedCategory;
+    if (!category || categories.length <= 1) return;
+
+    categoryPendingDeletion = category;
   }
 
   function cancelDeleteCategory(): void {
@@ -514,12 +909,40 @@
   }
 
   function requestEditItem(item: V2TodoItem): void {
-    itemPendingEdit = item;
+    void openItemTextSheet(item);
   }
 
   function cancelEditItem(): void {
     if (isSavingItemEdit) return;
     itemPendingEdit = null;
+  }
+
+  async function openItemTextSheet(item: V2TodoItem): Promise<void> {
+    const nativeResult = await v2NativeSheetApi.openNativeTextSheet({
+      title: i18n.t('v2EditItemDetails'),
+      label: i18n.t('v2ItemTextLabel'),
+      placeholder: i18n.t('v2ItemTextPlaceholder'),
+      initialValue: item.text,
+      confirmLabel: i18n.t('v2SaveItem'),
+      cancelLabel: i18n.t('cancel')
+    });
+
+    if (nativeResult.status === 'unavailable') {
+      if (!canOpenWebBottomSheetFallback()) {
+        return;
+      }
+
+      itemPendingEdit = item;
+      return;
+    }
+
+    if (nativeResult.status === 'saved') {
+      try {
+        await saveItemText(item.id, nativeResult.value);
+      } catch {
+        // The v2 store owns the visible error banner.
+      }
+    }
   }
 
   async function saveItemText(id: number, text: string): Promise<void> {
@@ -572,6 +995,8 @@
 
   onDestroy(() => {
     clearSearchDebounceTimer();
+    clearCompletionMove();
+    clearCompletionFanfare();
     if (textClickSuppressTimer) {
       clearTimeout(textClickSuppressTimer);
       textClickSuppressTimer = null;
@@ -580,10 +1005,10 @@
 
 </script>
 
-<div class="app-container bg-canvas text-ink flex flex-col">
-  <main class="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
-    <section class="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-[calc(var(--safe-area-top)+12px)]">
-      <div class="relative z-30 mb-3">
+<div class="app-container v2-app-container isolate bg-canvas text-ink flex flex-col">
+  <main class="relative z-10 mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
+    <section class="flex min-h-0 flex-1 flex-col pb-[max(0.75rem,var(--safe-area-bottom))] pl-[max(1rem,var(--safe-area-left))] pr-[max(1rem,var(--safe-area-right))] pt-[max(0.75rem,var(--safe-area-top))]">
+      <div class="relative z-30 mb-4">
         <V2LeafCommandBar
           mode={searchMode ? 'search' : 'add'}
           searchQuery={searchQuery}
@@ -613,7 +1038,7 @@
         </div>
       {/if}
 
-      <div class="mb-3">
+      <div class="mb-4">
         <V2CategoryRail
           categories={displayedCategories}
           {selectedCategoryId}
@@ -678,15 +1103,19 @@
                     >
                       {#each activeItems as item (item.id)}
                         <div
+                          use:trackItemNode={item.id}
                           animate:flip={{ duration: reorderFlipDuration }}
-                          class="outline-none focus:outline-none focus-visible:outline-none"
+                          class={`relative z-10 outline-none focus:outline-none focus-visible:outline-none ${
+                            movingItemId === item.id ? 'completionMoveHidden' : ''
+                          }`}
                         >
                           <V2LeafTodoItem
                             {item}
-                            {onToggleItem}
+                            onToggleItem={handleToggleItem}
                             isTextClickSuppressed={isTextClickSuppressed}
                             onRequestEditItem={requestEditItem}
                             onRequestDeleteItem={requestDeleteItem}
+                            onRequestCompleteFanfare={requestCompletionFanfare}
                           />
                         </div>
                       {/each}
@@ -717,15 +1146,19 @@
                     >
                       {#each doneItems as item (item.id)}
                         <div
+                          use:trackItemNode={item.id}
                           animate:flip={{ duration: reorderFlipDuration }}
-                          class="outline-none focus:outline-none focus-visible:outline-none"
+                          class={`relative z-10 outline-none focus:outline-none focus-visible:outline-none ${
+                            movingItemId === item.id ? 'completionMoveHidden' : ''
+                          }`}
                         >
                           <V2LeafTodoItem
                             {item}
-                            {onToggleItem}
+                            onToggleItem={handleToggleItem}
                             isTextClickSuppressed={isTextClickSuppressed}
                             onRequestEditItem={requestEditItem}
                             onRequestDeleteItem={requestDeleteItem}
+                            onRequestCompleteFanfare={requestCompletionFanfare}
                           />
                         </div>
                       {/each}
@@ -740,6 +1173,28 @@
     </section>
   </main>
 
+  {#if completionMoveOverlay}
+    <div
+      class="completionMoveGhost"
+      style={completionMoveGhostStyle(completionMoveOverlay)}
+      aria-hidden="true"
+    >
+      {@html completionMoveOverlay.html}
+    </div>
+  {/if}
+
+  {#if completionFanfareOverlay}
+    <div
+      class="completionFanfareOverlay"
+      style={completionFanfareStyle(completionFanfareOverlay)}
+      aria-hidden="true"
+    >
+      {#key completionFanfareOverlay.id}
+        <V2CheckboxFanfare />
+      {/key}
+    </div>
+  {/if}
+
   <V2CategoryDetailSheet
     show={showCategoryDetailSheet}
     mode={categoryDetailMode}
@@ -751,7 +1206,7 @@
 
   <V2CategoryManageSheet
     show={showCategoryManageSheet}
-    category={selectedCategory}
+    category={categoryPendingDetail}
     isOnlyCategory={categories.length <= 1}
     isBusy={isDeletingCategory}
     onRename={requestRenameCategory}
@@ -798,3 +1253,46 @@
     onCancel={cancelDeleteItem}
   />
 </div>
+
+<style>
+  .completionMoveHidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .completionMoveGhost {
+    position: fixed;
+    z-index: 1;
+    pointer-events: none;
+    transform-origin: top left;
+    transition: transform var(--completion-move-duration) cubic-bezier(0.2, 0.8, 0.2, 1);
+    will-change: transform;
+  }
+
+  .completionMoveGhost :global(*) {
+    pointer-events: none !important;
+  }
+
+  .completionMoveGhost :global(.tickCheck path) {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+
+  .completionMoveGhost :global(.tickTextDone)::after {
+    animation: none !important;
+    transform: scaleX(1) !important;
+  }
+
+  .completionFanfareOverlay {
+    position: fixed;
+    z-index: 20;
+    color: var(--color-ink);
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .completionMoveGhost {
+      transition: none;
+    }
+  }
+</style>

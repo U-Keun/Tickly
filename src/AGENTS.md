@@ -22,5 +22,6 @@ Apply the root `AGENTS.md` first. This file adds rules for `src/`.
 
 ## v2
 
-- v2 frontend code should be isolated under `/v2`, `components/v2`, and v2-specific lib modules.
+- The v2 route shell lives at `/` in `src/routes/+page.svelte`; `/v2` is only a compatibility alias.
+- v2 frontend code should stay isolated in the route shell, `components/v2`, and v2-specific lib modules.
 - v2 should reuse design tokens and i18n, not v1 stores or v1 feature flows.

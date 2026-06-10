@@ -17,7 +17,7 @@
 </script>
 
 <div
-  class="max-h-[min(52vh,360px)] overflow-y-auto rounded-[0_18px_0_18px] border-[3px] border-[var(--color-ink)] bg-[var(--color-white)] p-2 shadow-xl"
+  class="max-h-[min(52vh,360px)] overflow-y-auto rounded-[5px_18px_5px_18px] border-[3px] border-[var(--color-ink)] bg-[var(--color-white)] p-2 shadow-xl"
   role="region"
   aria-label={i18n.t('v2SearchSuggestions')}
 >

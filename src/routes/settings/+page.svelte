@@ -4,7 +4,7 @@
   import SettingsLayout from '../../components/SettingsLayout.svelte';
 </script>
 
-<SettingsLayout title={i18n.t('settingsTitle')} onBack={() => goto('/')}>
+<SettingsLayout title={i18n.t('settingsTitle')} onBack={() => goto('/v1')}>
   <div class="settings-list">
     <!-- Theme Setting -->
     <button class="settings-item" onclick={() => goto('/settings/theme')}>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { iosFocusFix } from '$lib/iosFocusFix';
   import { i18n } from '$lib/i18n';
   import type { V2Category } from '../../types';
   import V2BottomSheet from './V2BottomSheet.svelte';
@@ -25,9 +26,7 @@
   }: Props = $props();
 
   let draftName = $state('');
-  let inputElement = $state<HTMLInputElement | null>(null);
   let preparedKey = $state('');
-  let focusedKey = $state('');
 
   let trimmedName = $derived(draftName.trim());
   let isVisible = $derived(show && (mode === 'create' || category !== null));
@@ -40,19 +39,12 @@
     if (!isVisible) {
       draftName = '';
       preparedKey = '';
-      focusedKey = '';
       return;
     }
 
     if (preparedKey !== sheetKey) {
       draftName = mode === 'rename' ? (category?.name ?? '') : '';
       preparedKey = sheetKey;
-      focusedKey = '';
-    }
-
-    if (focusedKey !== sheetKey) {
-      focusedKey = sheetKey;
-      setTimeout(() => inputElement?.focus(), 0);
     }
   });
 
@@ -83,7 +75,7 @@
     <label class="flex flex-col gap-2">
       <span class="text-sm font-semibold text-[var(--color-ink)]">{i18n.t('v2CategoryNameLabel')}</span>
       <input
-        bind:this={inputElement}
+        use:iosFocusFix
         bind:value={draftName}
         class="min-h-12 rounded-[14px] border-2 border-[var(--color-ink)] bg-[var(--color-paper)] px-4 text-base text-[var(--color-ink)] outline-none transition-colors focus:bg-[var(--color-canvas)]"
         placeholder={i18n.t('v2NewCategoryPlaceholder')}

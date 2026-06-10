@@ -12,9 +12,12 @@ if [[ ! -d "$APPLE_GEN_DIR" ]]; then
 fi
 
 mkdir -p "$APPLE_GEN_DIR/TicklyWidgetExtension"
+mkdir -p "$APPLE_GEN_DIR/Sources/tickly"
 
 cp "$TEMPLATE_DIR/project.yml" "$APPLE_GEN_DIR/project.yml"
 cp "$TEMPLATE_DIR/tickly_iOS.entitlements" "$APPLE_GEN_DIR/tickly_iOS/tickly_iOS.entitlements"
+rm -f "$APPLE_GEN_DIR/Sources/tickly/TicklyNativeTextSheet.swift"
+cp "$TEMPLATE_DIR/Sources/tickly/TicklyNativeSheet.swift" "$APPLE_GEN_DIR/Sources/tickly/TicklyNativeSheet.swift"
 cp "$TEMPLATE_DIR/TicklyWidgetExtension/Info.plist" "$APPLE_GEN_DIR/TicklyWidgetExtension/Info.plist"
 cp "$TEMPLATE_DIR/TicklyWidgetExtension/TicklyWidgetExtension.entitlements" "$APPLE_GEN_DIR/TicklyWidgetExtension/TicklyWidgetExtension.entitlements"
 cp "$TEMPLATE_DIR/TicklyWidgetExtension/TicklyWidgetBundle.swift" "$APPLE_GEN_DIR/TicklyWidgetExtension/TicklyWidgetBundle.swift"

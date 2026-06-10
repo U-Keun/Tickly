@@ -7,6 +7,7 @@
 
   import type { V2TodoItem } from '../../types';
   import { i18n } from '$lib/i18n';
+  import V2CheckboxFanfare from './V2CheckboxFanfare.svelte';
 
   type MaybePromise = void | Promise<void>;
 
@@ -14,6 +15,10 @@
   const DRAWER_CONTENT_DELAY_MS = 60;
   const DRAWER_CONTENT_TRANSITION_MS = 160;
   const DRAWER_CLOSE_COLLAPSE_DELAY_MS = DRAWER_CONTENT_TRANSITION_MS + DRAWER_CONTENT_DELAY_MS;
+  const CHECKBOX_HOP_DURATION_MS = 980;
+  const CHECKBOX_CHECK_REVEAL_DELAY_MS = 260;
+  const TEXT_DONE_DELAY_MS = CHECKBOX_CHECK_REVEAL_DELAY_MS + 230;
+  const CHECKBOX_HOP_RESET_DELAY_MS = CHECKBOX_HOP_DURATION_MS + 40;
 
   interface Props {
     item: V2TodoItem;
@@ -22,6 +27,7 @@
     onToggleItem: (id: number) => MaybePromise;
     onRequestEditItem: (item: V2TodoItem) => MaybePromise;
     onRequestDeleteItem: (item: V2TodoItem) => MaybePromise;
+    onRequestCompleteFanfare?: (rect: DOMRect) => void;
   }
 
   let {
@@ -30,13 +36,15 @@
     isTextClickSuppressed = false,
     onToggleItem,
     onRequestEditItem,
-    onRequestDeleteItem
+    onRequestDeleteItem,
+    onRequestCompleteFanfare
   }: Props = $props();
 
   let isDrawerOpen = $state(false);
   let isDrawerRendered = $state(false);
   let displayedDone = $state(false);
   let textDone = $state(false);
+  let checkVisible = $state(false);
   let tickPulse = $state(false);
   let tickAnimationKey = $state(0);
   let isToggling = $state(false);
@@ -45,8 +53,10 @@
   let lastSyncedItemId = $state<number | null>(null);
   let lastSyncedDone = $state<boolean | null>(null);
   let textDoneTimer: ReturnType<typeof setTimeout> | null = null;
+  let checkRevealTimer: ReturnType<typeof setTimeout> | null = null;
   let tickPulseTimer: ReturnType<typeof setTimeout> | null = null;
   let drawerContentTimer: ReturnType<typeof setTimeout> | null = null;
+  let checkboxButton: HTMLButtonElement | null = $state(null);
   let drawerId = $derived(`v2-todo-drawer-${item.id}`);
 
   $effect(() => {
@@ -59,11 +69,17 @@
 
   $effect(() => {
     const itemChanged = item.id !== lastSyncedItemId;
-    if (!itemChanged && item.done === lastSyncedDone) return;
 
     if (itemChanged && lastSyncedItemId !== null) {
       resetDrawer();
     }
+
+    if (!itemChanged && isToggling && item.done === displayedDone) {
+      lastSyncedDone = item.done;
+      return;
+    }
+
+    if (!itemChanged && item.done === lastSyncedDone) return;
 
     setDisplayedDone(item.done, false);
     lastSyncedItemId = item.id;
@@ -72,6 +88,7 @@
 
   onDestroy(() => {
     clearTextDoneTimer();
+    clearCheckRevealTimer();
     clearTickPulseTimer();
     clearDrawerContentTimer();
   });
@@ -86,6 +103,12 @@
     if (!tickPulseTimer) return;
     clearTimeout(tickPulseTimer);
     tickPulseTimer = null;
+  }
+
+  function clearCheckRevealTimer(): void {
+    if (!checkRevealTimer) return;
+    clearTimeout(checkRevealTimer);
+    checkRevealTimer = null;
   }
 
   function clearDrawerContentTimer(): void {
@@ -159,34 +182,46 @@
   function setDisplayedDone(nextDone: boolean, shouldAnimate: boolean): void {
     displayedDone = nextDone;
     clearTextDoneTimer();
+    clearCheckRevealTimer();
 
     if (!nextDone) {
       textDone = false;
+      checkVisible = false;
       tickPulse = false;
       clearTickPulseTimer();
       return;
     }
 
-    if (!shouldAnimate) {
+    if (!shouldAnimate || prefersReducedMotion()) {
       textDone = true;
+      checkVisible = true;
       tickPulse = false;
       return;
     }
 
     textDone = false;
+    checkVisible = false;
     tickPulse = true;
-    tickAnimationKey += 1;
 
     textDoneTimer = setTimeout(() => {
       textDone = true;
       textDoneTimer = null;
-    }, 70);
+    }, TEXT_DONE_DELAY_MS);
+
+    checkRevealTimer = setTimeout(() => {
+      checkVisible = true;
+      tickAnimationKey += 1;
+      if (checkboxButton) {
+        onRequestCompleteFanfare?.(checkboxButton.getBoundingClientRect());
+      }
+      checkRevealTimer = null;
+    }, CHECKBOX_CHECK_REVEAL_DELAY_MS);
 
     clearTickPulseTimer();
     tickPulseTimer = setTimeout(() => {
       tickPulse = false;
       tickPulseTimer = null;
-    }, 180);
+    }, CHECKBOX_HOP_RESET_DELAY_MS);
   }
 
   async function handleToggleItem(): Promise<void> {
@@ -214,8 +249,8 @@
 </script>
 
 <article
-  style={`--drawer-content-duration: ${DRAWER_CONTENT_TRANSITION_MS}ms;`}
-  class={`rounded-[0_24px_0_24px] border-2 border-[var(--color-ink)] p-2 shadow-sm transition-colors ${
+  style={`--drawer-content-duration: ${DRAWER_CONTENT_TRANSITION_MS}ms; --checkbox-hop-duration: ${CHECKBOX_HOP_DURATION_MS}ms;`}
+  class={`rounded-[6px_24px_6px_24px] border-2 border-[var(--color-ink)] p-2 shadow-sm transition-colors ${
     displayedDone
       ? 'bg-[var(--color-canvas)]'
       : 'bg-[var(--color-paper)]'
@@ -224,18 +259,25 @@
   <div class="flex min-h-11 items-center gap-2.5">
     <button
       type="button"
-      class={`grid h-11 w-11 flex-shrink-0 place-items-center border-2 transition-colors ${
+      class={`relative grid h-11 w-11 flex-shrink-0 place-items-center overflow-visible border-2 transition-colors ${
         displayedDone
           ? 'rounded-[12px] border-[var(--color-ink)] bg-[var(--color-white)] text-[var(--color-ink)]'
           : 'rounded-[12px] border-[var(--color-ink)] bg-[var(--color-white)] text-transparent hover:bg-[var(--color-canvas)] active:bg-[var(--color-canvas)]'
       }`}
-      class:tickPop={tickPulse}
+      class:checkboxSoftHop={tickPulse}
       aria-pressed={displayedDone}
       aria-label={displayedDone ? i18n.t('v2RestoreItem') : i18n.t('v2CompleteItem')}
       title={displayedDone ? i18n.t('v2RestoreItem') : i18n.t('v2CompleteItem')}
+      bind:this={checkboxButton}
       onclick={() => void handleToggleItem()}
     >
-      {#if displayedDone}
+      {#if checkVisible && tickPulse && !onRequestCompleteFanfare}
+        <span class="fanfareInline">
+          <V2CheckboxFanfare />
+        </span>
+      {/if}
+
+      {#if checkVisible}
         {#key tickAnimationKey}
           <svg class="tickCheck h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -309,14 +351,27 @@
 </article>
 
 <style>
-  .tickPop {
-    animation: tick-pop 180ms cubic-bezier(0.2, 0.9, 0.25, 1.25);
-  }
-
   .tickCheck path {
     stroke-dasharray: 24;
+    stroke-dashoffset: 0;
+  }
+
+  .checkboxSoftHop {
+    animation: checkbox-soft-hop var(--checkbox-hop-duration) cubic-bezier(0.18, 0.95, 0.24, 1.05);
+    transform-origin: 50% 75%;
+  }
+
+  .checkboxSoftHop .tickCheck path {
     stroke-dashoffset: 24;
-    animation: tick-draw 170ms ease-out forwards;
+    animation: tick-draw 190ms ease-out forwards;
+  }
+
+  .fanfareInline {
+    position: absolute;
+    right: -18px;
+    top: -20px;
+    color: currentColor;
+    pointer-events: none;
   }
 
   .tickText {
@@ -456,15 +511,25 @@
     background: var(--color-accent-peach-strong);
   }
 
-  @keyframes tick-pop {
+  @keyframes checkbox-soft-hop {
     0% {
-      transform: scale(0.96);
+      transform: translateY(0) rotate(0deg) scale(1);
     }
-    55% {
-      transform: scale(1.06);
+
+    18% {
+      transform: translateY(-6px) rotate(-10deg) scale(1.06);
     }
+
+    78% {
+      transform: translateY(-6px) rotate(-10deg) scale(1.06);
+    }
+
+    92% {
+      transform: translateY(1px) rotate(3deg) scale(0.99);
+    }
+
     100% {
-      transform: scale(1);
+      transform: translateY(0) rotate(0deg) scale(1);
     }
   }
 
@@ -481,7 +546,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .tickPop {
+    .checkboxSoftHop {
       animation: none;
     }
 

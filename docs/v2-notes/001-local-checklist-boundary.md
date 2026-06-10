@@ -22,13 +22,13 @@ v2 uses parallel names and tables:
 
 ```mermaid
 flowchart TB
-  V1["v1 app"] --> V1Tables["categories / todos / sync tables"]
-  V2["hidden /v2 route"] --> V2Api["v2ChecklistApi"]
+  V1["/v1 legacy app"] --> V1Tables["categories / todos / sync tables"]
+  V2["/ main v2 route"] --> V2Api["v2ChecklistApi"]
   V2Api --> V2Commands["v2_* commands"]
   V2Commands --> V2Tables["v2_categories / v2_todos"]
 ```
 
-This keeps the existing app stable while the local checklist model is rebuilt.
+This keeps the existing app available as legacy while the local checklist model becomes the main UI.
 
 ## Data Model
 
@@ -62,7 +62,7 @@ Search, tags, repeat rules, streaks, reminders, linked apps, graph view, widgets
 - Rust in-memory SQLite tests for v2 repository/service behavior.
 - `yarn run check` for Svelte and TypeScript.
 - Storybook states for v2 screen variants.
-- Manual `/v2` QA for CRUD, completion, ordering, and persistence.
+- Manual `/` QA for CRUD, completion, ordering, and persistence.
 
 ## Implementation Checkpoint
 
@@ -70,7 +70,7 @@ The first v2 slice now adds:
 
 - v2 local SQLite tables through app startup migration.
 - v2 Rust model, repository, service, and command layers.
-- v2 frontend API wrapper, independent store, hidden `/v2` route, and a reusable v2 screen component.
+- v2 frontend API wrapper, independent store, main `/` route, compatibility `/v2` alias, and a reusable v2 screen component.
 - Storybook coverage for empty, normal, completed, multiple-category, and reorder-mode screen states.
 - Directory-level `AGENTS.md` rules and project development principles.
 
@@ -78,7 +78,7 @@ The first v2 slice now adds:
 
 - `yarn run check`: passed with 0 errors and 0 warnings.
 - `cd src-tauri && cargo test`: passed, including v2 repository and service tests.
-- `yarn build`: passed and emitted the `/v2` route bundle.
+- `yarn build`: passed and emitted the v2 route bundle.
 - `rustfmt --check` on the new v2 Rust files: passed.
 
 Note: `yarn check` without `run` currently invokes Yarn v1's built-in `check` command in this workspace, so use `yarn run check` for the project script.

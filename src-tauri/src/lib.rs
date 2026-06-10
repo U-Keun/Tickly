@@ -1,4 +1,8 @@
 mod commands;
+#[cfg(target_os = "ios")]
+mod ios_fullscreen;
+#[cfg(target_os = "ios")]
+mod ios_native_sheet;
 mod models;
 mod repository;
 mod service;
@@ -57,6 +61,9 @@ pub fn run() {
 
             // Initialize Realtime state
             app.manage(RealtimeState::new());
+
+            #[cfg(target_os = "ios")]
+            ios_fullscreen::configure_ios_fullscreen_viewport(app);
 
             Ok(())
         })
@@ -145,7 +152,8 @@ pub fn run() {
             v2_update_item_text,
             v2_toggle_item,
             v2_delete_item,
-            v2_reorder_items
+            v2_reorder_items,
+            v2_show_native_sheet
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

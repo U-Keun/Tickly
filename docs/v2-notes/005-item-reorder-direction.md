@@ -27,6 +27,7 @@ flowchart TB
 - The command bar and category rail remain visible while reordering.
 - Dragging uses a quiet surface: default drop target outlines and morph helper visuals are disabled.
 - Pending and completed items are separate reorder zones, so items move only inside their completion group.
+- Completion toggles use a parent-controlled move overlay between the pending and completed zones, so checking an item visibly sends it downward before the destination row appears.
 - Drop finalizes immediately and saves through the existing v2 reorder command.
 - Save failure reloads the current category items and leaves the visible error banner to the v2 store.
 
@@ -35,7 +36,7 @@ flowchart TB
 - `yarn run check`.
 - `yarn storybook --smoke-test -p 6008`.
 - Storybook checks for normal, mixed done/undone, empty list, and long list drag-ready states.
-- Manual `/v2` QA for text long press drag, persistence after restart, ghost click suppression, scroll conflict, and reduced motion.
+- Manual `/` QA for text long press drag, persistence after restart, ghost click suppression, scroll conflict, and reduced motion.
 
 ## References
 

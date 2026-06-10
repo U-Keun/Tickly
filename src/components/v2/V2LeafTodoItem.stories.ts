@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/sveltekit';
 
 import type { V2TodoItem } from '../../types';
 import V2LeafTodoItem from './V2LeafTodoItem.svelte';
+import V2LeafTodoItemSoftHopStory from './V2LeafTodoItemSoftHopStory.svelte';
 
 const item: V2TodoItem = {
   id: 1,
@@ -58,4 +59,10 @@ export const LongText: Story = {
       text: 'Umbrella before leaving for a very long commute day with errands after work'
     }
   }
+};
+
+export const SoftHop: StoryObj<typeof V2LeafTodoItemSoftHopStory> = {
+  render: () => ({
+    Component: V2LeafTodoItemSoftHopStory
+  })
 };

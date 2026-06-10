@@ -215,8 +215,8 @@
   });
 </script>
 
-<div class="flex w-full items-center gap-2">
-  <div class="min-w-0 flex-1 rounded-[16px] border-2 border-[var(--color-stroke)] bg-[rgb(255_255_255_/_0.7)] p-1">
+<div class="flex w-full min-w-0 items-center rounded-[16px] border-2 border-[var(--color-stroke)] bg-[rgb(255_255_255_/_0.7)] p-1">
+  <div class="min-w-0 flex-1 basis-0">
     <div class="scrollbar-hide min-w-0 overflow-x-auto">
       <div class="relative min-w-full">
         <div
@@ -253,7 +253,7 @@
             >
               <button
                 type="button"
-                class={`relative flex min-h-10 max-w-44 items-center justify-center rounded-[12px] border-2 border-transparent px-4 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${
+                class={`relative flex min-h-11 max-w-44 items-center justify-center rounded-[12px] border-2 border-transparent px-4 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${
                   isSelected
                     ? 'text-[var(--color-ink)]'
                     : 'text-[var(--color-ink-muted)] hover:bg-[var(--color-canvas)] hover:text-[var(--color-ink)] active:bg-[var(--color-mist)]'
@@ -273,39 +273,41 @@
     </div>
   </div>
 
-  <div class="flex shrink-0 items-center gap-2">
+  <div class="mx-1 h-8 w-px shrink-0 bg-[var(--color-stroke)]" aria-hidden="true"></div>
+
+  <div class="flex shrink-0 items-center gap-1.5">
     {#if isReorderMode}
       <button
         type="button"
-        class="flex h-11 items-center justify-center gap-1.5 rounded-[14px] border-2 border-[var(--color-ink)] bg-[var(--color-white)] px-3 text-sm font-semibold text-[var(--color-ink)] transition-colors hover:bg-[var(--color-accent-sky)] disabled:cursor-not-allowed disabled:opacity-45"
+        class="flex h-10 items-center justify-center gap-1.5 rounded-[13px] border-2 border-[var(--color-ink)] bg-[var(--color-white)] px-2.5 text-sm font-semibold text-[var(--color-ink)] transition-colors hover:bg-[var(--color-accent-sky)] disabled:cursor-not-allowed disabled:opacity-45"
         aria-label={i18n.t('v2FinishCategoryOrder')}
         title={i18n.t('v2FinishCategoryOrder')}
         disabled={isReorderBusy}
         onclick={onFinishReorderMode}
       >
-        <Check size={18} strokeWidth={2.6} aria-hidden="true" />
+        <Check size={17} strokeWidth={2.6} aria-hidden="true" />
         <span>{i18n.t('v2FinishCategoryOrder')}</span>
       </button>
     {:else}
       <button
         type="button"
-        class="flex h-11 w-11 items-center justify-center rounded-full border-2 border-[var(--color-ink)] bg-[var(--color-white)] text-[var(--color-ink)] transition-colors hover:bg-[var(--color-accent-sky)] disabled:cursor-not-allowed disabled:opacity-45"
+        class="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[var(--color-stroke)] bg-[rgb(255_255_255_/_0.76)] text-[var(--color-ink)] transition-colors hover:border-[var(--color-ink)] hover:bg-[var(--color-accent-sky)] disabled:cursor-not-allowed disabled:opacity-45"
         aria-label={i18n.t('v2AddCategory')}
         title={i18n.t('v2AddCategory')}
         onclick={onCreateCategory}
       >
-        <Plus size={22} strokeWidth={2.6} aria-hidden="true" />
+        <Plus size={20} strokeWidth={2.6} aria-hidden="true" />
       </button>
 
       <button
         type="button"
-        class="flex h-11 w-11 items-center justify-center rounded-full border-2 border-[var(--color-stroke)] bg-[var(--color-white)] text-[var(--color-ink)] transition-colors hover:border-[var(--color-ink)] hover:bg-[var(--color-canvas)] disabled:cursor-not-allowed disabled:opacity-40"
+        class="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[var(--color-stroke)] bg-[rgb(255_255_255_/_0.76)] text-[var(--color-ink)] transition-colors hover:border-[var(--color-ink)] hover:bg-[var(--color-canvas)] disabled:cursor-not-allowed disabled:opacity-40"
         aria-label={i18n.t('v2ManageCategory')}
         title={i18n.t('v2ManageCategory')}
         disabled={!selectedCategory}
         onclick={() => selectedCategory && onManageCategory(selectedCategory)}
       >
-        <SlidersHorizontal size={21} strokeWidth={2.4} aria-hidden="true" />
+        <SlidersHorizontal size={20} strokeWidth={2.4} aria-hidden="true" />
       </button>
     {/if}
   </div>
@@ -315,16 +317,16 @@
   @keyframes v2-category-wiggle {
     0%,
     100% {
-      transform: rotate(-0.65deg) translateY(0);
+      transform: rotate(-1.2deg) translateY(0);
     }
 
     50% {
-      transform: rotate(0.65deg) translateY(-0.5px);
+      transform: rotate(1.2deg) translateY(-1px);
     }
   }
 
   .category-wiggle {
-    animation: v2-category-wiggle 780ms ease-in-out infinite;
+    animation: v2-category-wiggle 720ms ease-in-out infinite;
     transform-origin: center;
   }
 

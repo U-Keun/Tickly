@@ -1,0 +1,866 @@
+import Foundation
+import UIKit
+import WebKit
+
+private struct TicklyNativeSheetRequest: Decodable {
+    let token: String
+    let kind: String
+    let title: String
+    let message: String?
+    let text: TicklyNativeSheetTextRequest?
+    let actions: [TicklyNativeSheetActionRequest]?
+    let cancelLabel: String
+}
+
+private struct TicklyNativeSheetTextRequest: Decodable {
+    let label: String
+    let placeholder: String
+    let initialValue: String
+    let confirmLabel: String
+}
+
+private struct TicklyNativeSheetActionRequest: Decodable {
+    let id: String
+    let label: String
+    let tone: String?
+    let disabled: Bool?
+}
+
+private struct TicklyNativeSheetResult: Encodable {
+    let token: String
+    let status: String
+    let value: String?
+    let actionId: String?
+}
+
+@_cdecl("tickly_show_native_sheet")
+public func ticklyShowNativeSheet(
+    _ webViewPointer: UnsafeMutableRawPointer?,
+    _ viewControllerPointer: UnsafeMutableRawPointer?,
+    _ requestJsonPointer: UnsafePointer<CChar>?
+) -> Bool {
+    guard #available(iOS 15.0, *) else {
+        return false
+    }
+
+    guard
+        let webViewPointer,
+        let viewControllerPointer,
+        let requestJsonPointer
+    else {
+        return false
+    }
+
+    let webView = Unmanaged<WKWebView>
+        .fromOpaque(UnsafeRawPointer(webViewPointer))
+        .takeUnretainedValue()
+    let presentingViewController = Unmanaged<UIViewController>
+        .fromOpaque(UnsafeRawPointer(viewControllerPointer))
+        .takeUnretainedValue()
+    let requestJson = String(cString: requestJsonPointer)
+
+    guard let requestData = requestJson.data(using: .utf8),
+          let request = try? JSONDecoder().decode(TicklyNativeSheetRequest.self, from: requestData),
+          ticklyCanRenderNativeSheet(request)
+    else {
+        return false
+    }
+
+    if Thread.isMainThread {
+        return ticklyPresentNativeSheet(
+            request: request,
+            webView: webView,
+            presentingViewController: presentingViewController
+        )
+    }
+
+    DispatchQueue.main.async {
+        _ = ticklyPresentNativeSheet(
+            request: request,
+            webView: webView,
+            presentingViewController: presentingViewController
+        )
+    }
+    return true
+}
+
+private func ticklyCanRenderNativeSheet(_ request: TicklyNativeSheetRequest) -> Bool {
+    if request.kind == "text" {
+        return request.text != nil
+    }
+
+    if request.kind == "actions" {
+        return request.actions != nil
+    }
+
+    return false
+}
+
+@available(iOS 15.0, *)
+private func ticklyPresentNativeSheet(
+    request: TicklyNativeSheetRequest,
+    webView: WKWebView,
+    presentingViewController: UIViewController
+) -> Bool {
+    let topViewController = ticklyTopViewController(from: presentingViewController)
+    guard !(topViewController is TicklyNativeSheetViewController) else {
+        return false
+    }
+
+    let sheetViewController = TicklyNativeSheetViewController(
+        request: request,
+        webView: webView
+    )
+    let preferredHeight = ticklyPreferredSheetHeight(for: request)
+    sheetViewController.configureLeafPresentation(preferredHeight: preferredHeight)
+    topViewController.present(sheetViewController, animated: true)
+    return true
+}
+
+private func ticklyPreferredSheetHeight(for request: TicklyNativeSheetRequest) -> CGFloat {
+    if request.kind == "text" {
+        return 292
+    }
+
+    let actionCount = CGFloat(request.actions?.count ?? 0)
+    let messageHeight: CGFloat = (request.message?.isEmpty == false) ? 28 : 0
+    return min(max(236 + messageHeight + actionCount * 58, 300), 430)
+}
+
+private func ticklyLeafSheetPath(
+    in bounds: CGRect,
+    majorRadius: CGFloat = 24,
+    minorRadius: CGFloat = 6
+) -> CGPath {
+    let maxRadius = min(bounds.width, bounds.height) / 2
+    let majorRadius = min(max(0, majorRadius), maxRadius)
+    let minorRadius = min(max(0, minorRadius), maxRadius)
+
+    let path = UIBezierPath()
+    path.move(to: CGPoint(x: bounds.minX + minorRadius, y: bounds.minY))
+    path.addLine(to: CGPoint(x: bounds.maxX - majorRadius, y: bounds.minY))
+    path.addQuadCurve(
+        to: CGPoint(x: bounds.maxX, y: bounds.minY + majorRadius),
+        controlPoint: CGPoint(x: bounds.maxX, y: bounds.minY)
+    )
+    path.addLine(to: CGPoint(x: bounds.maxX, y: bounds.maxY - minorRadius))
+    path.addQuadCurve(
+        to: CGPoint(x: bounds.maxX - minorRadius, y: bounds.maxY),
+        controlPoint: CGPoint(x: bounds.maxX, y: bounds.maxY)
+    )
+    path.addLine(to: CGPoint(x: bounds.minX + majorRadius, y: bounds.maxY))
+    path.addQuadCurve(
+        to: CGPoint(x: bounds.minX, y: bounds.maxY - majorRadius),
+        controlPoint: CGPoint(x: bounds.minX, y: bounds.maxY)
+    )
+    path.addLine(to: CGPoint(x: bounds.minX, y: bounds.minY + minorRadius))
+    path.addQuadCurve(
+        to: CGPoint(x: bounds.minX + minorRadius, y: bounds.minY),
+        controlPoint: CGPoint(x: bounds.minX, y: bounds.minY)
+    )
+    path.close()
+
+    return path.cgPath
+}
+
+@available(iOS 15.0, *)
+private func ticklyTopViewController(from viewController: UIViewController) -> UIViewController {
+    var current = viewController
+    while let presented = current.presentedViewController {
+        current = presented
+    }
+    return current
+}
+
+@available(iOS 15.0, *)
+private final class TicklyNativeSheetViewController: UIViewController, UIAdaptivePresentationControllerDelegate, UITextFieldDelegate {
+    fileprivate enum Style {
+        static let ink = UIColor(red: 91 / 255, green: 88 / 255, blue: 82 / 255, alpha: 1)
+        static let inkMuted = UIColor(red: 122 / 255, green: 119 / 255, blue: 111 / 255, alpha: 1)
+        static let paper = UIColor(red: 248 / 255, green: 247 / 255, blue: 243 / 255, alpha: 1)
+        static let canvas = UIColor(red: 242 / 255, green: 239 / 255, blue: 232 / 255, alpha: 1)
+        static let accentSky = UIColor(red: 168 / 255, green: 189 / 255, blue: 219 / 255, alpha: 1)
+        static let accentSkyStrong = UIColor(red: 142 / 255, green: 169 / 255, blue: 207 / 255, alpha: 1)
+        static let accentPeach = UIColor(red: 229 / 255, green: 185 / 255, blue: 160 / 255, alpha: 1)
+        static let accentPeachStrong = UIColor(red: 215 / 255, green: 164 / 255, blue: 138 / 255, alpha: 1)
+    }
+
+    private let request: TicklyNativeSheetRequest
+    private weak var webView: WKWebView?
+    private let textField = UITextField()
+    private let saveButton = UIButton(type: .system)
+    private let surfaceView = UIView()
+    private let surfaceFillLayer = CAShapeLayer()
+    private let surfaceBorderLayer = CAShapeLayer()
+    private var leafTransitioningDelegate: TicklyLeafSheetTransitioningDelegate?
+    private var didComplete = false
+
+    init(request: TicklyNativeSheetRequest, webView: WKWebView) {
+        self.request = request
+        self.webView = webView
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        view.backgroundColor = .clear
+        buildLayout()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+
+        updateSurfaceShape()
+    }
+
+    func configureLeafPresentation(preferredHeight: CGFloat) {
+        let transitionDelegate = TicklyLeafSheetTransitioningDelegate()
+        leafTransitioningDelegate = transitionDelegate
+        modalPresentationStyle = .custom
+        transitioningDelegate = transitionDelegate
+        preferredContentSize = CGSize(width: 440, height: preferredHeight)
+    }
+
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        complete(status: "cancelled", value: nil, actionId: nil, shouldDismiss: false)
+    }
+
+    fileprivate func requestCancelFromPresentation() {
+        complete(status: "cancelled", value: nil, actionId: nil, shouldDismiss: true)
+    }
+
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        saveText()
+        return true
+    }
+
+    private func updateSurfaceShape() {
+        guard !surfaceView.bounds.isEmpty else {
+            return
+        }
+
+        let bounds = surfaceView.bounds
+        surfaceBorderLayer.frame = bounds
+        surfaceBorderLayer.path = ticklyLeafSheetPath(in: bounds)
+
+        let borderWidth: CGFloat = 2.5
+        let fillBounds = bounds.insetBy(dx: borderWidth, dy: borderWidth)
+        surfaceFillLayer.frame = bounds
+        surfaceFillLayer.path = ticklyLeafSheetPath(
+            in: fillBounds,
+            majorRadius: 24 - borderWidth,
+            minorRadius: 6 - borderWidth
+        )
+
+        view.layer.shadowPath = ticklyLeafSheetPath(in: view.bounds)
+    }
+
+    private func buildLayout() {
+        surfaceView.translatesAutoresizingMaskIntoConstraints = false
+        surfaceView.backgroundColor = .clear
+        surfaceView.layer.addSublayer(surfaceBorderLayer)
+        surfaceView.layer.addSublayer(surfaceFillLayer)
+        surfaceFillLayer.fillColor = UIColor.white.cgColor
+        surfaceBorderLayer.fillColor = Style.ink.cgColor
+
+        view.layer.shadowColor = UIColor.black.cgColor
+        view.layer.shadowOpacity = 0.14
+        view.layer.shadowRadius = 18
+        view.layer.shadowOffset = CGSize(width: 0, height: -4)
+        view.addSubview(surfaceView)
+
+        let scrollView = UIScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.keyboardDismissMode = .interactive
+        scrollView.alwaysBounceVertical = false
+        surfaceView.addSubview(scrollView)
+
+        let stack = UIStackView()
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.axis = .vertical
+        stack.spacing = 16
+        scrollView.addSubview(stack)
+
+        addHeader(to: stack)
+
+        if request.kind == "text", let textRequest = request.text {
+            addTextContent(textRequest, to: stack)
+            updateSaveButtonState()
+        } else {
+            addActionContent(to: stack)
+        }
+
+        NSLayoutConstraint.activate([
+            surfaceView.topAnchor.constraint(equalTo: view.topAnchor),
+            surfaceView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            surfaceView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            surfaceView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            scrollView.topAnchor.constraint(equalTo: surfaceView.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: surfaceView.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: surfaceView.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: surfaceView.safeAreaLayoutGuide.bottomAnchor),
+
+            stack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 24),
+            stack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -24),
+            stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -24),
+            stack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -48)
+        ])
+    }
+
+    private func addHeader(to stack: UIStackView) {
+        let titleLabel = UILabel()
+        titleLabel.text = request.title
+        titleLabel.font = .preferredFont(forTextStyle: .title2)
+        titleLabel.adjustsFontForContentSizeCategory = true
+        titleLabel.textColor = Style.ink
+        titleLabel.numberOfLines = 0
+        stack.addArrangedSubview(titleLabel)
+
+        guard let message = request.message, !message.isEmpty else {
+            stack.setCustomSpacing(22, after: titleLabel)
+            return
+        }
+
+        let messageLabel = UILabel()
+        messageLabel.text = message
+        messageLabel.font = .preferredFont(forTextStyle: .subheadline)
+        messageLabel.adjustsFontForContentSizeCategory = true
+        messageLabel.textColor = Style.inkMuted
+        messageLabel.numberOfLines = 0
+        stack.addArrangedSubview(messageLabel)
+        stack.setCustomSpacing(22, after: messageLabel)
+    }
+
+    private func addTextContent(_ textRequest: TicklyNativeSheetTextRequest, to stack: UIStackView) {
+        let fieldLabel = UILabel()
+        fieldLabel.text = textRequest.label
+        fieldLabel.font = .preferredFont(forTextStyle: .subheadline)
+        fieldLabel.adjustsFontForContentSizeCategory = true
+        fieldLabel.textColor = Style.ink
+
+        textField.text = textRequest.initialValue
+        textField.placeholder = textRequest.placeholder
+        textField.font = .preferredFont(forTextStyle: .body)
+        textField.adjustsFontForContentSizeCategory = true
+        textField.textColor = Style.ink
+        textField.tintColor = Style.accentSkyStrong
+        textField.backgroundColor = Style.paper
+        textField.layer.cornerRadius = 14
+        textField.layer.borderColor = Style.ink.cgColor
+        textField.layer.borderWidth = 2
+        textField.returnKeyType = .done
+        textField.clearButtonMode = .whileEditing
+        textField.autocorrectionType = .default
+        textField.delegate = self
+        textField.addTarget(self, action: #selector(textDidChange), for: .editingChanged)
+        textField.heightAnchor.constraint(greaterThanOrEqualToConstant: 52).isActive = true
+        textField.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 1))
+        textField.leftViewMode = .always
+        textField.rightView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 1))
+        textField.rightViewMode = .always
+
+        let buttonStack = UIStackView()
+        buttonStack.axis = .horizontal
+        buttonStack.spacing = 10
+        buttonStack.distribution = .fillEqually
+
+        saveButton.configuration = buttonConfiguration(
+            title: textRequest.confirmLabel,
+            backgroundColor: Style.accentSkyStrong,
+            foregroundColor: Style.ink
+        )
+        saveButton.addTarget(self, action: #selector(saveButtonTapped), for: .touchUpInside)
+        saveButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 48).isActive = true
+
+        let cancelButton = UIButton(type: .system)
+        cancelButton.configuration = buttonConfiguration(
+            title: request.cancelLabel,
+            backgroundColor: Style.canvas,
+            foregroundColor: Style.inkMuted
+        )
+        cancelButton.addTarget(self, action: #selector(cancelButtonTapped), for: .touchUpInside)
+        cancelButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 48).isActive = true
+
+        buttonStack.addArrangedSubview(saveButton)
+        buttonStack.addArrangedSubview(cancelButton)
+
+        stack.addArrangedSubview(fieldLabel)
+        stack.setCustomSpacing(8, after: fieldLabel)
+        stack.addArrangedSubview(textField)
+        stack.addArrangedSubview(buttonStack)
+    }
+
+    private func addActionContent(to stack: UIStackView) {
+        let actions = request.actions ?? []
+
+        for action in actions {
+            let button = UIButton(type: .system)
+            let style = actionStyle(for: action.tone)
+            button.configuration = buttonConfiguration(
+                title: action.label,
+                backgroundColor: style.background,
+                foregroundColor: style.foreground,
+                imageName: imageName(for: action.id)
+            )
+            button.contentHorizontalAlignment = .leading
+            button.accessibilityIdentifier = action.id
+            button.isEnabled = !(action.disabled ?? false)
+            button.alpha = button.isEnabled ? 1 : 0.45
+            button.addTarget(self, action: #selector(actionButtonTapped(_:)), for: .touchUpInside)
+            button.heightAnchor.constraint(greaterThanOrEqualToConstant: 48).isActive = true
+            stack.addArrangedSubview(button)
+        }
+
+        if let lastActionView = stack.arrangedSubviews.last {
+            stack.setCustomSpacing(10, after: lastActionView)
+        }
+
+        let cancelButton = UIButton(type: .system)
+        cancelButton.configuration = buttonConfiguration(
+            title: request.cancelLabel,
+            backgroundColor: Style.canvas,
+            foregroundColor: Style.inkMuted
+        )
+        cancelButton.addTarget(self, action: #selector(cancelButtonTapped), for: .touchUpInside)
+        cancelButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 48).isActive = true
+        stack.addArrangedSubview(cancelButton)
+    }
+
+    private func buttonConfiguration(
+        title: String,
+        backgroundColor: UIColor,
+        foregroundColor: UIColor,
+        imageName: String? = nil
+    ) -> UIButton.Configuration {
+        var configuration = UIButton.Configuration.filled()
+        configuration.title = title
+        configuration.baseBackgroundColor = backgroundColor
+        configuration.baseForegroundColor = foregroundColor
+        configuration.cornerStyle = .medium
+        configuration.contentInsets = NSDirectionalEdgeInsets(
+            top: 12,
+            leading: 16,
+            bottom: 12,
+            trailing: 16
+        )
+        configuration.imagePadding = 10
+
+        if let imageName,
+           let image = UIImage(systemName: imageName)
+        {
+            configuration.image = image
+        }
+
+        return configuration
+    }
+
+    private func actionStyle(for tone: String?) -> (background: UIColor, foreground: UIColor) {
+        switch tone {
+        case "primary":
+            return (Style.accentSkyStrong, Style.ink)
+        case "danger":
+            return (Style.accentPeach, Style.ink)
+        default:
+            return (Style.paper, Style.ink)
+        }
+    }
+
+    private func imageName(for actionId: String) -> String? {
+        switch actionId {
+        case "rename":
+            return "pencil"
+        case "editOrder":
+            return "line.3.horizontal"
+        case "delete":
+            return "trash"
+        default:
+            return nil
+        }
+    }
+
+    @objc private func textDidChange() {
+        updateSaveButtonState()
+    }
+
+    @objc private func saveButtonTapped() {
+        saveText()
+    }
+
+    @objc private func cancelButtonTapped() {
+        complete(status: "cancelled", value: nil, actionId: nil, shouldDismiss: true)
+    }
+
+    @objc private func actionButtonTapped(_ sender: UIButton) {
+        guard let actionId = sender.accessibilityIdentifier else {
+            return
+        }
+
+        complete(status: "action", value: nil, actionId: actionId, shouldDismiss: true)
+    }
+
+    private func saveText() {
+        let value = (textField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else {
+            updateSaveButtonState()
+            return
+        }
+
+        complete(status: "saved", value: value, actionId: nil, shouldDismiss: true)
+    }
+
+    private func updateSaveButtonState() {
+        let value = (textField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let isEnabled = !value.isEmpty
+        saveButton.isEnabled = isEnabled
+
+        var configuration = saveButton.configuration
+        configuration?.baseBackgroundColor = isEnabled
+            ? Style.accentSkyStrong
+            : Style.accentSky.withAlphaComponent(0.5)
+        configuration?.baseForegroundColor = isEnabled
+            ? Style.ink
+            : Style.inkMuted.withAlphaComponent(0.6)
+        saveButton.configuration = configuration
+    }
+
+    private func complete(status: String, value: String?, actionId: String?, shouldDismiss: Bool) {
+        guard !didComplete else {
+            return
+        }
+
+        didComplete = true
+
+        if shouldDismiss {
+            dismiss(animated: true) { [weak self] in
+                self?.emitResult(status: status, value: value, actionId: actionId)
+            }
+            return
+        }
+
+        emitResult(status: status, value: value, actionId: actionId)
+    }
+
+    private func emitResult(status: String, value: String?, actionId: String?) {
+        guard let webView else {
+            return
+        }
+
+        let result = TicklyNativeSheetResult(
+            token: request.token,
+            status: status,
+            value: value,
+            actionId: actionId
+        )
+
+        guard let data = try? JSONEncoder().encode(result),
+              let json = String(data: data, encoding: .utf8)
+        else {
+            return
+        }
+
+        let script = """
+        window.dispatchEvent(new CustomEvent("tickly:nativeSheetResult", { detail: \(json) }));
+        """
+        webView.evaluateJavaScript(script)
+    }
+}
+
+@available(iOS 15.0, *)
+private final class TicklyLeafSheetTransitioningDelegate: NSObject, UIViewControllerTransitioningDelegate {
+    func presentationController(
+        forPresented presented: UIViewController,
+        presenting: UIViewController?,
+        source: UIViewController
+    ) -> UIPresentationController? {
+        TicklyLeafSheetPresentationController(
+            presentedViewController: presented,
+            presenting: presenting
+        )
+    }
+
+    func animationController(
+        forPresented presented: UIViewController,
+        presenting: UIViewController,
+        source: UIViewController
+    ) -> UIViewControllerAnimatedTransitioning? {
+        TicklyLeafSheetAnimator(isPresenting: true)
+    }
+
+    func animationController(forDismissed dismissed: UIViewController) -> UIViewControllerAnimatedTransitioning? {
+        TicklyLeafSheetAnimator(isPresenting: false)
+    }
+}
+
+@available(iOS 15.0, *)
+private final class TicklyLeafSheetPresentationController: UIPresentationController {
+    private let dimmingView = UIView()
+    private var keyboardOverlap: CGFloat = 0
+    private var panGestureRecognizer: UIPanGestureRecognizer?
+
+    override init(presentedViewController: UIViewController, presenting presentingViewController: UIViewController?) {
+        super.init(
+            presentedViewController: presentedViewController,
+            presenting: presentingViewController
+        )
+
+        dimmingView.backgroundColor = UIColor.black.withAlphaComponent(0.42)
+        dimmingView.alpha = 0
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dimmingViewTapped))
+        dimmingView.addGestureRecognizer(tapGesture)
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    override var frameOfPresentedViewInContainerView: CGRect {
+        guard let containerView else {
+            return .zero
+        }
+
+        let bounds = containerView.bounds
+        let safeInsets = containerView.safeAreaInsets
+        let horizontalInset: CGFloat = traitCollection.horizontalSizeClass == .compact ? 12 : 24
+        let width = min(bounds.width - horizontalInset * 2, 440)
+        let bottomGap: CGFloat = keyboardOverlap > 0 ? 8 : 0
+        let bottomY = bounds.maxY - keyboardOverlap - bottomGap
+        let topLimit = bounds.minY + safeInsets.top + 18
+        let maxHeight = max(180, bottomY - topLimit)
+        let minimumHeight = min(260, maxHeight)
+        let safeBottomHeight = keyboardOverlap > 0 ? 0 : safeInsets.bottom
+        let preferredHeight = presentedViewController.preferredContentSize.height + safeBottomHeight
+        let height = min(max(preferredHeight, minimumHeight), maxHeight)
+        let x = bounds.midX - width / 2
+        let y = bottomY - height
+
+        return CGRect(x: x, y: y, width: width, height: height)
+    }
+
+    override func presentationTransitionWillBegin() {
+        guard let containerView else {
+            return
+        }
+
+        dimmingView.frame = containerView.bounds
+        containerView.insertSubview(dimmingView, at: 0)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardWillChangeFrame(_:)),
+            name: UIResponder.keyboardWillChangeFrameNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardWillHide(_:)),
+            name: UIResponder.keyboardWillHideNotification,
+            object: nil
+        )
+
+        presentedViewController.transitionCoordinator?.animate { [weak self] _ in
+            self?.dimmingView.alpha = 1
+        }
+    }
+
+    override func presentationTransitionDidEnd(_ completed: Bool) {
+        if completed {
+            installPanGestureIfNeeded()
+        } else {
+            dimmingView.removeFromSuperview()
+            NotificationCenter.default.removeObserver(self)
+        }
+    }
+
+    override func dismissalTransitionWillBegin() {
+        presentedViewController.transitionCoordinator?.animate { [weak self] _ in
+            self?.dimmingView.alpha = 0
+        }
+    }
+
+    override func dismissalTransitionDidEnd(_ completed: Bool) {
+        if completed {
+            dimmingView.removeFromSuperview()
+            NotificationCenter.default.removeObserver(self)
+        }
+    }
+
+    override func containerViewWillLayoutSubviews() {
+        super.containerViewWillLayoutSubviews()
+
+        dimmingView.frame = containerView?.bounds ?? .zero
+        presentedView?.frame = frameOfPresentedViewInContainerView
+    }
+
+    private func installPanGestureIfNeeded() {
+        guard panGestureRecognizer == nil,
+              let presentedView
+        else {
+            return
+        }
+
+        let panGestureRecognizer = UIPanGestureRecognizer(
+            target: self,
+            action: #selector(panGestureRecognized(_:))
+        )
+        panGestureRecognizer.cancelsTouchesInView = false
+        presentedView.addGestureRecognizer(panGestureRecognizer)
+        self.panGestureRecognizer = panGestureRecognizer
+    }
+
+    @objc private func dimmingViewTapped() {
+        (presentedViewController as? TicklyNativeSheetViewController)?.requestCancelFromPresentation()
+    }
+
+    @objc private func panGestureRecognized(_ recognizer: UIPanGestureRecognizer) {
+        guard let presentedView else {
+            return
+        }
+
+        let translation = recognizer.translation(in: containerView)
+        let velocity = recognizer.velocity(in: containerView)
+        let translationY = max(0, translation.y)
+
+        switch recognizer.state {
+        case .changed:
+            presentedView.transform = CGAffineTransform(translationX: 0, y: translationY)
+            dimmingView.alpha = max(0.62, 1 - translationY / 420)
+        case .ended, .cancelled:
+            let shouldDismiss = translationY > 92 || velocity.y > 900
+            if shouldDismiss {
+                (presentedViewController as? TicklyNativeSheetViewController)?.requestCancelFromPresentation()
+            } else {
+                UIView.animate(
+                    withDuration: 0.22,
+                    delay: 0,
+                    usingSpringWithDamping: 0.88,
+                    initialSpringVelocity: 0,
+                    options: [.beginFromCurrentState, .allowUserInteraction]
+                ) {
+                    presentedView.transform = .identity
+                    self.dimmingView.alpha = 1
+                }
+            }
+        default:
+            break
+        }
+    }
+
+    @objc private func keyboardWillChangeFrame(_ notification: Notification) {
+        guard let containerView,
+              let endFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+        else {
+            return
+        }
+
+        let convertedFrame = containerView.convert(endFrame, from: nil)
+        keyboardOverlap = max(0, containerView.bounds.maxY - convertedFrame.minY)
+        animateFrameChange(with: notification)
+    }
+
+    @objc private func keyboardWillHide(_ notification: Notification) {
+        keyboardOverlap = 0
+        animateFrameChange(with: notification)
+    }
+
+    private func animateFrameChange(with notification: Notification) {
+        guard let presentedView else {
+            return
+        }
+
+        let duration = (notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber)?
+            .doubleValue ?? 0.25
+        let curveRaw = (notification.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? NSNumber)?
+            .uintValue ?? UIView.AnimationOptions.curveEaseInOut.rawValue
+        let options = UIView.AnimationOptions(
+            rawValue: curveRaw << 16 | UIView.AnimationOptions.beginFromCurrentState.rawValue
+        )
+
+        UIView.animate(
+            withDuration: duration,
+            delay: 0,
+            options: options
+        ) {
+            presentedView.transform = .identity
+            presentedView.frame = self.frameOfPresentedViewInContainerView
+            self.dimmingView.frame = self.containerView?.bounds ?? .zero
+        }
+    }
+}
+
+@available(iOS 15.0, *)
+private final class TicklyLeafSheetAnimator: NSObject, UIViewControllerAnimatedTransitioning {
+    private let isPresenting: Bool
+
+    init(isPresenting: Bool) {
+        self.isPresenting = isPresenting
+    }
+
+    func transitionDuration(using transitionContext: UIViewControllerContextTransitioning?) -> TimeInterval {
+        isPresenting ? 0.28 : 0.22
+    }
+
+    func animateTransition(using transitionContext: UIViewControllerContextTransitioning) {
+        if isPresenting {
+            animatePresentation(using: transitionContext)
+        } else {
+            animateDismissal(using: transitionContext)
+        }
+    }
+
+    private func animatePresentation(using transitionContext: UIViewControllerContextTransitioning) {
+        guard let toView = transitionContext.view(forKey: .to) else {
+            transitionContext.completeTransition(false)
+            return
+        }
+
+        let containerView = transitionContext.containerView
+        let finalFrame = transitionContext.finalFrame(for: transitionContext.viewController(forKey: .to)!)
+        toView.frame = finalFrame
+        toView.transform = CGAffineTransform(translationX: 0, y: finalFrame.height + 24)
+        toView.alpha = 0.96
+        containerView.addSubview(toView)
+
+        UIView.animate(
+            withDuration: transitionDuration(using: transitionContext),
+            delay: 0,
+            usingSpringWithDamping: 0.9,
+            initialSpringVelocity: 0.2,
+            options: [.curveEaseOut, .allowUserInteraction]
+        ) {
+            toView.transform = .identity
+            toView.alpha = 1
+        } completion: { completed in
+            transitionContext.completeTransition(completed && !transitionContext.transitionWasCancelled)
+        }
+    }
+
+    private func animateDismissal(using transitionContext: UIViewControllerContextTransitioning) {
+        guard let fromView = transitionContext.view(forKey: .from) else {
+            transitionContext.completeTransition(false)
+            return
+        }
+
+        let distance = fromView.bounds.height + 28
+        UIView.animate(
+            withDuration: transitionDuration(using: transitionContext),
+            delay: 0,
+            options: [.curveEaseIn, .beginFromCurrentState, .allowUserInteraction]
+        ) {
+            fromView.transform = CGAffineTransform(translationX: 0, y: distance)
+            fromView.alpha = 0.98
+        } completion: { completed in
+            if transitionContext.transitionWasCancelled {
+                fromView.transform = .identity
+                fromView.alpha = 1
+            }
+            transitionContext.completeTransition(completed && !transitionContext.transitionWasCancelled)
+        }
+    }
+}

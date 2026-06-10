@@ -2,7 +2,7 @@ name: tickly
 options:
   bundleIdPrefix: com.u-keunsong.tickly
   deploymentTarget:
-    iOS: 14.0
+    iOS: 15.0
 fileGroups: [../../src]
 configs:
   debug: debug
@@ -10,7 +10,6 @@ configs:
 settingGroups:
   app:
     base:
-      PRODUCT_NAME: Tickly
       PRODUCT_BUNDLE_IDENTIFIER: com.u-keunsong.tickly
       DEVELOPMENT_TEAM: "3689L65YPY"
   widget:
@@ -49,6 +48,7 @@ targets:
       path: tickly_iOS/Info.plist
       properties:
         LSRequiresIPhoneOS: true
+        CFBundleDisplayName: Tickly
         UILaunchStoryboardName: LaunchScreen
         UIRequiredDeviceCapabilities: [arm64, metal]
         UISupportedInterfaceOrientations:

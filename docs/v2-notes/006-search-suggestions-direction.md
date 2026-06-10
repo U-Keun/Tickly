@@ -31,4 +31,4 @@ flowchart TB
 - Rust in-memory tests for blank search, category-bearing results, ordering, cross-category results, and limits.
 - `yarn run check`.
 - `yarn storybook --smoke-test -p 6008`.
-- Manual `/v2` QA for search entry, stable underlying list while typing, suggestions, category jump, filtered list after selection, clear, exit, and disabled drag after applied search.
+- Manual `/` QA for search entry, stable underlying list while typing, suggestions, category jump, filtered list after selection, clear, exit, and disabled drag after applied search.

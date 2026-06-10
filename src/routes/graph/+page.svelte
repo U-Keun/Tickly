@@ -27,7 +27,7 @@
 
   function handleCategoryTap(categoryId: number) {
     appStore.selectCategory(categoryId);
-    goto('/');
+    goto('/v1');
   }
 
   async function handleItemToggle(itemId: number, _done: boolean) {
@@ -35,7 +35,7 @@
   }
 </script>
 
-<SettingsLayout title={i18n.t('graphView')} onBack={() => goto('/')} contentClass="graph-content-override">
+<SettingsLayout title={i18n.t('graphView')} onBack={() => goto('/v1')} contentClass="graph-content-override">
   {#if loading}
     <div class="empty-state">
       <p>{i18n.t('loading')}</p>

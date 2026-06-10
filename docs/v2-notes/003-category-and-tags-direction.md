@@ -26,8 +26,8 @@ flowchart TB
   Header["v2 header"] --> Tools["V2LeafCommandBar"]
   Tools --> Rail["V2CategoryRail: segmented spaces"]
   Rail --> List["Displayed item list"]
-  Rail --> Add["Create category sheet"]
-  Rail --> Manage["Manage category sheet"]
+  Rail --> Add["Create category text sheet"]
+  Rail --> Manage["Manage category actions"]
   Rail --> Reorder["Long press reorder mode"]
   Manage --> Confirm["Delete confirm modal"]
 ```
@@ -61,10 +61,12 @@ References:
 - The category rail sits between `V2LeafCommandBar` and the item list, not in a separate framed page section.
 - Category buttons are grouped as a segmented control, so they read as space switching rather than independent tag chips.
 - The selected segment is rendered by a separate measured indicator, not by putting background/border styles on each selected button.
-- Add and manage stay as round tools outside the segmented group.
-- Create and rename use bottom sheets. Delete uses the v2 confirm modal because it also deletes the category's items.
+- Add and manage live inside the same category rail box as a fixed right tool area, separated from the scrollable segments by a thin divider.
+- Create and rename use text-entry sheets. On iOS app runtime they use the generic Swift native sheet with a `text` request; Storybook, desktop, and browser keep using the Svelte `V2CategoryDetailSheet` fallback.
+- Category management uses the same native sheet bridge with an `actions` request on iOS. The native result is emitted after dismissal completes, then Svelte selects the next flow: rename opens the native text sheet, edit order enters category reorder mode, and delete opens the existing confirm modal.
+- Delete uses the v2 confirm modal because it also deletes the category's items.
 - Category order uses a deliberate iOS-style reorder mode: long press enters the mode, categories wiggle lightly, and the full segment can be dragged.
-- Category deletion stays in the manage bottom sheet. Reorder mode does not show delete badges because the category rail is already compact.
+- Category deletion stays behind the manage action surface and confirm modal. Reorder mode does not show delete badges because the category rail is already compact.
 
 ## Motion Decisions
 
@@ -74,7 +76,7 @@ References:
 - The item list does not slide left/right. That made old and new rows visually overlap and compete with the indicator.
 - Item content uses an out-in dissolve: old rows fade out, a small pause creates breathing room, then the new list fades in with only a tiny vertical nudge.
 - Old and new rows are never rendered together during a category switch.
-- The v2 store updates the selected category and loaded items together, so real `/v2` usage avoids animating stale items into the new category state.
+- The v2 store updates the selected category and loaded items together, so real main-route usage avoids animating stale items into the new category state.
 - During the short list switch, row pointer events are disabled to avoid acting on a disappearing row.
 - Reduced motion keeps the same state changes but removes visible slide and smooth movement.
 - Reduced motion also removes the category reorder wiggle while preserving full-segment drag.
@@ -83,7 +85,7 @@ References:
 
 - This slice changes only the v2 category surface.
 - Category segments select a primary category.
-- Category create, rename, delete, and move actions live in bottom sheets and confirm modals.
+- Category create and rename use text-entry sheets; delete and order actions live in the category manage action surface and confirm modal.
 - Category reorder uses the existing v2 reorder command and does not change the SQLite schema.
 - Tags, sidebars, and category delete badges stay out of scope.
 
@@ -92,8 +94,9 @@ References:
 This slice now adds:
 
 - `V2CategoryRail` as the inline segmented category switcher.
-- `V2CategoryDetailSheet` for category create and rename.
-- `V2CategoryManageSheet` for rename, delete request, and entering category order editing.
+- `V2CategoryDetailSheet` as the web fallback for category create and rename.
+- Swift native sheet text requests for iOS category create and rename.
+- Swift native sheet action requests for iOS category manage, with `V2CategoryManageSheet` retained for Storybook, desktop, and browser fallback.
 - Category delete confirmation through the existing v2 confirm modal style.
 - Long-press category reorder with light wiggle, a `Done` control, and full-segment drag.
 - Store error propagation so sheets close only after successful mutations.
@@ -105,4 +108,4 @@ This slice now adds:
 - `yarn run check`: passed with 0 errors and 0 warnings.
 - `yarn storybook --smoke-test -p 6008`: passed.
 - `git diff --check`: passed.
-- Manual `/v2` QA remains the next checkpoint for category create, select, rename, delete, move, persistence, and iPhone/iPad width behavior.
+- Manual `/` QA remains the next checkpoint for category create, select, rename, delete, move, persistence, and iPhone/iPad width behavior.

@@ -48,14 +48,14 @@
       }
 
       await appStore.toggleItemFromWidget(itemId);
-      await goto('/');
+      await goto('/v1');
       return true;
     }
 
     if (parsedUrl.pathname === '/category') {
       const categoryIdParam = parsedUrl.searchParams.get('categoryId') ?? parsedUrl.searchParams.get('id');
       if (!categoryIdParam) {
-        await goto('/');
+        await goto('/v1');
         return true;
       }
 
@@ -74,7 +74,7 @@
         console.error('Widget category id does not exist:', categoryId);
       }
 
-      await goto('/');
+      await goto('/v1');
       return true;
     }
 

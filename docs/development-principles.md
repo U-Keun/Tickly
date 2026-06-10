@@ -5,18 +5,21 @@ Tickly development now follows a small-slice rebuild model: understand the curre
 ## Core Working Rules
 
 - A unit of work is complete only when the data contract, behavior, UI surface, verification, and explanation are all handled.
-- Keep v1 stable while v2 is developed in parallel.
+- Keep v1 available as the `/v1` legacy route while v2 becomes the main UI.
 - Prefer explicit boundaries over broad rewrites.
 - Use the existing architecture unless there is a concrete reason to change it.
 - Let tests and stories grow with the risk of the change.
+- When native platform UI is introduced, keep the slice narrow, keep Svelte/web fallback behavior, and keep data mutations in the existing v2 store/API flow unless a task explicitly changes that boundary.
 
 ## v2 Rebuild Rules
 
-- v2 starts as a hidden `/v2` route.
+- v2 is the main route at `/`; `/v2` remains only as a compatibility alias.
 - v2 uses `v2_` Tauri commands and `v2_` SQLite tables.
 - v2 starts empty except for a default `Home` category.
 - v2 does not use v1 stores or v1 data tables.
+- v1 stays available at `/v1` for reference, existing data, and legacy feature checks.
 - The first v2 feature is local checklist behavior only: categories, items, CRUD, completion, deletion, editing, ordering, and persistence.
+- iOS native UI is currently limited to v2 bottom-sheet surfaces: text-entry sheets and category management actions. Item/category save, delete, and reorder behavior still belongs to the existing v2 store/API layer.
 
 ## Understanding Track
 

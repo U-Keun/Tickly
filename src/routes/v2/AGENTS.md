@@ -1,9 +1,10 @@
-# AGENTS.md - v2 Route
+# AGENTS.md - v2 Compatibility Route
 
 Apply the root and `src/AGENTS.md` first.
 
 ## Route Scope
 
-- `/v2` is a hidden parallel rebuild route.
-- Route code may initialize v2 state and app theme/i18n, but must not import v1 app stores.
-- Keep this route local-checklist only until the v2 scope expands.
+- `/` is the canonical v2 checklist route.
+- `/v2` is only a compatibility alias and should redirect/replace to `/`.
+- Do not add v2 feature logic here; put the actual v2 route shell at `src/routes/+page.svelte`.
+- This route must not import v1 app stores.

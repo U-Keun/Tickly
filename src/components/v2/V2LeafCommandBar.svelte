@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ArrowLeft, Plus, Search, X } from '@lucide/svelte';
 
+  import { iosFocusFix } from '$lib/iosFocusFix';
   import { i18n } from '$lib/i18n';
 
   type MaybePromise = void | Promise<void>;
@@ -51,7 +52,7 @@
   });
 
   function focusInput(): void {
-    setTimeout(() => inputElement?.focus(), 0);
+    setTimeout(() => inputElement?.focus({ preventScroll: true }), 0);
   }
 
   function clearInput(): void {
@@ -98,7 +99,7 @@
 
 <div class="flex-shrink-0">
   <div
-    class="flex min-h-[64px] items-center gap-2.5 rounded-[0_24px_0_24px] border-[3px] border-[var(--color-ink)] bg-[var(--color-white)] px-2.5 py-2 shadow-sm"
+    class="flex min-h-[64px] items-center gap-2.5 rounded-[6px_24px_6px_24px] border-[3px] border-[var(--color-ink)] bg-[var(--color-white)] px-2.5 py-2 shadow-sm"
     aria-disabled={disabled}
   >
     <div
@@ -129,6 +130,7 @@
     </div>
 
     <input
+      use:iosFocusFix
       bind:this={inputElement}
       value={inputValue}
       type="text"

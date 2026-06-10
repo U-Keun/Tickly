@@ -13,13 +13,15 @@ This file guides AI agents working on the Tickly codebase.
 
 - Build small, flexible, verified slices. A slice is not complete until the data contract, behavior, UI surface, verification, and explanation are all handled.
 - Prefer progressive rebuilds and clear boundaries over broad rewrites.
-- Keep v1 stable while v2 is developed in parallel.
+- Keep v1 available as `/v1` legacy while v2 becomes the main UI.
 - Document the reasoning for architectural decisions in `docs/development-principles.md` or `docs/v2-notes/`.
 - Do not move to a larger feature until the current small unit has a clear verification story.
 
 ## v2 Rebuild Boundary
 
-- v2 work lives behind the hidden `/v2` route until explicitly promoted.
+- v2 is the canonical main UI at `/`.
+- `/v2` is a compatibility alias for old v2 QA links and should redirect/replace to `/`.
+- v1 is preserved at `/v1` for legacy data, reference behavior, and features not yet rebuilt in v2.
 - v2 backend commands use the `v2_` prefix.
 - v2 local persistence uses `v2_` SQLite tables.
 - v2 must not implicitly depend on v1 stores, v1 tables, sync, widget, tag, repeat, streak, reminder, linked-app, or graph flows.
@@ -43,8 +45,10 @@ This file guides AI agents working on the Tickly codebase.
 - `yarn tauri ios dev` - Deploy to iOS simulator or device
 - `yarn tauri ios build` - Build production iOS app (.ipa)
 - `yarn tauri ios dev --list` - List available devices
+- `src-tauri/scripts/setup-ios-widget.sh` - Sync repo-owned iOS template files into `src-tauri/gen/apple` and regenerate the Xcode project
 
 Note: iOS deployment requires `yarn build` first (no internal HTTP server on iOS).
+When adding or changing app-level Swift sources, update the repo-owned template under `src-tauri/ios-widget/`, sync/regenerate with `src-tauri/scripts/setup-ios-widget.sh` or `xcodegen generate`, and verify the generated Xcode target actually includes the Swift source.
 
 ### Testing
 - `yarn run check` - Required frontend type/Svelte validation after frontend changes
