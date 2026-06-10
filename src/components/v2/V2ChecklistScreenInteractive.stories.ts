@@ -16,3 +16,9 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const CategorySwitching: Story = {};
+
+export const DrawerOpenCompletion: Story = {
+  args: {
+    initialOpenDrawerItemIds: [1]
+  }
+};

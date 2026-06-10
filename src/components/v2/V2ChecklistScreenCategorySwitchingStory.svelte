@@ -2,6 +2,12 @@
   import type { V2Category, V2ItemSearchResult, V2TodoItem } from '../../types';
   import V2ChecklistScreen from './V2ChecklistScreen.svelte';
 
+  interface Props {
+    initialOpenDrawerItemIds?: number[];
+  }
+
+  let { initialOpenDrawerItemIds = [] }: Props = $props();
+
   const now = '2026-06-08T00:00:00Z';
   const orderStep = 1000;
 
@@ -244,6 +250,7 @@
   {selectedCategoryId}
   {items}
   errorMessage={null}
+  {initialOpenDrawerItemIds}
   onSelectCategory={selectCategory}
   onAddCategory={addCategory}
   onUpdateCategory={updateCategory}

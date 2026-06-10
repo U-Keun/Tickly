@@ -122,6 +122,31 @@ export const CompletedItems: Story = {
   }
 };
 
+export const LongTextItems: Story = {
+  args: {
+    items: [
+      {
+        id: 10,
+        category_id: 1,
+        text: 'Umbrella before leaving for a very long commute day with errands after work and grocery pickup',
+        done: false,
+        display_order: 1000,
+        created_at: '2026-06-08T00:00:00Z',
+        updated_at: '2026-06-08T00:00:00Z'
+      },
+      {
+        id: 11,
+        category_id: 1,
+        text: 'SuperLongUnbrokenChecklistItemNameThatShouldNeverPushTheCardWiderThanTheiPhoneViewportEvenWhenTypedWithoutSpaces',
+        done: false,
+        display_order: 2000,
+        created_at: '2026-06-08T00:00:00Z',
+        updated_at: '2026-06-08T00:00:00Z'
+      }
+    ]
+  }
+};
+
 export const SearchActive: Story = {
   args: {
     initialSearchMode: true,

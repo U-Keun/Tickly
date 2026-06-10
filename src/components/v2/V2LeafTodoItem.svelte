@@ -24,8 +24,11 @@
   interface Props {
     item: V2TodoItem;
     initialDrawerOpen?: boolean;
+    drawerOpen?: boolean;
+    drawerOpenImmediate?: boolean;
     isTextClickSuppressed?: boolean;
     onToggleItem: (id: number) => MaybePromise;
+    onDrawerOpenChange?: (id: number, open: boolean) => MaybePromise;
     onRequestEditItem: (item: V2TodoItem) => MaybePromise;
     onRequestDeleteItem: (item: V2TodoItem) => MaybePromise;
     onRequestCompleteFanfare?: (rect: DOMRect) => void;
@@ -34,8 +37,11 @@
   let {
     item,
     initialDrawerOpen = false,
+    drawerOpen = undefined,
+    drawerOpenImmediate = false,
     isTextClickSuppressed = false,
     onToggleItem,
+    onDrawerOpenChange,
     onRequestEditItem,
     onRequestDeleteItem,
     onRequestCompleteFanfare
@@ -61,19 +67,34 @@
   let isTextPressing = $state(false);
   let checkboxButton: HTMLButtonElement | null = $state(null);
   let drawerId = $derived(`v2-todo-drawer-${item.id}`);
+  let hasControlledDrawer = $derived(drawerOpen !== undefined);
+  let drawerSlideDuration = $derived(drawerOpenImmediate ? 0 : DRAWER_SLIDE_DURATION_MS);
 
   $effect(() => {
     if (didApplyInitialDrawerOpen) return;
-    if (initialDrawerOpen) {
+    if (!hasControlledDrawer && initialDrawerOpen) {
       openDrawer();
     }
     didApplyInitialDrawerOpen = true;
   });
 
   $effect(() => {
+    if (!hasControlledDrawer) return;
+
+    if (drawerOpen && !isDrawerOpen) {
+      openDrawer(drawerOpenImmediate);
+      return;
+    }
+
+    if (!drawerOpen && isDrawerOpen) {
+      closeDrawer();
+    }
+  });
+
+  $effect(() => {
     const itemChanged = item.id !== lastSyncedItemId;
 
-    if (itemChanged && lastSyncedItemId !== null) {
+    if (itemChanged && lastSyncedItemId !== null && !hasControlledDrawer) {
       resetDrawer();
     }
 
@@ -157,12 +178,12 @@
     isDrawerContentVisible = false;
   }
 
-  function openDrawer(): void {
+  function openDrawer(immediate = false): void {
     clearDrawerContentTimer();
     isDrawerOpen = true;
     isDrawerRendered = true;
 
-    if (prefersReducedMotion()) {
+    if (immediate || prefersReducedMotion()) {
       isDrawerContentVisible = true;
       return;
     }
@@ -191,12 +212,19 @@
   }
 
   function toggleDrawer(): void {
-    if (isDrawerOpen) {
-      closeDrawer();
+    const nextOpen = !isDrawerOpen;
+
+    if (onDrawerOpenChange) {
+      void onDrawerOpenChange(item.id, nextOpen);
       return;
     }
 
-    openDrawer();
+    if (nextOpen) {
+      openDrawer();
+      return;
+    }
+
+    closeDrawer();
   }
 
   function handleTextClick(event: MouseEvent): void {
@@ -335,10 +363,10 @@
       {/if}
     </button>
 
-    <div class="flex min-w-0 flex-1 basis-0 items-center overflow-hidden">
+    <div class="todoTextLane">
       <button
         type="button"
-        class={`flex min-h-11 min-w-0 flex-1 basis-0 items-center overflow-hidden rounded-[12px] pr-1 text-left text-base leading-6 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ink)] ${
+        class={`todoTextButton flex min-h-11 items-center overflow-hidden rounded-[12px] pr-1 text-left text-base leading-6 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ink)] ${
           textDone
             ? 'text-[var(--color-ink-muted)]'
             : 'text-[var(--color-ink)]'
@@ -357,12 +385,12 @@
         onpointerleave={resetTextPressState}
         onclick={handleTextClick}
       >
-        <span class="block min-w-0 flex-1 overflow-hidden whitespace-nowrap">
+        <span class="flex h-11 w-full min-w-0 items-center overflow-hidden whitespace-nowrap">
           <span class="tickText" class:tickTextDone={textDone}>{item.text}</span>
         </span>
       </button>
 
-      <div class="h-11 w-[72px] shrink-0" aria-hidden="true"></div>
+      <div class="tagReserveSlot h-11 shrink-0" aria-hidden="true"></div>
     </div>
   </div>
 
@@ -370,7 +398,7 @@
     <div
       id={drawerId}
       class="mt-2 overflow-hidden"
-      transition:slide={{ duration: DRAWER_SLIDE_DURATION_MS, easing: cubicOut }}
+      transition:slide={{ duration: drawerSlideDuration, easing: cubicOut }}
     >
       <div class="drawerSurface" class:drawerSurfaceVisible={isDrawerContentVisible}>
         <div class="drawerContent" class:drawerContentVisible={isDrawerContentVisible}>
@@ -439,14 +467,36 @@
     pointer-events: none;
   }
 
+  .todoTextLane {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(40px, 14vw, 72px);
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .todoTextButton {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .tickText {
     position: relative;
     display: inline-block;
+    flex: 0 1 auto;
+    min-width: 0;
     max-width: 100%;
+    line-height: 1.5rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    vertical-align: top;
+  }
+
+  .tagReserveSlot {
+    width: 100%;
   }
 
   .tickText::after {

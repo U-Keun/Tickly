@@ -42,6 +42,7 @@
     initialSearchMode?: boolean;
     initialSearchQuery?: string;
     initialCategoryReorderMode?: boolean;
+    initialOpenDrawerItemIds?: number[];
     onSelectCategory: (id: number) => MaybePromise;
     onAddCategory: (name: string) => MaybePromise;
     onUpdateCategory: (id: number, name: string) => MaybePromise;
@@ -63,6 +64,7 @@
     initialSearchMode = false,
     initialSearchQuery = '',
     initialCategoryReorderMode = false,
+    initialOpenDrawerItemIds = [],
     onSelectCategory,
     onAddCategory,
     onUpdateCategory,
@@ -120,12 +122,14 @@
   let appliedSearchQuery = $state('');
   let isSuggestionBoardOpen = $state(false);
   let didApplyInitialSearchState = $state(false);
+  let didApplyInitialOpenDrawerState = $state(false);
   let searchSuggestions = $state<V2ItemSearchResult[]>([]);
   let isSearching = $state(false);
   let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   let searchRequestToken = 0;
   let activeItems = $state<V2TodoItem[]>([]);
   let doneItems = $state<V2TodoItem[]>([]);
+  let openDrawerItemIds = $state<Set<number>>(new Set());
   let categoryReorderDraft = $state<V2Category[] | null>(null);
   let isTextClickSuppressed = $state(false);
   let textClickSuppressTimer: ReturnType<typeof setTimeout> | null = null;
@@ -549,6 +553,36 @@
     doneItems = nextVisibleItems.filter((item) => item.done);
   }
 
+  function setItemDrawerOpen(id: number, open: boolean): void {
+    const nextOpenDrawerItemIds = new Set(openDrawerItemIds);
+
+    if (open) {
+      nextOpenDrawerItemIds.add(id);
+    } else {
+      nextOpenDrawerItemIds.delete(id);
+    }
+
+    openDrawerItemIds = nextOpenDrawerItemIds;
+  }
+
+  function clearOpenItemDrawers(): void {
+    if (openDrawerItemIds.size === 0) return;
+    openDrawerItemIds = new Set();
+  }
+
+  function pruneOpenItemDrawers(validItems: V2TodoItem[]): void {
+    if (openDrawerItemIds.size === 0) return;
+
+    const validIds = new Set(validItems.map((item) => item.id));
+    const nextOpenDrawerItemIds = new Set(
+      [...openDrawerItemIds].filter((id) => validIds.has(id))
+    );
+
+    if (nextOpenDrawerItemIds.size !== openDrawerItemIds.size) {
+      openDrawerItemIds = nextOpenDrawerItemIds;
+    }
+  }
+
   function filterItemsForSearch(nextItems: V2TodoItem[]): V2TodoItem[] {
     if (!hasAppliedSearchQuery) return nextItems;
     return nextItems.filter((item) =>
@@ -562,6 +596,7 @@
   ): Promise<void> {
     const token = ++listTransitionToken;
     clearEnteringItems();
+    clearOpenItemDrawers();
 
     if (prefersReducedMotion) {
       updateDisplayedList(categoryId, nextItems);
@@ -595,6 +630,14 @@
   });
 
   $effect(() => {
+    if (didApplyInitialOpenDrawerState) return;
+    if (initialOpenDrawerItemIds.length > 0) {
+      openDrawerItemIds = new Set(initialOpenDrawerItemIds);
+    }
+    didApplyInitialOpenDrawerState = true;
+  });
+
+  $effect(() => {
     const nextCategoryId = selectedCategoryId;
     const nextItems = items;
     itemSignature;
@@ -609,6 +652,11 @@
     }
 
     void transitionDisplayedList(nextCategoryId, nextItems);
+  });
+
+  $effect(() => {
+    itemSignature;
+    pruneOpenItemDrawers(items);
   });
 
   $effect(() => {
@@ -743,6 +791,7 @@
 
     isCategoryReorderMode = true;
     isSuggestionBoardOpen = false;
+    clearOpenItemDrawers();
     showCategoryManageSheet = false;
     showCategoryDetailSheet = false;
     categoryPendingDetail = null;
@@ -777,6 +826,7 @@
     if (isCategoryReorderMode) return;
     if (id === selectedCategoryId) return;
 
+    clearOpenItemDrawers();
     await onSelectCategory(id);
   }
 
@@ -852,6 +902,7 @@
     searchQuery = '';
     appliedSearchQuery = '';
     isSuggestionBoardOpen = false;
+    clearOpenItemDrawers();
     resetSearchSuggestions();
     splitDisplayedItems(displayedItems);
   }
@@ -861,6 +912,7 @@
     isSuggestionBoardOpen = query.trim().length > 0;
     if (!query.trim()) {
       appliedSearchQuery = '';
+      clearOpenItemDrawers();
     }
   }
 
@@ -873,6 +925,7 @@
   async function selectSearchSuggestion(result: V2ItemSearchResult): Promise<void> {
     isSuggestionBoardOpen = false;
     appliedSearchQuery = searchQuery.trim();
+    clearOpenItemDrawers();
     if (result.category.id === selectedCategoryId) return;
 
     try {
@@ -960,6 +1013,7 @@
 
     const sourceRect = snapshotRect(sourceNode.getBoundingClientRect());
     const sourceHtml = snapshotCompletionMoveHtml(sourceNode);
+    const sourceDrawerOpen = openDrawerItemIds.has(id);
     const beforeRects = snapshotItemRects();
 
     clearCompletionMove();
@@ -979,6 +1033,9 @@
     try {
       await onToggleItem(id);
       await tick();
+      if (sourceDrawerOpen) {
+        await tick();
+      }
       animateItemShifts(beforeRects, id);
 
       const targetNode = itemNodes.get(id);
@@ -989,7 +1046,11 @@
 
       const targetRect = snapshotRect(targetNode.getBoundingClientRect());
       const scaleX = sourceRect.width > 0 ? targetRect.width / sourceRect.width : 1;
-      const scaleY = sourceRect.height > 0 ? targetRect.height / sourceRect.height : 1;
+      const scaleY = sourceDrawerOpen
+        ? 1
+        : sourceRect.height > 0
+          ? targetRect.height / sourceRect.height
+          : 1;
 
       completionMoveOverlay = {
         id,
@@ -1231,6 +1292,7 @@
     const itemToDelete = itemPendingDeletion;
     isDeletingItem = true;
     itemPendingDeletion = null;
+    setItemDrawerOpen(itemToDelete.id, false);
 
     try {
       const didAnimateExit = await animateItemExit(itemToDelete.id);
@@ -1277,9 +1339,9 @@
 
 </script>
 
-<div class="app-container v2-app-container isolate bg-canvas text-ink flex flex-col">
-  <main class="relative z-10 mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
-    <section class="flex min-h-0 flex-1 flex-col pb-[max(0.75rem,var(--safe-area-bottom))] pl-[max(1rem,var(--safe-area-left))] pr-[max(1rem,var(--safe-area-right))] pt-[max(0.75rem,var(--safe-area-top))]">
+<div class="app-container v2-app-container isolate bg-canvas text-ink flex min-w-0 flex-col overflow-hidden">
+  <main class="relative z-10 mx-auto flex min-h-0 w-full min-w-0 max-w-2xl flex-1 flex-col overflow-hidden">
+    <section class="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden pb-[max(0.75rem,var(--safe-area-bottom))] pl-[max(1rem,var(--safe-area-left))] pr-[max(1rem,var(--safe-area-right))] pt-[max(0.75rem,var(--safe-area-top))]">
       <div class="relative z-30 mb-4">
         <V2LeafCommandBar
           mode={searchMode ? 'search' : 'add'}
@@ -1325,11 +1387,11 @@
         />
       </div>
 
-      <div class="todo-list-scroll" aria-busy={isListSwitching}>
-        <div class={`grid min-h-full overflow-hidden ${isListSwitching ? 'pointer-events-none' : ''}`}>
+      <div class="todo-list-scroll w-full min-w-0 max-w-full" aria-busy={isListSwitching}>
+        <div class={`grid min-h-full w-full min-w-0 max-w-full overflow-hidden ${isListSwitching ? 'pointer-events-none' : ''}`}>
           {#if isListContentVisible}
             <div
-              class="col-start-1 row-start-1 min-h-0 will-change-transform"
+              class="col-start-1 row-start-1 min-h-0 w-full min-w-0 max-w-full will-change-transform"
               in:fly={{
                 y: listEnterY,
                 duration: listEnterDuration,
@@ -1349,7 +1411,7 @@
                   {/if}
                 </div>
               {:else}
-                <div class="flex flex-col gap-2 pb-16">
+                <div class="flex w-full min-w-0 max-w-full flex-col gap-2 pb-16">
                   {#if activeItems.length > 0}
                     <div
                       use:dragHandleZone={{
@@ -1370,20 +1432,23 @@
                       }}
                       onconsider={(event) => handleReorderConsider('active', event)}
                       onfinalize={(event) => void handleReorderFinalize('active', event)}
-                      class="flex flex-col gap-2"
+                      class="flex w-full min-w-0 max-w-full flex-col gap-2"
                     >
                       {#each activeItems as item (item.id)}
                         <div
                           use:trackItemNode={item.id}
                           in:itemEntry={{ enabled: enteringItemIds.has(item.id) }}
                           animate:flip={{ duration: itemFlipDuration }}
-                          class={`relative z-10 outline-none focus:outline-none focus-visible:outline-none ${
+                          class={`relative z-10 w-full min-w-0 max-w-full outline-none focus:outline-none focus-visible:outline-none ${
                             movingItemId === item.id ? 'completionMoveHidden' : ''
                           } ${exitingItemIds.has(item.id) ? 'itemExitCollapsing' : ''}`}
                         >
                           <V2LeafTodoItem
                             {item}
+                            drawerOpen={openDrawerItemIds.has(item.id)}
+                            drawerOpenImmediate={movingItemId === item.id}
                             onToggleItem={handleToggleItem}
+                            onDrawerOpenChange={setItemDrawerOpen}
                             isTextClickSuppressed={isTextClickSuppressed}
                             onRequestEditItem={requestEditItem}
                             onRequestDeleteItem={requestDeleteItem}
@@ -1414,20 +1479,23 @@
                       }}
                       onconsider={(event) => handleReorderConsider('done', event)}
                       onfinalize={(event) => void handleReorderFinalize('done', event)}
-                      class="flex flex-col gap-2"
+                      class="flex w-full min-w-0 max-w-full flex-col gap-2"
                     >
                       {#each doneItems as item (item.id)}
                         <div
                           use:trackItemNode={item.id}
                           in:itemEntry={{ enabled: enteringItemIds.has(item.id) }}
                           animate:flip={{ duration: itemFlipDuration }}
-                          class={`relative z-10 outline-none focus:outline-none focus-visible:outline-none ${
+                          class={`relative z-10 w-full min-w-0 max-w-full outline-none focus:outline-none focus-visible:outline-none ${
                             movingItemId === item.id ? 'completionMoveHidden' : ''
                           } ${exitingItemIds.has(item.id) ? 'itemExitCollapsing' : ''}`}
                         >
                           <V2LeafTodoItem
                             {item}
+                            drawerOpen={openDrawerItemIds.has(item.id)}
+                            drawerOpenImmediate={movingItemId === item.id}
                             onToggleItem={handleToggleItem}
+                            onDrawerOpenChange={setItemDrawerOpen}
                             isTextClickSuppressed={isTextClickSuppressed}
                             onRequestEditItem={requestEditItem}
                             onRequestDeleteItem={requestDeleteItem}
