@@ -25,6 +25,18 @@
 
     return memo.length > 72 ? `${memo.slice(0, 72).trim()}...` : memo;
   }
+
+  function getTagSearchSnippet(result: V2ItemSearchResult): string | null {
+    if (!normalizedQuery) return null;
+    if (result.item.text.toLocaleLowerCase().includes(normalizedQuery)) return null;
+    if ((result.item.memo ?? '').toLocaleLowerCase().includes(normalizedQuery)) return null;
+
+    const matchedTag = result.item.tags.find((tag) =>
+      tag.name.toLocaleLowerCase().includes(normalizedQuery)
+    );
+
+    return matchedTag ? `#${matchedTag.name}` : null;
+  }
 </script>
 
 <div
@@ -49,6 +61,7 @@
     <div class="flex flex-col gap-1">
       {#each results as result (result.item.id)}
         {@const memoSnippet = getMemoSearchSnippet(result)}
+        {@const tagSnippet = getTagSearchSnippet(result)}
         <button
           type="button"
           class="flex min-h-11 min-w-0 items-center gap-3 rounded-[12px] px-3 py-1.5 text-left transition-colors hover:bg-[var(--color-canvas)] active:bg-[var(--color-mist)]"
@@ -67,6 +80,10 @@
             {#if memoSnippet}
               <span class="mt-0.5 block truncate text-xs font-medium text-[var(--color-ink-muted)]">
                 {i18n.t('v2MemoSearchSnippetTemplate')(memoSnippet)}
+              </span>
+            {:else if tagSnippet}
+              <span class="mt-0.5 block truncate text-xs font-medium text-[var(--color-ink-muted)]">
+                {i18n.t('v2TagSearchSnippetTemplate')(tagSnippet)}
               </span>
             {/if}
           </span>

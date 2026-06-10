@@ -14,7 +14,10 @@ flowchart TB
   Detail --> Store["v2ChecklistStore.updateItemDetails"]
   Store --> Command["v2_update_item_details"]
   Command --> Table["v2_todos.memo"]
+  Tag["v2 tags"] --> Drawer
+  Tag --> Detail
   Search["v2 search"] --> Table
+  Search --> Tag
 ```
 
 ## Boundaries
@@ -22,10 +25,10 @@ flowchart TB
 - Drawer shows the item title first, then memo as a read-only preview when present.
 - Drawer title and memo preview are each capped at 4 lines to keep the list context stable.
 - Editing happens in the item detail sheet together with the item name.
-- Search matches item name and memo, but not future tags, repeat rules, reminders, linked apps, or sync metadata.
+- Search matches item name, memo, and tag names, but not repeat rules, reminders, linked apps, or sync metadata.
 - Empty memo input is stored as `null`.
 
 ## Verification Target
 
 - Rust in-memory tests cover memo migration, create default `null`, update details, blank memo normalization, and memo search.
-- Storybook covers drawer title + memo preview, item detail memo editing, and memo-only search suggestions.
+- Storybook covers drawer title + memo preview, item detail memo/tag editing, and memo/tag search suggestions.

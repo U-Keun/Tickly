@@ -31,6 +31,8 @@ private struct TicklyNativeSheetFormFieldRequest: Decodable {
     let label: String
     let placeholder: String
     let initialValue: String
+    let initialTags: [String]?
+    let suggestions: [String]?
     let required: Bool?
 }
 
@@ -45,8 +47,24 @@ private struct TicklyNativeSheetResult: Encodable {
     let token: String
     let status: String
     let value: String?
-    let values: [String: String]?
+    let values: [String: TicklyNativeSheetValue]?
     let actionId: String?
+}
+
+private enum TicklyNativeSheetValue: Encodable {
+    case string(String)
+    case strings([String])
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+
+        switch self {
+        case .string(let value):
+            try container.encode(value)
+        case .strings(let values):
+            try container.encode(values)
+        }
+    }
 }
 
 @_cdecl("tickly_show_native_sheet")
@@ -219,6 +237,7 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
     private let surfaceBorderLayer = CAShapeLayer()
     private var formTextFields: [String: UITextField] = [:]
     private var formTextViews: [String: UITextView] = [:]
+    private var formTagFields: [String: TagFieldView] = [:]
     private var formRequiredFieldIds = Set<String>()
     private var textViewFieldIds: [ObjectIdentifier: String] = [:]
     private var textViewPlaceholders: [ObjectIdentifier: String] = [:]
@@ -478,7 +497,19 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
                 formRequiredFieldIds.insert(field.id)
             }
 
-            if field.kind == "textarea" {
+            if field.kind == "tags" {
+                let tagField = TagFieldView(
+                    placeholder: field.placeholder,
+                    initialTags: field.initialTags ?? [],
+                    suggestions: field.suggestions ?? [],
+                    style: Style.self
+                )
+                tagField.onChange = { [weak self] in
+                    self?.updateSaveButtonState()
+                }
+                formTagFields[field.id] = tagField
+                stack.addArrangedSubview(tagField)
+            } else if field.kind == "textarea" {
                 let textView = UITextView()
                 textView.font = .preferredFont(forTextStyle: .body)
                 textView.adjustsFontForContentSizeCategory = true
@@ -686,14 +717,18 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
             return
         }
 
-        var values: [String: String] = [:]
+        var values: [String: TicklyNativeSheetValue] = [:]
 
         for (fieldId, fieldInput) in formTextFields {
-            values[fieldId] = (fieldInput.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            values[fieldId] = .string((fieldInput.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
         }
 
         for (fieldId, textView) in formTextViews {
-            values[fieldId] = normalizedTextViewValue(textView)
+            values[fieldId] = .string(normalizedTextViewValue(textView))
+        }
+
+        for (fieldId, tagField) in formTagFields {
+            values[fieldId] = .strings(tagField.tags)
         }
 
         complete(status: "saved", value: nil, values: values, actionId: nil, shouldDismiss: true)
@@ -731,6 +766,13 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
                 continue
             }
 
+            if let tagField = formTagFields[fieldId] {
+                if tagField.tags.isEmpty {
+                    return false
+                }
+                continue
+            }
+
             return false
         }
 
@@ -752,7 +794,7 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
     private func complete(
         status: String,
         value: String?,
-        values: [String: String]?,
+        values: [String: TicklyNativeSheetValue]?,
         actionId: String?,
         shouldDismiss: Bool
     ) {
@@ -772,10 +814,283 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
         emitResult(status: status, value: value, values: values, actionId: actionId)
     }
 
+    private final class TagFieldView: UIView, UITextFieldDelegate {
+        var onChange: (() -> Void)?
+
+        private let style: Style.Type
+        private let placeholder: String
+        private let suggestions: [String]
+        private let rootStack = UIStackView()
+        private let chipScrollView = UIScrollView()
+        private let chipStack = UIStackView()
+        private let textField = UITextField()
+        private let suggestionStack = UIStackView()
+        private var selectedTags: [String]
+
+        var tags: [String] {
+            selectedTags
+        }
+
+        init(
+            placeholder: String,
+            initialTags: [String],
+            suggestions: [String],
+            style: Style.Type
+        ) {
+            self.placeholder = placeholder
+            self.suggestions = suggestions
+            self.style = style
+            self.selectedTags = TagFieldView.normalizedTagNames(initialTags)
+            super.init(frame: .zero)
+            buildLayout()
+            reloadChips()
+            reloadSuggestions()
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+
+        private static func normalizedTagName(_ rawName: String) -> String? {
+            let trimmed = rawName
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            guard !trimmed.isEmpty else {
+                return nil
+            }
+
+            let isValid = trimmed.unicodeScalars.allSatisfy { scalar in
+                scalar.properties.isAlphabetic ||
+                    scalar.properties.numericType != nil ||
+                    scalar.value == 95 ||
+                    scalar.value == 45
+            }
+
+            return isValid ? trimmed : nil
+        }
+
+        private static func normalizedTagNames(_ rawNames: [String]) -> [String] {
+            var names: [String] = []
+            var seen = Set<String>()
+
+            for rawName in rawNames {
+                guard let name = normalizedTagName(rawName) else {
+                    continue
+                }
+
+                let key = name.lowercased()
+                if seen.insert(key).inserted {
+                    names.append(name)
+                }
+            }
+
+            return names
+        }
+
+        private func buildLayout() {
+            translatesAutoresizingMaskIntoConstraints = false
+            backgroundColor = style.paper
+            layer.cornerRadius = 14
+            layer.borderColor = style.ink.cgColor
+            layer.borderWidth = 2
+
+            rootStack.translatesAutoresizingMaskIntoConstraints = false
+            rootStack.axis = .vertical
+            rootStack.spacing = 8
+            addSubview(rootStack)
+
+            chipScrollView.translatesAutoresizingMaskIntoConstraints = false
+            chipScrollView.showsHorizontalScrollIndicator = false
+            chipScrollView.alwaysBounceHorizontal = false
+
+            chipStack.translatesAutoresizingMaskIntoConstraints = false
+            chipStack.axis = .horizontal
+            chipStack.spacing = 8
+            chipStack.alignment = .center
+            chipScrollView.addSubview(chipStack)
+
+            textField.placeholder = placeholder
+            textField.font = .preferredFont(forTextStyle: .body)
+            textField.adjustsFontForContentSizeCategory = true
+            textField.textColor = style.ink
+            textField.tintColor = style.accentSkyStrong
+            textField.backgroundColor = .clear
+            textField.returnKeyType = .done
+            textField.autocorrectionType = .default
+            textField.delegate = self
+            textField.addTarget(self, action: #selector(textDidChange), for: .editingChanged)
+            textField.widthAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
+            textField.heightAnchor.constraint(greaterThanOrEqualToConstant: 36).isActive = true
+
+            suggestionStack.axis = .horizontal
+            suggestionStack.spacing = 8
+            suggestionStack.alignment = .leading
+
+            rootStack.addArrangedSubview(chipScrollView)
+            rootStack.addArrangedSubview(suggestionStack)
+
+            NSLayoutConstraint.activate([
+                rootStack.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+                rootStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+                rootStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+                rootStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+
+                chipStack.topAnchor.constraint(equalTo: chipScrollView.contentLayoutGuide.topAnchor),
+                chipStack.leadingAnchor.constraint(equalTo: chipScrollView.contentLayoutGuide.leadingAnchor),
+                chipStack.trailingAnchor.constraint(equalTo: chipScrollView.contentLayoutGuide.trailingAnchor),
+                chipStack.bottomAnchor.constraint(equalTo: chipScrollView.contentLayoutGuide.bottomAnchor),
+                chipStack.heightAnchor.constraint(equalTo: chipScrollView.frameLayoutGuide.heightAnchor),
+                chipScrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 38)
+            ])
+        }
+
+        private func reloadChips() {
+            for view in chipStack.arrangedSubviews {
+                chipStack.removeArrangedSubview(view)
+                view.removeFromSuperview()
+            }
+
+            for tag in selectedTags {
+                let button = UIButton(type: .system)
+                var configuration = UIButton.Configuration.filled()
+                configuration.title = "#\(tag)  ×"
+                configuration.baseBackgroundColor = .white
+                configuration.baseForegroundColor = style.ink
+                configuration.cornerStyle = .capsule
+                configuration.contentInsets = NSDirectionalEdgeInsets(
+                    top: 6,
+                    leading: 10,
+                    bottom: 6,
+                    trailing: 10
+                )
+                button.configuration = configuration
+                button.accessibilityIdentifier = tag
+                button.addTarget(self, action: #selector(removeTagButtonTapped(_:)), for: .touchUpInside)
+                chipStack.addArrangedSubview(button)
+            }
+
+            chipStack.addArrangedSubview(textField)
+        }
+
+        private func reloadSuggestions() {
+            for view in suggestionStack.arrangedSubviews {
+                suggestionStack.removeArrangedSubview(view)
+                view.removeFromSuperview()
+            }
+
+            let query = (textField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !query.isEmpty else {
+                suggestionStack.isHidden = true
+                return
+            }
+
+            let selectedKeys = Set(selectedTags.map { $0.lowercased() })
+            let matches = suggestions
+                .filter { suggestion in
+                    let key = suggestion.lowercased()
+                    return !selectedKeys.contains(key) && key.contains(query)
+                }
+                .sorted { left, right in
+                    let leftStarts = left.lowercased().hasPrefix(query)
+                    let rightStarts = right.lowercased().hasPrefix(query)
+                    if leftStarts != rightStarts {
+                        return leftStarts
+                    }
+                    return left.localizedCaseInsensitiveCompare(right) == .orderedAscending
+                }
+                .prefix(3)
+
+            suggestionStack.isHidden = matches.isEmpty
+
+            for suggestion in matches {
+                let button = UIButton(type: .system)
+                var configuration = UIButton.Configuration.filled()
+                configuration.title = "#\(suggestion)"
+                configuration.baseBackgroundColor = style.canvas
+                configuration.baseForegroundColor = style.inkMuted
+                configuration.cornerStyle = .capsule
+                configuration.contentInsets = NSDirectionalEdgeInsets(
+                    top: 6,
+                    leading: 10,
+                    bottom: 6,
+                    trailing: 10
+                )
+                button.configuration = configuration
+                button.accessibilityIdentifier = suggestion
+                button.addTarget(self, action: #selector(suggestionButtonTapped(_:)), for: .touchUpInside)
+                suggestionStack.addArrangedSubview(button)
+            }
+        }
+
+        private func commitTag(_ rawName: String) {
+            guard let name = TagFieldView.normalizedTagName(rawName) else {
+                return
+            }
+
+            let key = name.lowercased()
+            guard !selectedTags.map({ $0.lowercased() }).contains(key) else {
+                textField.text = ""
+                reloadSuggestions()
+                return
+            }
+
+            selectedTags.append(name)
+            textField.text = ""
+            reloadChips()
+            reloadSuggestions()
+            onChange?()
+        }
+
+        @objc private func textDidChange() {
+            reloadSuggestions()
+        }
+
+        @objc private func removeTagButtonTapped(_ sender: UIButton) {
+            guard let tag = sender.accessibilityIdentifier else {
+                return
+            }
+
+            let key = tag.lowercased()
+            selectedTags.removeAll { $0.lowercased() == key }
+            reloadChips()
+            reloadSuggestions()
+            onChange?()
+        }
+
+        @objc private func suggestionButtonTapped(_ sender: UIButton) {
+            guard let tag = sender.accessibilityIdentifier else {
+                return
+            }
+
+            commitTag(tag)
+        }
+
+        func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+            commitTag(textField.text ?? "")
+            return false
+        }
+
+        func textField(
+            _ textField: UITextField,
+            shouldChangeCharactersIn range: NSRange,
+            replacementString string: String
+        ) -> Bool {
+            if string == " " || string == "," {
+                commitTag(textField.text ?? "")
+                return false
+            }
+
+            return true
+        }
+    }
+
     private func emitResult(
         status: String,
         value: String?,
-        values: [String: String]?,
+        values: [String: TicklyNativeSheetValue]?,
         actionId: String?
     ) {
         guard let webView else {

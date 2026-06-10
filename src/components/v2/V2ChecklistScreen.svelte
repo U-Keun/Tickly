@@ -6,7 +6,7 @@
   import { dragHandleZone } from 'svelte-dnd-action';
   import type { DndEvent } from 'svelte-dnd-action';
 
-  import type { V2Category, V2ItemSearchResult, V2TodoItem } from '../../types';
+  import type { V2Category, V2ItemSearchResult, V2Tag, V2TodoItem } from '../../types';
   import { i18n } from '$lib/i18n';
   import V2CategoryDetailSheet from './V2CategoryDetailSheet.svelte';
   import V2CategoryManageSheet from './V2CategoryManageSheet.svelte';
@@ -38,6 +38,7 @@
     categories: V2Category[];
     selectedCategoryId: number | null;
     items: V2TodoItem[];
+    availableTags?: V2Tag[];
     errorMessage?: string | null;
     initialSearchMode?: boolean;
     initialSearchQuery?: string;
@@ -48,9 +49,14 @@
     onUpdateCategory: (id: number, name: string) => MaybePromise;
     onDeleteCategory: (id: number) => MaybePromise;
     onReorderCategories: (categoryIds: number[]) => MaybePromise;
-    onAddItem: (text: string) => MaybePromise;
+    onAddItem: (text: string, tagNames?: string[]) => MaybePromise;
     onToggleItem: (id: number) => MaybePromise;
-    onUpdateItemDetails: (id: number, text: string, memo: string | null) => MaybePromise;
+    onUpdateItemDetails: (
+      id: number,
+      text: string,
+      memo: string | null,
+      tagNames?: string[]
+    ) => MaybePromise;
     onDeleteItem: (id: number) => MaybePromise;
     onReorderItems: (itemIds: number[]) => MaybePromise;
     onSearchItems: (query: string, limit: number) => Promise<V2ItemSearchResult[]>;
@@ -60,6 +66,7 @@
     categories,
     selectedCategoryId,
     items,
+    availableTags = [],
     errorMessage = null,
     initialSearchMode = false,
     initialSearchQuery = '',
@@ -157,7 +164,10 @@
   let prefersReducedMotion = $state(false);
   let itemSignature = $derived(
     items
-      .map((item) => `${item.id}:${item.text}:${item.done}:${item.display_order}`)
+      .map(
+        (item) =>
+          `${item.id}:${item.text}:${item.memo ?? ''}:${item.done}:${item.display_order}:${item.tags.map((tag) => tag.name).join(',')}`
+      )
       .join('|')
   );
   let categorySignature = $derived(
@@ -589,7 +599,8 @@
       const memo = item.memo ?? '';
       return (
         item.text.toLocaleLowerCase().includes(appliedSearchTerm) ||
-        memo.toLocaleLowerCase().includes(appliedSearchTerm)
+        memo.toLocaleLowerCase().includes(appliedSearchTerm) ||
+        item.tags.some((tag) => tag.name.toLocaleLowerCase().includes(appliedSearchTerm))
       );
     });
   }
@@ -1262,6 +1273,15 @@
           label: i18n.t('v2ItemMemoLabel'),
           placeholder: i18n.t('v2ItemMemoPlaceholder'),
           initialValue: item.memo ?? ''
+        },
+        {
+          id: 'tags',
+          kind: 'tags',
+          label: i18n.t('v2ItemTagsLabel'),
+          placeholder: i18n.t('v2ItemTagsPlaceholder'),
+          initialValue: '',
+          initialTags: item.tags.map((tag) => tag.name),
+          suggestions: availableTags.map((tag) => tag.name)
         }
       ],
       confirmLabel: i18n.t('v2SaveItem'),
@@ -1279,10 +1299,14 @@
 
     if (nativeResult.status === 'saved') {
       try {
+        const textValue = nativeResult.values.text;
+        const memoValue = nativeResult.values.memo;
+        const tagValues = nativeResult.values.tags;
         await saveItemDetails(
           item.id,
-          nativeResult.values.text ?? '',
-          nativeResult.values.memo ?? ''
+          typeof textValue === 'string' ? textValue : '',
+          typeof memoValue === 'string' ? memoValue : '',
+          Array.isArray(tagValues) ? tagValues : []
         );
       } catch {
         // The v2 store owns the visible error banner.
@@ -1290,12 +1314,17 @@
     }
   }
 
-  async function saveItemDetails(id: number, text: string, memo: string | null): Promise<void> {
+  async function saveItemDetails(
+    id: number,
+    text: string,
+    memo: string | null,
+    tagNames: string[] = []
+  ): Promise<void> {
     if (isSavingItemEdit) return;
 
     isSavingItemEdit = true;
     try {
-      await onUpdateItemDetails(id, text, memo);
+      await onUpdateItemDetails(id, text, memo, tagNames);
     } finally {
       isSavingItemEdit = false;
     }
@@ -1370,6 +1399,7 @@
         <V2LeafCommandBar
           mode={searchMode ? 'search' : 'add'}
           searchQuery={searchQuery}
+          {availableTags}
           disabled={selectedCategoryId === null || isCategoryReorderMode}
           onAddItem={onAddItem}
           onEnterSearch={enterSearchMode}
@@ -1600,6 +1630,7 @@
   <V2ItemDetailSheet
     show={itemPendingEdit !== null}
     item={itemPendingEdit}
+    {availableTags}
     isSaving={isSavingItemEdit}
     onSaveDetails={saveItemDetails}
     onClose={cancelEditItem}

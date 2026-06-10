@@ -38,6 +38,8 @@ pub struct V2NativeSheetFormFieldRequest {
     pub label: String,
     pub placeholder: String,
     pub initial_value: String,
+    pub initial_tags: Option<Vec<String>>,
+    pub suggestions: Option<Vec<String>>,
     pub required: Option<bool>,
 }
 

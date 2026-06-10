@@ -5,18 +5,18 @@
 The category question is not just naming. It defines the first information architecture for v2:
 
 - A category is the primary list space an item belongs to.
-- A tag can later describe multiple contexts across categories.
+- A tag describes optional contexts across categories.
 - Search and filters should narrow a list, not replace the main place where a list lives.
 
-v2 therefore keeps categories instead of collapsing everything into tags. This gives the app a stable spatial model before adding cross-cutting metadata.
+v2 therefore keeps categories instead of collapsing everything into tags. This gives the app a stable spatial model, while tags add cross-cutting metadata for display and search.
 
 ## Design Checkpoint
 
 ```mermaid
 flowchart LR
   Space["Category: primary list space"] --> Item["v2 todo item"]
-  Tag["Future tag: cross-cutting filter"] -.-> Item
-  Search["Future search/filter"] -.-> Item
+  Tag["Tag: cross-cutting metadata"] -.-> Item
+  Search["Search: text + memo + tag"] -.-> Item
 ```
 
 The selected UI treatment is `Segmented Spaces`: a compact segmented control between the v2 leaf command bar and the item list.
@@ -57,7 +57,7 @@ References:
 
 - Naming stays `Category / 카테고리 / カテゴリ`.
 - Categories are required primary spaces. Every v2 item belongs to exactly one category.
-- Tags stay out of this slice and will later act as optional cross-cutting metadata.
+- Tags are optional cross-cutting metadata on items. They support inline `#tag` entry, item display, detail editing, and search.
 - The category rail sits between `V2LeafCommandBar` and the item list, not in a separate framed page section.
 - Category buttons are grouped as a segmented control, so they read as space switching rather than independent tag chips.
 - The selected segment is rendered by a separate measured indicator, not by putting background/border styles on each selected button.
@@ -87,7 +87,7 @@ References:
 - Category segments select a primary category.
 - Category create and rename use text-entry sheets; delete and order actions live in the category manage action surface and confirm modal.
 - Category reorder uses the existing v2 reorder command and does not change the SQLite schema.
-- Tags, sidebars, and category delete badges stay out of scope.
+- Tag-only filter screens, tag management screens, sidebars, and category delete badges stay out of scope.
 
 ## Implementation Checkpoint
 
@@ -101,7 +101,7 @@ This slice now adds:
 - Long-press category reorder with light wiggle, a `Done` control, and full-segment drag.
 - Store error propagation so sheets close only after successful mutations.
 - Storybook coverage for rail states, category sheets, manage sheet states, and interactive category switching.
-- Documentation for category/tag roles and the selected motion model.
+- Documentation for category/tag roles, the selected motion model, and the first local tag slice.
 
 ## Verification Checkpoint
 

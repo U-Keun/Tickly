@@ -12,6 +12,7 @@ const results: V2ItemSearchResult[] = [
       category_id: 1,
       text: 'Wallet',
       memo: null,
+      tags: [{ id: 1, name: 'home', created_at: now, updated_at: now }],
       done: false,
       display_order: 1000,
       created_at: now,
@@ -31,6 +32,7 @@ const results: V2ItemSearchResult[] = [
       category_id: 2,
       text: 'Portable charger before leaving for a very long commute',
       memo: null,
+      tags: [{ id: 2, name: 'travel', created_at: now, updated_at: now }],
       done: true,
       display_order: 2000,
       created_at: now,
@@ -53,8 +55,32 @@ const memoResults: V2ItemSearchResult[] = [
       category_id: 1,
       text: 'Passport',
       memo: 'Keep this in the blue travel pouch.',
+      tags: [{ id: 2, name: 'travel', created_at: now, updated_at: now }],
       done: false,
       display_order: 3000,
+      created_at: now,
+      updated_at: now
+    },
+    category: {
+      id: 1,
+      name: 'Home',
+      display_order: 1000,
+      created_at: now,
+      updated_at: now
+    }
+  }
+];
+
+const tagResults: V2ItemSearchResult[] = [
+  {
+    item: {
+      id: 4,
+      category_id: 1,
+      text: 'Read',
+      memo: null,
+      tags: [{ id: 3, name: 'church', created_at: now, updated_at: now }],
+      done: false,
+      display_order: 4000,
       created_at: now,
       updated_at: now
     },
@@ -107,5 +133,12 @@ export const MemoMatch: Story = {
   args: {
     query: 'blue',
     results: memoResults
+  }
+};
+
+export const TagMatch: Story = {
+  args: {
+    query: 'church',
+    results: tagResults
   }
 };

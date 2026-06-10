@@ -1,29 +1,37 @@
 import type { Meta, StoryObj } from '@storybook/sveltekit';
 
-import type { V2Category, V2ItemSearchResult, V2TodoItem } from '../../types';
+import type { V2Category, V2ItemSearchResult, V2Tag, V2TodoItem } from '../../types';
 import V2ChecklistScreen from './V2ChecklistScreen.svelte';
+
+const now = '2026-06-08T00:00:00Z';
+
+const tags: V2Tag[] = [
+  { id: 1, name: 'home', created_at: now, updated_at: now },
+  { id: 2, name: 'travel', created_at: now, updated_at: now },
+  { id: 3, name: 'church', created_at: now, updated_at: now }
+];
 
 const categories: V2Category[] = [
   {
     id: 1,
     name: 'Home',
     display_order: 1000,
-    created_at: '2026-06-08T00:00:00Z',
-    updated_at: '2026-06-08T00:00:00Z'
+    created_at: now,
+    updated_at: now
   },
   {
     id: 2,
     name: 'Travel',
     display_order: 2000,
-    created_at: '2026-06-08T00:00:00Z',
-    updated_at: '2026-06-08T00:00:00Z'
+    created_at: now,
+    updated_at: now
   },
   {
     id: 3,
     name: 'Work',
     display_order: 3000,
-    created_at: '2026-06-08T00:00:00Z',
-    updated_at: '2026-06-08T00:00:00Z'
+    created_at: now,
+    updated_at: now
   }
 ];
 
@@ -33,20 +41,22 @@ const items: V2TodoItem[] = [
     category_id: 1,
     text: 'Wallet',
     memo: 'Keep this in the front pocket.',
+    tags: [tags[0]],
     done: false,
     display_order: 1000,
-    created_at: '2026-06-08T00:00:00Z',
-    updated_at: '2026-06-08T00:00:00Z'
+    created_at: now,
+    updated_at: now
   },
   {
     id: 2,
     category_id: 1,
     text: 'Umbrella before leaving for a very long commute day',
     memo: null,
+    tags: [tags[1]],
     done: false,
     display_order: 2000,
-    created_at: '2026-06-08T00:00:00Z',
-    updated_at: '2026-06-08T00:00:00Z'
+    created_at: now,
+    updated_at: now
   }
 ];
 
@@ -61,10 +71,11 @@ const searchResults: V2ItemSearchResult[] = [
       category_id: 2,
       text: 'Travel wallet pouch',
       memo: null,
+      tags: [tags[1]],
       done: false,
       display_order: 1000,
-      created_at: '2026-06-08T00:00:00Z',
-      updated_at: '2026-06-08T00:00:00Z'
+      created_at: now,
+      updated_at: now
     },
     category: categories[1]
   }
@@ -78,6 +89,7 @@ const meta = {
     categories,
     selectedCategoryId: 1,
     items,
+    availableTags: tags,
     errorMessage: null,
     onSelectCategory: () => {},
     onAddCategory: async () => {},
@@ -95,7 +107,8 @@ const meta = {
           const normalizedQuery = query.toLocaleLowerCase();
           return (
             result.item.text.toLocaleLowerCase().includes(normalizedQuery) ||
-            (result.item.memo ?? '').toLocaleLowerCase().includes(normalizedQuery)
+            (result.item.memo ?? '').toLocaleLowerCase().includes(normalizedQuery) ||
+            result.item.tags.some((tag) => tag.name.toLocaleLowerCase().includes(normalizedQuery))
           );
         })
         .slice(0, limit)
@@ -123,10 +136,11 @@ export const CompletedItems: Story = {
         category_id: 1,
         text: 'Keys',
         memo: null,
+        tags: [],
         done: true,
         display_order: 3000,
-        created_at: '2026-06-08T00:00:00Z',
-        updated_at: '2026-06-08T00:00:00Z'
+        created_at: now,
+        updated_at: now
       }
     ]
   }
@@ -140,20 +154,22 @@ export const LongTextItems: Story = {
         category_id: 1,
         text: 'Umbrella before leaving for a very long commute day with errands after work and grocery pickup',
         memo: null,
+        tags: [tags[1]],
         done: false,
         display_order: 1000,
-        created_at: '2026-06-08T00:00:00Z',
-        updated_at: '2026-06-08T00:00:00Z'
+        created_at: now,
+        updated_at: now
       },
       {
         id: 11,
         category_id: 1,
         text: 'SuperLongUnbrokenChecklistItemNameThatShouldNeverPushTheCardWiderThanTheiPhoneViewportEvenWhenTypedWithoutSpaces',
         memo: null,
+        tags: [tags[2]],
         done: false,
         display_order: 2000,
-        created_at: '2026-06-08T00:00:00Z',
-        updated_at: '2026-06-08T00:00:00Z'
+        created_at: now,
+        updated_at: now
       }
     ]
   }
@@ -189,30 +205,33 @@ export const LongListDragReady: Story = {
         category_id: 1,
         text: 'Keys',
         memo: null,
+        tags: [],
         done: false,
         display_order: 3000,
-        created_at: '2026-06-08T00:00:00Z',
-        updated_at: '2026-06-08T00:00:00Z'
+        created_at: now,
+        updated_at: now
       },
       {
         id: 4,
         category_id: 1,
         text: 'Water bottle',
         memo: null,
+        tags: [tags[0]],
         done: false,
         display_order: 4000,
-        created_at: '2026-06-08T00:00:00Z',
-        updated_at: '2026-06-08T00:00:00Z'
+        created_at: now,
+        updated_at: now
       },
       {
         id: 5,
         category_id: 1,
         text: 'Portable charger',
         memo: null,
+        tags: [tags[1]],
         done: true,
         display_order: 5000,
-        created_at: '2026-06-08T00:00:00Z',
-        updated_at: '2026-06-08T00:00:00Z'
+        created_at: now,
+        updated_at: now
       }
     ]
   }

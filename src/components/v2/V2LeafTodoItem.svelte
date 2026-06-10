@@ -2,7 +2,7 @@
   import { onDestroy } from 'svelte';
   import { cubicOut } from 'svelte/easing';
   import { slide } from 'svelte/transition';
-  import { Pencil, Trash2 } from '@lucide/svelte';
+  import { Hash, Pencil, Trash2 } from '@lucide/svelte';
   import { dragHandle } from 'svelte-dnd-action';
 
   import type { V2TodoItem } from '../../types';
@@ -69,6 +69,8 @@
   let drawerId = $derived(`v2-todo-drawer-${item.id}`);
   let hasControlledDrawer = $derived(drawerOpen !== undefined);
   let drawerSlideDuration = $derived(drawerOpenImmediate ? 0 : DRAWER_SLIDE_DURATION_MS);
+  let firstTag = $derived(item.tags[0] ?? null);
+  let extraTagCount = $derived(Math.max(0, item.tags.length - 1));
 
   $effect(() => {
     if (didApplyInitialDrawerOpen) return;
@@ -390,7 +392,17 @@
         </span>
       </button>
 
-      <div class="tagReserveSlot h-11 shrink-0" aria-hidden="true"></div>
+      <div class="tagReserveSlot h-11 shrink-0">
+        {#if firstTag}
+          <span class="rowTagPill" title={item.tags.map((tag) => `#${tag.name}`).join(' ')}>
+            <Hash size={12} strokeWidth={2.5} aria-hidden="true" />
+            <span class="truncate">{firstTag.name}</span>
+            {#if extraTagCount > 0}
+              <span class="shrink-0">+{extraTagCount}</span>
+            {/if}
+          </span>
+        {/if}
+      </div>
     </div>
   </div>
 
@@ -406,6 +418,17 @@
 
           {#if item.memo}
             <p class="drawerMemoPreview">{item.memo}</p>
+          {/if}
+
+          {#if item.tags.length > 0}
+            <div class="drawerTags" aria-label={i18n.t('v2ItemTagsLabel')}>
+              {#each item.tags as tag (tag.id)}
+                <span class="drawerTagPill">
+                  <Hash size={12} strokeWidth={2.4} aria-hidden="true" />
+                  <span>{tag.name}</span>
+                </span>
+              {/each}
+            </div>
           {/if}
 
           <div class="drawerActions">
@@ -502,7 +525,27 @@
   }
 
   .tagReserveSlot {
+    display: flex;
+    min-width: 0;
     width: 100%;
+    align-items: center;
+    justify-content: flex-end;
+    overflow: hidden;
+  }
+
+  .rowTagPill {
+    display: inline-flex;
+    min-width: 0;
+    max-width: 100%;
+    align-items: center;
+    gap: 2px;
+    border-radius: 999px;
+    background: var(--color-white);
+    padding: 3px 7px;
+    color: var(--color-ink-muted);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
   }
 
   .tickText::after {
@@ -603,6 +646,27 @@
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 4;
     line-clamp: 4;
+  }
+
+  .drawerTags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .drawerTagPill {
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    gap: 3px;
+    border-radius: 999px;
+    background: var(--color-paper);
+    padding: 5px 9px;
+    color: var(--color-ink-muted);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
   }
 
   .drawerActionButton {

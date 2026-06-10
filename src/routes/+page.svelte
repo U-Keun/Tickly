@@ -19,6 +19,7 @@
   categories={v2ChecklistStore.categories}
   selectedCategoryId={v2ChecklistStore.selectedCategoryId}
   items={v2ChecklistStore.items}
+  availableTags={v2ChecklistStore.tags}
   errorMessage={v2ChecklistStore.errorMessage}
   onSelectCategory={v2ChecklistStore.selectCategory}
   onAddCategory={v2ChecklistStore.addCategory}

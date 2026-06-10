@@ -147,6 +147,7 @@ pub fn run() {
             v2_delete_category,
             v2_reorder_categories,
             v2_get_items,
+            v2_get_tags,
             v2_search_items,
             v2_create_item,
             v2_update_item_text,

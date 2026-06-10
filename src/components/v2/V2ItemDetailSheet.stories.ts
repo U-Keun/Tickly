@@ -8,6 +8,7 @@ const item: V2TodoItem = {
   category_id: 1,
   text: 'Wallet',
   memo: null,
+  tags: [],
   done: false,
   display_order: 1000,
   created_at: '2026-06-08T00:00:00Z',
@@ -21,6 +22,10 @@ const meta = {
   args: {
     show: true,
     item,
+    availableTags: [
+      { id: 1, name: 'home', created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-08T00:00:00Z' },
+      { id: 2, name: 'travel', created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-08T00:00:00Z' }
+    ],
     isSaving: false,
     onSaveDetails: async () => {},
     onClose: () => {}
@@ -49,7 +54,8 @@ export const WithMemo: Story = {
   args: {
     item: {
       ...item,
-      memo: 'Keep this with the keys by the door.'
+      memo: 'Keep this with the keys by the door.',
+      tags: [{ id: 1, name: 'home', created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-08T00:00:00Z' }]
     }
   }
 };

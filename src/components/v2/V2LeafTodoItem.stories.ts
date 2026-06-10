@@ -10,6 +10,7 @@ const item: V2TodoItem = {
   category_id: 1,
   text: 'Wallet',
   memo: null,
+  tags: [],
   done: false,
   display_order: 1000,
   created_at: '2026-06-08T00:00:00Z',
@@ -58,7 +59,8 @@ export const MemoPreview: Story = {
   args: {
     item: {
       ...item,
-      memo: 'Keep this in the small front pocket so it is easy to find before leaving.'
+      memo: 'Keep this in the small front pocket so it is easy to find before leaving.',
+      tags: [{ id: 1, name: 'travel', created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-08T00:00:00Z' }]
     },
     initialDrawerOpen: true
   }
@@ -69,7 +71,8 @@ export const LongTitleDrawer: Story = {
     item: {
       ...item,
       text: 'Umbrella before leaving for a very long commute day with errands after work and grocery pickup',
-      memo: null
+      memo: null,
+      tags: [{ id: 1, name: 'errand', created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-08T00:00:00Z' }]
     },
     initialDrawerOpen: true
   }
@@ -80,7 +83,11 @@ export const LongTitleAndMemoDrawer: Story = {
     item: {
       ...item,
       text: 'SuperLongUnbrokenChecklistItemNameThatShouldNeverPushTheCardWiderThanTheiPhoneViewportEvenWhenTheDrawerIsOpen',
-      memo: 'Check the side pocket before leaving.\nIf it rains after work, use the compact umbrella instead of the larger one in the hallway closet.\nThis memo intentionally has multiple lines so the drawer preview can be checked.'
+      memo: 'Check the side pocket before leaving.\nIf it rains after work, use the compact umbrella instead of the larger one in the hallway closet.\nThis memo intentionally has multiple lines so the drawer preview can be checked.',
+      tags: [
+        { id: 1, name: 'travel', created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-08T00:00:00Z' },
+        { id: 2, name: 'morning', created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-08T00:00:00Z' }
+      ]
     },
     initialDrawerOpen: true
   }

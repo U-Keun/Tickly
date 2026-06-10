@@ -1,7 +1,7 @@
 use tauri::State;
 
 use super::with_db;
-use crate::models::{V2Category, V2ItemSearchResult, V2TodoItem};
+use crate::models::{V2Category, V2ItemSearchResult, V2Tag, V2TodoItem};
 use crate::service::V2ChecklistService;
 use crate::AppState;
 
@@ -40,6 +40,11 @@ pub fn v2_get_items(category_id: i64, state: State<AppState>) -> Result<Vec<V2To
 }
 
 #[tauri::command]
+pub fn v2_get_tags(state: State<AppState>) -> Result<Vec<V2Tag>, String> {
+    with_db(&state, V2ChecklistService::get_tags)
+}
+
+#[tauri::command]
 pub fn v2_search_items(
     query: String,
     limit: i64,
@@ -54,10 +59,16 @@ pub fn v2_search_items(
 pub fn v2_create_item(
     category_id: i64,
     text: String,
+    tag_names: Option<Vec<String>>,
     state: State<AppState>,
 ) -> Result<V2TodoItem, String> {
     with_db(&state, |db| {
-        V2ChecklistService::create_item(db, category_id, &text)
+        V2ChecklistService::create_item_with_tags(
+            db,
+            category_id,
+            &text,
+            tag_names.as_deref().unwrap_or(&[]),
+        )
     })
 }
 
@@ -73,10 +84,17 @@ pub fn v2_update_item_details(
     id: i64,
     text: String,
     memo: Option<String>,
+    tag_names: Option<Vec<String>>,
     state: State<AppState>,
-) -> Result<(), String> {
+) -> Result<V2TodoItem, String> {
     with_db(&state, |db| {
-        V2ChecklistService::update_item_details(db, id, &text, memo.as_deref())
+        V2ChecklistService::update_item_details(
+            db,
+            id,
+            &text,
+            memo.as_deref(),
+            tag_names.as_deref().unwrap_or(&[]),
+        )
     })
 }
 

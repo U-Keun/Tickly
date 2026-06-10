@@ -1,6 +1,6 @@
 use rusqlite::Connection;
 
-use crate::models::{V2Category, V2ItemSearchResult, V2TodoItem};
+use crate::models::{V2Category, V2ItemSearchResult, V2Tag, V2TodoItem};
 use crate::repository::V2ChecklistRepository;
 
 pub struct V2ChecklistService;
@@ -43,6 +43,10 @@ impl V2ChecklistService {
         V2ChecklistRepository::get_items(conn, category_id).map_err(|error| error.to_string())
     }
 
+    pub fn get_tags(conn: &Connection) -> Result<Vec<V2Tag>, String> {
+        V2ChecklistRepository::get_tags(conn).map_err(|error| error.to_string())
+    }
+
     pub fn search_items(
         conn: &Connection,
         query: &str,
@@ -58,14 +62,16 @@ impl V2ChecklistService {
             .map_err(|error| error.to_string())
     }
 
-    pub fn create_item(
+    pub fn create_item_with_tags(
         conn: &Connection,
         category_id: i64,
         text: &str,
+        tag_names: &[String],
     ) -> Result<V2TodoItem, String> {
         Self::require_category(conn, category_id)?;
         let trimmed_text = Self::trim_required(text, "Item text")?;
-        V2ChecklistRepository::create_item(conn, category_id, trimmed_text)
+        let normalized_tags = Self::normalize_tag_names(tag_names)?;
+        V2ChecklistRepository::create_item(conn, category_id, trimmed_text, &normalized_tags)
             .map_err(|error| error.to_string())
     }
 
@@ -80,7 +86,8 @@ impl V2ChecklistService {
         id: i64,
         text: &str,
         memo: Option<&str>,
-    ) -> Result<(), String> {
+        tag_names: &[String],
+    ) -> Result<V2TodoItem, String> {
         let trimmed_text = Self::trim_required(text, "Item text")?;
         let normalized_memo = memo.and_then(|value| {
             let trimmed = value.trim();
@@ -90,9 +97,16 @@ impl V2ChecklistService {
                 Some(trimmed)
             }
         });
+        let normalized_tags = Self::normalize_tag_names(tag_names)?;
 
-        V2ChecklistRepository::update_item_details(conn, id, trimmed_text, normalized_memo)
-            .map_err(|error| error.to_string())
+        V2ChecklistRepository::update_item_details(
+            conn,
+            id,
+            trimmed_text,
+            normalized_memo,
+            &normalized_tags,
+        )
+        .map_err(|error| error.to_string())
     }
 
     pub fn toggle_item(conn: &Connection, id: i64) -> Result<V2TodoItem, String> {
@@ -141,6 +155,31 @@ impl V2ChecklistService {
             None => Err("Category not found.".to_string()),
         }
     }
+
+    fn normalize_tag_names(tag_names: &[String]) -> Result<Vec<String>, String> {
+        let mut normalized = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+
+        for raw_name in tag_names {
+            let trimmed = raw_name.trim().trim_start_matches('#').trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+
+            if !trimmed.chars().all(|character| {
+                character.is_alphanumeric() || character == '_' || character == '-'
+            }) {
+                return Err("Tag names can only contain letters, numbers, _, and -.".to_string());
+            }
+
+            let key = trimmed.to_lowercase();
+            if seen.insert(key) {
+                normalized.push(trimmed.to_string());
+            }
+        }
+
+        Ok(normalized)
+    }
 }
 
 #[cfg(test)]
@@ -175,7 +214,8 @@ mod tests {
     fn creates_and_toggles_item() {
         let conn = setup_conn();
         let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
-        let item = V2ChecklistService::create_item(&conn, category_id, "  Wallet  ").unwrap();
+        let item = V2ChecklistService::create_item_with_tags(&conn, category_id, "  Wallet  ", &[])
+            .unwrap();
 
         assert_eq!(item.text, "Wallet");
         assert_eq!(item.memo, None);
@@ -188,7 +228,8 @@ mod tests {
     #[test]
     fn rejects_items_for_missing_categories() {
         let conn = setup_conn();
-        let error = V2ChecklistService::create_item(&conn, 999, "Umbrella").unwrap_err();
+        let error =
+            V2ChecklistService::create_item_with_tags(&conn, 999, "Umbrella", &[]).unwrap_err();
 
         assert!(error.contains("Category not found"));
     }
@@ -206,8 +247,8 @@ mod tests {
         let conn = setup_conn();
         let home = V2ChecklistService::get_categories(&conn).unwrap()[0].clone();
         let travel = V2ChecklistService::create_category(&conn, "Travel").unwrap();
-        V2ChecklistService::create_item(&conn, home.id, "Work wallet").unwrap();
-        V2ChecklistService::create_item(&conn, travel.id, "Travel wallet").unwrap();
+        V2ChecklistService::create_item_with_tags(&conn, home.id, "Work wallet", &[]).unwrap();
+        V2ChecklistService::create_item_with_tags(&conn, travel.id, "Travel wallet", &[]).unwrap();
 
         let results = V2ChecklistService::search_items(&conn, "wallet", 8).unwrap();
 
@@ -222,13 +263,15 @@ mod tests {
     fn updates_item_details_and_normalizes_blank_memo() {
         let conn = setup_conn();
         let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
-        let item = V2ChecklistService::create_item(&conn, category_id, "Wallet").unwrap();
+        let item =
+            V2ChecklistService::create_item_with_tags(&conn, category_id, "Wallet", &[]).unwrap();
 
         V2ChecklistService::update_item_details(
             &conn,
             item.id,
             "  Wallet and keys  ",
             Some("  front pocket  "),
+            &[],
         )
         .unwrap();
         let updated = V2ChecklistRepository::get_item_by_id(&conn, item.id)
@@ -238,7 +281,7 @@ mod tests {
         assert_eq!(updated.text, "Wallet and keys");
         assert_eq!(updated.memo.as_deref(), Some("front pocket"));
 
-        V2ChecklistService::update_item_details(&conn, item.id, "Wallet", Some("  ")).unwrap();
+        V2ChecklistService::update_item_details(&conn, item.id, "Wallet", Some("  "), &[]).unwrap();
         let cleared = V2ChecklistRepository::get_item_by_id(&conn, item.id)
             .unwrap()
             .unwrap();
@@ -250,12 +293,14 @@ mod tests {
     fn search_matches_item_memo() {
         let conn = setup_conn();
         let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
-        let item = V2ChecklistService::create_item(&conn, category_id, "Passport").unwrap();
+        let item =
+            V2ChecklistService::create_item_with_tags(&conn, category_id, "Passport", &[]).unwrap();
         V2ChecklistService::update_item_details(
             &conn,
             item.id,
             "Passport",
             Some("Keep it in the blue wallet pouch."),
+            &[],
         )
         .unwrap();
 
@@ -273,9 +318,12 @@ mod tests {
     fn search_orders_pending_before_done_within_category() {
         let conn = setup_conn();
         let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
-        let done = V2ChecklistService::create_item(&conn, category_id, "Charge cable").unwrap();
+        let done =
+            V2ChecklistService::create_item_with_tags(&conn, category_id, "Charge cable", &[])
+                .unwrap();
         let pending =
-            V2ChecklistService::create_item(&conn, category_id, "Charge battery").unwrap();
+            V2ChecklistService::create_item_with_tags(&conn, category_id, "Charge battery", &[])
+                .unwrap();
         V2ChecklistService::toggle_item(&conn, done.id).unwrap();
 
         let results = V2ChecklistService::search_items(&conn, "Charge", 8).unwrap();
@@ -288,11 +336,68 @@ mod tests {
     fn search_respects_limit() {
         let conn = setup_conn();
         let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
-        V2ChecklistService::create_item(&conn, category_id, "Wallet").unwrap();
-        V2ChecklistService::create_item(&conn, category_id, "Wallet backup").unwrap();
+        V2ChecklistService::create_item_with_tags(&conn, category_id, "Wallet", &[]).unwrap();
+        V2ChecklistService::create_item_with_tags(&conn, category_id, "Wallet backup", &[])
+            .unwrap();
 
         let results = V2ChecklistService::search_items(&conn, "Wallet", 1).unwrap();
 
         assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn create_item_with_tags_normalizes_duplicates_and_hashes() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        let item = V2ChecklistService::create_item_with_tags(
+            &conn,
+            category_id,
+            "Read",
+            &[
+                "#Church".to_string(),
+                "church".to_string(),
+                "morning".to_string(),
+                " ".to_string(),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(item.tags.len(), 2);
+        assert_eq!(item.tags[0].name, "Church");
+        assert_eq!(item.tags[1].name, "morning");
+    }
+
+    #[test]
+    fn rejects_invalid_tag_names() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        let error = V2ChecklistService::create_item_with_tags(
+            &conn,
+            category_id,
+            "Read",
+            &["bad!".to_string()],
+        )
+        .unwrap_err();
+
+        assert!(error.contains("Tag names"));
+    }
+
+    #[test]
+    fn search_matches_item_tags() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        let item = V2ChecklistService::create_item_with_tags(
+            &conn,
+            category_id,
+            "Read",
+            &["church".to_string()],
+        )
+        .unwrap();
+
+        let results = V2ChecklistService::search_items(&conn, "church", 8).unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].item.id, item.id);
+        assert_eq!(results[0].item.tags[0].name, "church");
     }
 }

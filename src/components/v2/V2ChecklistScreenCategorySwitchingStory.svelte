@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { V2Category, V2ItemSearchResult, V2TodoItem } from '../../types';
+  import type { V2Category, V2ItemSearchResult, V2Tag, V2TodoItem } from '../../types';
   import V2ChecklistScreen from './V2ChecklistScreen.svelte';
 
   interface Props {
@@ -10,6 +10,11 @@
 
   const now = '2026-06-08T00:00:00Z';
   const orderStep = 1000;
+  const initialTags: V2Tag[] = [
+    { id: 1, name: 'home', created_at: now, updated_at: now },
+    { id: 2, name: 'travel', created_at: now, updated_at: now },
+    { id: 3, name: 'work', created_at: now, updated_at: now }
+  ];
 
   const initialCategories: V2Category[] = [
     {
@@ -49,6 +54,7 @@
         category_id: 1,
         text: 'Wallet',
         memo: 'Keep this in the small front pocket.',
+        tags: [initialTags[0]],
         done: false,
         display_order: 1000,
         created_at: now,
@@ -59,6 +65,7 @@
         category_id: 1,
         text: 'Umbrella before leaving for a very long commute day',
         memo: null,
+        tags: [initialTags[1]],
         done: false,
         display_order: 2000,
         created_at: now,
@@ -71,6 +78,7 @@
         category_id: 2,
         text: 'Passport',
         memo: 'Check the hotel booking folder before packing.',
+        tags: [initialTags[1]],
         done: false,
         display_order: 1000,
         created_at: now,
@@ -81,6 +89,7 @@
         category_id: 2,
         text: 'Portable charger',
         memo: null,
+        tags: [initialTags[1]],
         done: true,
         display_order: 2000,
         created_at: now,
@@ -93,6 +102,7 @@
         category_id: 3,
         text: 'Review v2 category surface',
         memo: null,
+        tags: [initialTags[2]],
         done: false,
         display_order: 1000,
         created_at: now,
@@ -105,8 +115,10 @@
   let categories = $state<V2Category[]>(initialCategories);
   let selectedCategoryId = $state<number | null>(1);
   let itemsByCategory = $state<Record<number, V2TodoItem[]>>(initialItemsByCategory);
+  let availableTags = $state<V2Tag[]>(initialTags);
   let nextCategoryId = $state(5);
   let nextItemId = $state(6);
+  let nextTagId = $state(4);
 
   let items = $derived(selectedCategoryId === null ? [] : (itemsByCategory[selectedCategoryId] ?? []));
 
@@ -179,7 +191,29 @@
     categories = reindexCategories(nextCategories);
   }
 
-  async function addItem(text: string): Promise<void> {
+  function resolveTags(tagNames: string[]): V2Tag[] {
+    const nextTags = [...availableTags];
+    const resolvedTags = tagNames.map((name) => {
+      const existingTag = nextTags.find(
+        (tag) => tag.name.toLocaleLowerCase() === name.toLocaleLowerCase()
+      );
+      if (existingTag) return existingTag;
+
+      const tag: V2Tag = {
+        id: nextTagId,
+        name,
+        created_at: now,
+        updated_at: now
+      };
+      nextTagId += 1;
+      nextTags.push(tag);
+      return tag;
+    });
+    availableTags = nextTags;
+    return resolvedTags;
+  }
+
+  async function addItem(text: string, tagNames: string[] = []): Promise<void> {
     if (selectedCategoryId === null) return;
 
     const currentItems = itemsByCategory[selectedCategoryId] ?? [];
@@ -188,6 +222,7 @@
       category_id: selectedCategoryId,
       text: text.trim(),
       memo: null,
+      tags: resolveTags(tagNames),
       done: false,
       display_order: (currentItems.length + 1) * orderStep,
       created_at: now,
@@ -207,14 +242,25 @@
     );
   }
 
-  async function updateItemDetails(id: number, text: string, memo: string | null): Promise<void> {
+  async function updateItemDetails(
+    id: number,
+    text: string,
+    memo: string | null,
+    tagNames: string[] = []
+  ): Promise<void> {
     if (selectedCategoryId === null) return;
 
     setItemsForCategory(
       selectedCategoryId,
       items.map((item) =>
         item.id === id
-          ? { ...item, text: text.trim(), memo: memo?.trim() || null, updated_at: now }
+          ? {
+              ...item,
+              text: text.trim(),
+              memo: memo?.trim() || null,
+              tags: resolveTags(tagNames),
+              updated_at: now
+            }
           : item
       )
     );
@@ -250,7 +296,8 @@
         .filter(
           (item) =>
             item.text.toLocaleLowerCase().includes(normalizedQuery) ||
-            (item.memo ?? '').toLocaleLowerCase().includes(normalizedQuery)
+            (item.memo ?? '').toLocaleLowerCase().includes(normalizedQuery) ||
+            item.tags.some((tag) => tag.name.toLocaleLowerCase().includes(normalizedQuery))
         )
         .map((item) => ({ item, category }))
     );
@@ -263,6 +310,7 @@
   {categories}
   {selectedCategoryId}
   {items}
+  {availableTags}
   errorMessage={null}
   {initialOpenDrawerItemIds}
   onSelectCategory={selectCategory}

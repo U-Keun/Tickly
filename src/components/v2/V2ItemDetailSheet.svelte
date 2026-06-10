@@ -1,23 +1,38 @@
 <script lang="ts">
   import { iosFocusFix } from '$lib/iosFocusFix';
   import { i18n } from '$lib/i18n';
-  import type { V2TodoItem } from '../../types';
+  import type { V2Tag, V2TodoItem } from '../../types';
   import V2BottomSheet from './V2BottomSheet.svelte';
+  import V2TagEditor from './V2TagEditor.svelte';
 
   type MaybePromise = void | Promise<void>;
 
   interface Props {
     show: boolean;
     item: V2TodoItem | null;
+    availableTags?: V2Tag[];
     isSaving?: boolean;
-    onSaveDetails: (id: number, text: string, memo: string | null) => MaybePromise;
+    onSaveDetails: (
+      id: number,
+      text: string,
+      memo: string | null,
+      tagNames?: string[]
+    ) => MaybePromise;
     onClose: () => void;
   }
 
-  let { show, item, isSaving = false, onSaveDetails, onClose }: Props = $props();
+  let {
+    show,
+    item,
+    availableTags = [],
+    isSaving = false,
+    onSaveDetails,
+    onClose
+  }: Props = $props();
 
   let draftText = $state('');
   let draftMemo = $state('');
+  let draftTagNames = $state<string[]>([]);
   let preparedItemId = $state<number | null>(null);
 
   let trimmedText = $derived(draftText.trim());
@@ -28,6 +43,7 @@
     if (!isVisible || !item) {
       draftText = '';
       draftMemo = '';
+      draftTagNames = [];
       preparedItemId = null;
       return;
     }
@@ -35,6 +51,7 @@
     if (preparedItemId !== item.id) {
       draftText = item.text;
       draftMemo = item.memo ?? '';
+      draftTagNames = item.tags.map((tag) => tag.name);
       preparedItemId = item.id;
     }
   });
@@ -49,7 +66,7 @@
     if (!item || !trimmedText || isSaving) return;
 
     try {
-      await onSaveDetails(item.id, trimmedText, trimmedMemo || null);
+      await onSaveDetails(item.id, trimmedText, trimmedMemo || null, draftTagNames);
       onClose();
     } catch {
       // The v2 store owns the visible error banner; keep the sheet open.
@@ -87,6 +104,18 @@
           aria-label={i18n.t('v2ItemMemoLabel')}
           disabled={isSaving}
         ></textarea>
+      </label>
+
+      <label class="flex flex-col gap-2">
+        <span class="text-sm font-semibold text-[var(--color-ink)]">{i18n.t('v2ItemTagsLabel')}</span>
+        <V2TagEditor
+          tagNames={draftTagNames}
+          {availableTags}
+          disabled={isSaving}
+          onChange={(tagNames) => {
+            draftTagNames = tagNames;
+          }}
+        />
       </label>
 
       <div class="flex gap-2">

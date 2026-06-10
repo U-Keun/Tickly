@@ -16,6 +16,7 @@
     category_id: 1,
     text,
     memo: null,
+    tags: [{ id: 1, name: 'mobile', created_at: now, updated_at: now }],
     done,
     display_order: 1000,
     created_at: now,

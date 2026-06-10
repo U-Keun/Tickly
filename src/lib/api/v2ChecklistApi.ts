@@ -1,5 +1,5 @@
 import { invoke } from './client';
-import type { V2Category, V2ItemSearchResult, V2TodoItem } from '../../types';
+import type { V2Category, V2ItemSearchResult, V2Tag, V2TodoItem } from '../../types';
 
 export async function v2GetCategories(): Promise<V2Category[]> {
   return invoke<V2Category[]>('v2_get_categories');
@@ -25,6 +25,10 @@ export async function v2GetItems(categoryId: number): Promise<V2TodoItem[]> {
   return invoke<V2TodoItem[]>('v2_get_items', { categoryId });
 }
 
+export async function v2GetTags(): Promise<V2Tag[]> {
+  return invoke<V2Tag[]>('v2_get_tags');
+}
+
 export async function v2SearchItems(
   query: string,
   limit: number
@@ -34,9 +38,10 @@ export async function v2SearchItems(
 
 export async function v2CreateItem(
   categoryId: number,
-  text: string
+  text: string,
+  tagNames: string[] = []
 ): Promise<V2TodoItem> {
-  return invoke<V2TodoItem>('v2_create_item', { categoryId, text });
+  return invoke<V2TodoItem>('v2_create_item', { categoryId, text, tagNames });
 }
 
 export async function v2UpdateItemText(id: number, text: string): Promise<void> {
@@ -46,9 +51,10 @@ export async function v2UpdateItemText(id: number, text: string): Promise<void> 
 export async function v2UpdateItemDetails(
   id: number,
   text: string,
-  memo: string | null
-): Promise<void> {
-  return invoke<void>('v2_update_item_details', { id, text, memo });
+  memo: string | null,
+  tagNames: string[] = []
+): Promise<V2TodoItem> {
+  return invoke<V2TodoItem>('v2_update_item_details', { id, text, memo, tagNames });
 }
 
 export async function v2ToggleItem(id: number): Promise<V2TodoItem> {

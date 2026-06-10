@@ -1,8 +1,9 @@
-import type { V2Category, V2ItemSearchResult, V2TodoItem } from '../../types';
+import type { V2Category, V2ItemSearchResult, V2Tag, V2TodoItem } from '../../types';
 import * as v2ChecklistApi from '../api/v2ChecklistApi';
 
 let categories = $state<V2Category[]>([]);
 let items = $state<V2TodoItem[]>([]);
+let tags = $state<V2Tag[]>([]);
 let selectedCategoryId = $state<number | null>(null);
 let isLoading = $state(false);
 let errorMessage = $state<string | null>(null);
@@ -18,6 +19,10 @@ function sortItems(nextItems: V2TodoItem[]): V2TodoItem[] {
     }
     return a.display_order - b.display_order;
   });
+}
+
+function sortTags(nextTags: V2Tag[]): V2Tag[] {
+  return [...nextTags].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function moveInList<T extends { id: number }>(list: T[], id: number, delta: number): T[] {
@@ -68,8 +73,13 @@ async function load(): Promise<void> {
   errorMessage = null;
 
   try {
-    const nextCategories = sortCategories(await v2ChecklistApi.v2GetCategories());
+    const [nextCategoriesRaw, nextTagsRaw] = await Promise.all([
+      v2ChecklistApi.v2GetCategories(),
+      v2ChecklistApi.v2GetTags()
+    ]);
+    const nextCategories = sortCategories(nextCategoriesRaw);
     categories = nextCategories;
+    tags = sortTags(nextTagsRaw);
 
     if (nextCategories.length === 0) {
       selectedCategoryId = null;
@@ -149,6 +159,7 @@ async function deleteCategory(id: number): Promise<void> {
       selectedCategoryId = nextSelectedCategoryId;
       items = nextItems;
     }
+    await refreshTags();
   } catch (error) {
     throw setError(error, 'Failed to delete v2 category.');
   }
@@ -179,13 +190,18 @@ async function reorderCategories(categoryIds: number[]): Promise<void> {
   }
 }
 
-async function addItem(text: string): Promise<void> {
+async function refreshTags(): Promise<void> {
+  tags = sortTags(await v2ChecklistApi.v2GetTags());
+}
+
+async function addItem(text: string, tagNames: string[] = []): Promise<void> {
   if (selectedCategoryId === null) return;
   errorMessage = null;
 
   try {
-    const item = await v2ChecklistApi.v2CreateItem(selectedCategoryId, text);
+    const item = await v2ChecklistApi.v2CreateItem(selectedCategoryId, text, tagNames);
     items = sortItems([...items, item]);
+    await refreshTags();
   } catch (error) {
     throw setError(error, 'Failed to add v2 item.');
   }
@@ -216,20 +232,15 @@ async function updateItemText(id: number, text: string): Promise<void> {
 async function updateItemDetails(
   id: number,
   text: string,
-  memo: string | null
+  memo: string | null,
+  tagNames: string[] = []
 ): Promise<void> {
   errorMessage = null;
 
   try {
-    await v2ChecklistApi.v2UpdateItemDetails(id, text, memo);
-    const trimmedText = text.trim();
-    const trimmedMemo = memo?.trim() ?? '';
-    const normalizedMemo = trimmedMemo ? trimmedMemo : null;
-    items = items.map((item) =>
-      item.id === id
-        ? { ...item, text: trimmedText, memo: normalizedMemo }
-        : item
-    );
+    const updatedItem = await v2ChecklistApi.v2UpdateItemDetails(id, text, memo, tagNames);
+    items = sortItems(items.map((item) => (item.id === id ? updatedItem : item)));
+    await refreshTags();
   } catch (error) {
     throw setError(error, 'Failed to update v2 item details.');
   }
@@ -252,6 +263,7 @@ async function deleteItem(id: number): Promise<void> {
   try {
     await v2ChecklistApi.v2DeleteItem(id);
     items = items.filter((item) => item.id !== id);
+    await refreshTags();
   } catch (error) {
     throw setError(error, 'Failed to delete v2 item.');
   }
@@ -295,6 +307,9 @@ export const v2ChecklistStore = {
   },
   get items() {
     return items;
+  },
+  get tags() {
+    return tags;
   },
   get selectedCategoryId() {
     return selectedCategoryId;

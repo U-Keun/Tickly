@@ -6,7 +6,8 @@ Apply parent component rules first.
 
 - Components in this folder are for the v2 local checklist, now rendered by the main `/` route.
 - Keep them independent from v1 stores and feature-specific components.
-- Do not add sync, tag, repeat, widget, reminder, graph, or streak behavior here until v2 scope expands.
+- v2 local tags are now in scope as item metadata. Keep them backed by v2 props/API/store data, not v1 tag flows.
+- Do not add sync, repeat, widget, reminder, graph, or streak behavior here until v2 scope expands.
 
 ## Storybook
 

@@ -168,8 +168,16 @@ export interface V2TodoItem {
   category_id: number;
   text: string;
   memo: string | null;
+  tags: V2Tag[];
   done: boolean;
   display_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface V2Tag {
+  id: number;
+  name: string;
   created_at: string;
   updated_at: string;
 }

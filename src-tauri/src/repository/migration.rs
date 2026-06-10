@@ -20,6 +20,7 @@ pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
     migrate_add_linked_app(conn)?;
     migrate_create_v2_checklist_tables(conn)?;
     migrate_add_v2_memo(conn)?;
+    migrate_create_v2_tags(conn)?;
     Ok(())
 }
 
@@ -304,6 +305,37 @@ fn migrate_add_v2_memo(conn: &Connection) -> Result<(), rusqlite::Error> {
     if should_add_column(conn, "v2_todos", "memo") {
         conn.execute("ALTER TABLE v2_todos ADD COLUMN memo TEXT", [])?;
     }
+
+    Ok(())
+}
+
+fn migrate_create_v2_tags(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS v2_tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS v2_todo_tags (
+            todo_id INTEGER NOT NULL,
+            tag_id INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (todo_id, tag_id),
+            FOREIGN KEY (todo_id) REFERENCES v2_todos(id) ON DELETE CASCADE,
+            FOREIGN KEY (tag_id) REFERENCES v2_tags(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_v2_todo_tags_tag_id ON v2_todo_tags(tag_id)",
+        [],
+    )?;
 
     Ok(())
 }

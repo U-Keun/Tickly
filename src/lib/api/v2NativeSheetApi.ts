@@ -25,10 +25,12 @@ export interface V2NativeActionSheetOptions {
 
 export interface V2NativeFormSheetField {
   id: string;
-  kind: 'text' | 'textarea';
+  kind: 'text' | 'textarea' | 'tags';
   label: string;
   placeholder: string;
   initialValue: string;
+  initialTags?: string[];
+  suggestions?: string[];
   required?: boolean;
 }
 
@@ -50,7 +52,7 @@ export type V2NativeActionSheetResult =
   | { status: 'unavailable' };
 
 export type V2NativeFormSheetResult =
-  | { status: 'saved'; values: Record<string, string> }
+  | { status: 'saved'; values: Record<string, string | string[]> }
   | { status: 'cancelled' }
   | { status: 'unavailable' };
 
@@ -98,13 +100,13 @@ interface V2NativeSheetEventDetail {
   token: string;
   status: 'saved' | 'action' | 'cancelled';
   value?: string | null;
-  values?: Record<string, string> | null;
+  values?: Record<string, string | string[]> | null;
   actionId?: string | null;
 }
 
 type V2NativeSheetResult =
   | { status: 'saved'; value: string }
-  | { status: 'saved'; values: Record<string, string> }
+  | { status: 'saved'; values: Record<string, string | string[]> }
   | { status: 'action'; actionId: string }
   | { status: 'cancelled' }
   | { status: 'unavailable' };
@@ -160,7 +162,7 @@ function parseEventDetail(detail: unknown): V2NativeSheetEventDetail | null {
   ) {
     return null;
   }
-  let values: Record<string, string> | null = null;
+  let values: Record<string, string | string[]> | null = null;
   if (maybeDetail.values !== undefined && maybeDetail.values !== null) {
     if (
       !maybeDetail.values ||
@@ -172,7 +174,10 @@ function parseEventDetail(detail: unknown): V2NativeSheetEventDetail | null {
 
     values = {};
     for (const [key, value] of Object.entries(maybeDetail.values)) {
-      if (typeof value !== 'string') {
+      if (
+        typeof value !== 'string' &&
+        (!Array.isArray(value) || !value.every((entry) => typeof entry === 'string'))
+      ) {
         return null;
       }
       values[key] = value;
@@ -261,15 +266,15 @@ export async function openNativeTextSheet(
     kind: 'text',
     title: options.title,
     message: null,
-      text: {
-        label: options.label,
-        placeholder: options.placeholder,
-        initialValue: options.initialValue,
-        confirmLabel: options.confirmLabel
-      },
-      form: null,
-      actions: null,
-      cancelLabel: options.cancelLabel
+    text: {
+      label: options.label,
+      placeholder: options.placeholder,
+      initialValue: options.initialValue,
+      confirmLabel: options.confirmLabel
+    },
+    form: null,
+    actions: null,
+    cancelLabel: options.cancelLabel
   });
 
   if (result.status === 'saved' && 'value' in result) {
