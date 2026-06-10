@@ -39,7 +39,6 @@ const meta = {
     isReorderMode: false,
     isReorderBusy: false,
     onSelectCategory: async () => {},
-    onCreateCategory: () => {},
     onManageCategory: () => {},
     onEnterReorderMode: () => {},
     onFinishReorderMode: () => {},

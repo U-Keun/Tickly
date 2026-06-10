@@ -242,6 +242,7 @@ export const ko = {
   v2RenameCategoryTitle: '카테고리 이름 수정',
   v2CategoryNameLabel: '카테고리 이름',
   v2EditCategory: '카테고리 수정',
+  v2RenameCategoryActionTemplate: (name: string) => `카테고리 이름 수정: ${name}`,
   v2SaveCategory: '저장',
   v2DeleteCategory: '카테고리 삭제',
   v2DeleteCategoryConfirmTitle: '카테고리를 삭제할까요?',

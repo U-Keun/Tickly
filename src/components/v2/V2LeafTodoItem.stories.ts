@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/sveltekit';
 
 import type { V2TodoItem } from '../../types';
 import V2LeafTodoItem from './V2LeafTodoItem.svelte';
+import V2LeafTodoItemNarrowStory from './V2LeafTodoItemNarrowStory.svelte';
 import V2LeafTodoItemSoftHopStory from './V2LeafTodoItemSoftHopStory.svelte';
 
 const item: V2TodoItem = {
@@ -52,12 +53,27 @@ export const DrawerOpen: Story = {
   }
 };
 
-export const LongText: Story = {
-  args: {
-    item: {
-      ...item,
-      text: 'Umbrella before leaving for a very long commute day with errands after work'
+export const LongText: StoryObj<typeof V2LeafTodoItemNarrowStory> = {
+  render: () => ({
+    Component: V2LeafTodoItemNarrowStory,
+    props: {
+      text: 'Umbrella before leaving for a very long commute day with errands after work and grocery pickup'
     }
+  }),
+  parameters: {
+    layout: 'fullscreen'
+  }
+};
+
+export const LongUnbrokenText: StoryObj<typeof V2LeafTodoItemNarrowStory> = {
+  render: () => ({
+    Component: V2LeafTodoItemNarrowStory,
+    props: {
+      text: 'SuperLongUnbrokenChecklistItemNameThatShouldNeverPushTheCardWiderThanTheiPhoneViewport'
+    }
+  }),
+  parameters: {
+    layout: 'fullscreen'
   }
 };
 

@@ -35,7 +35,6 @@
       onSelectCategory={async (id) => {
         selectedCategoryId = id;
       }}
-      onCreateCategory={() => {}}
       onManageCategory={() => {}}
       onEnterReorderMode={() => {
         isReorderMode = true;

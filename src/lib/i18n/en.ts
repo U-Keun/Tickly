@@ -244,6 +244,7 @@ export const en: Translations = {
   v2RenameCategoryTitle: 'Rename category',
   v2CategoryNameLabel: 'Category name',
   v2EditCategory: 'Edit category',
+  v2RenameCategoryActionTemplate: (name: string) => `Rename category: ${name}`,
   v2SaveCategory: 'Save',
   v2DeleteCategory: 'Delete category',
   v2DeleteCategoryConfirmTitle: 'Delete this category?',

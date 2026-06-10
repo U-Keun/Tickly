@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte';
   import { flip } from 'svelte/animate';
-  import { Check, Plus, SlidersHorizontal } from '@lucide/svelte';
+  import { Check, SlidersHorizontal } from '@lucide/svelte';
   import { dndzone } from 'svelte-dnd-action';
   import type { DndEvent } from 'svelte-dnd-action';
 
@@ -19,7 +19,6 @@
     isReorderMode?: boolean;
     isReorderBusy?: boolean;
     onSelectCategory: (id: number) => MaybePromise;
-    onCreateCategory: () => void;
     onManageCategory: (category: V2Category) => void;
     onEnterReorderMode: () => void;
     onFinishReorderMode: () => void;
@@ -33,7 +32,6 @@
     isReorderMode = false,
     isReorderBusy = false,
     onSelectCategory,
-    onCreateCategory,
     onManageCategory,
     onEnterReorderMode,
     onFinishReorderMode,
@@ -289,16 +287,6 @@
         <span>{i18n.t('v2FinishCategoryOrder')}</span>
       </button>
     {:else}
-      <button
-        type="button"
-        class="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[var(--color-stroke)] bg-[rgb(255_255_255_/_0.76)] text-[var(--color-ink)] transition-colors hover:border-[var(--color-ink)] hover:bg-[var(--color-accent-sky)] disabled:cursor-not-allowed disabled:opacity-45"
-        aria-label={i18n.t('v2AddCategory')}
-        title={i18n.t('v2AddCategory')}
-        onclick={onCreateCategory}
-      >
-        <Plus size={20} strokeWidth={2.6} aria-hidden="true" />
-      </button>
-
       <button
         type="button"
         class="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[var(--color-stroke)] bg-[rgb(255_255_255_/_0.76)] text-[var(--color-ink)] transition-colors hover:border-[var(--color-ink)] hover:bg-[var(--color-canvas)] disabled:cursor-not-allowed disabled:opacity-40"

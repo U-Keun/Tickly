@@ -77,7 +77,7 @@
   }: Props = $props();
 
   type CategoryDetailMode = 'create' | 'rename';
-  type CategoryManageActionId = 'rename' | 'editOrder' | 'delete';
+  type CategoryManageActionId = 'create' | 'rename' | 'editOrder' | 'delete';
   type ReorderGroup = 'active' | 'done';
   type RectSnapshot = {
     left: number;
@@ -639,6 +639,8 @@
   function openCreateCategorySheet(): void {
     if (isCategoryReorderMode) return;
 
+    showCategoryManageSheet = false;
+    categoryPendingDetail = null;
     void openCategoryTextSheet('create', null);
   }
 
@@ -668,8 +670,13 @@
       cancelLabel: i18n.t('cancel'),
       actions: [
         {
+          id: 'create',
+          label: i18n.t('v2AddCategory'),
+          tone: 'neutral'
+        },
+        {
           id: 'rename',
-          label: i18n.t('v2EditCategory'),
+          label: i18n.t('v2RenameCategoryActionTemplate')(category.name),
           tone: 'neutral'
         },
         {
@@ -709,6 +716,11 @@
     category: V2Category,
     actionId: CategoryManageActionId
   ): void {
+    if (actionId === 'create') {
+      openCreateCategorySheet();
+      return;
+    }
+
     if (actionId === 'rename') {
       void openCategoryTextSheet('rename', category);
       return;
@@ -1305,7 +1317,6 @@
           isReorderMode={isCategoryReorderMode}
           isReorderBusy={isSavingCategoryOrder}
           onSelectCategory={selectCategoryWithTransition}
-          onCreateCategory={openCreateCategorySheet}
           onManageCategory={openCategoryManageSheet}
           onEnterReorderMode={enterCategoryReorderMode}
           onFinishReorderMode={finishCategoryReorderMode}
@@ -1471,6 +1482,7 @@
     category={categoryPendingDetail}
     isOnlyCategory={categories.length <= 1}
     isBusy={isDeletingCategory}
+    onCreate={openCreateCategorySheet}
     onRename={requestRenameCategory}
     onEditOrder={requestEditCategoryOrder}
     onDeleteRequest={requestDeleteCategory}

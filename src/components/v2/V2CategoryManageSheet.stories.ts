@@ -20,6 +20,7 @@ const meta = {
     category,
     isOnlyCategory: false,
     isBusy: false,
+    onCreate: () => {},
     onRename: () => {},
     onEditOrder: () => {},
     onDeleteRequest: () => {},

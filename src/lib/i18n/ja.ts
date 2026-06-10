@@ -244,6 +244,7 @@ export const ja: Translations = {
   v2RenameCategoryTitle: 'カテゴリ名を編集',
   v2CategoryNameLabel: 'カテゴリ名',
   v2EditCategory: 'カテゴリを編集',
+  v2RenameCategoryActionTemplate: (name: string) => `カテゴリ名を編集: ${name}`,
   v2SaveCategory: '保存',
   v2DeleteCategory: 'カテゴリを削除',
   v2DeleteCategoryConfirmTitle: 'カテゴリを削除しますか？',

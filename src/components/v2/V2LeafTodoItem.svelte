@@ -293,14 +293,14 @@
 
 <article
   style={`--drawer-content-duration: ${DRAWER_CONTENT_TRANSITION_MS}ms; --checkbox-hop-duration: ${CHECKBOX_HOP_DURATION_MS}ms;`}
-  class={`todoSurface rounded-[6px_24px_6px_24px] border-2 border-[var(--color-ink)] p-2 shadow-sm ${
+  class={`todoSurface w-full min-w-0 max-w-full rounded-[6px_24px_6px_24px] border-2 border-[var(--color-ink)] p-2 shadow-sm ${
     displayedDone
       ? 'bg-[var(--color-canvas)]'
       : 'bg-[var(--color-paper)]'
   }`}
   class:todoSurfacePressed={isTextPressing}
 >
-  <div class="flex min-h-11 items-center gap-2.5">
+  <div class="flex min-h-11 w-full min-w-0 items-center gap-2.5">
     <button
       type="button"
       class={`relative grid h-11 w-11 flex-shrink-0 place-items-center overflow-visible border-2 transition-colors ${
@@ -335,12 +335,10 @@
       {/if}
     </button>
 
-    <div
-      class="flex min-w-0 flex-1 items-center"
-    >
+    <div class="flex min-w-0 flex-1 basis-0 items-center overflow-hidden">
       <button
         type="button"
-        class={`flex min-h-11 min-w-0 flex-1 items-center rounded-[12px] pr-1 text-left text-base leading-6 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ink)] ${
+        class={`flex min-h-11 min-w-0 flex-1 basis-0 items-center overflow-hidden rounded-[12px] pr-1 text-left text-base leading-6 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ink)] ${
           textDone
             ? 'text-[var(--color-ink-muted)]'
             : 'text-[var(--color-ink)]'
@@ -359,10 +357,12 @@
         onpointerleave={resetTextPressState}
         onclick={handleTextClick}
       >
-        <span class="min-w-0 flex-1 truncate">
+        <span class="block min-w-0 flex-1 overflow-hidden whitespace-nowrap">
           <span class="tickText" class:tickTextDone={textDone}>{item.text}</span>
         </span>
       </button>
+
+      <div class="h-11 w-[72px] shrink-0" aria-hidden="true"></div>
     </div>
   </div>
 
@@ -445,6 +445,7 @@
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
     vertical-align: top;
   }
 
