@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { i18n } from '$lib/i18n';
+
   interface Props {
     label: string;
     value: string;
@@ -43,89 +45,26 @@
   }
 </script>
 
-<div class="color-picker">
-  <span class="label">{label}</span>
-  <div class="controls">
-    <div class="preview" style="background-color: {value}"></div>
+<div class="flex min-h-14 w-full min-w-0 items-center justify-between gap-3 border-t border-stroke px-3 py-2.5 first:border-t-0">
+  <span class="min-w-0 flex-1 truncate text-[14px] font-semibold leading-5 text-ink">{label}</span>
+  <div class="flex shrink-0 items-center gap-2">
+    <div class="h-8 w-8 rounded-[5px_12px_5px_12px] border-2 border-stroke" style="background-color: {value}"></div>
     <input
       type="color"
       value={value}
       oninput={handleColorInput}
-      class="color-input"
+      class="h-8 w-9 cursor-pointer rounded-[5px_12px_5px_12px] border-0 bg-transparent p-0"
+      aria-label={`${label} ${i18n.t('preview')}`}
     />
     <input
       type="text"
       value={hexInput}
       oninput={handleHexInput}
       onblur={handleHexBlur}
-      class="hex-input"
+      class="h-9 w-[86px] rounded-[5px_12px_5px_12px] border-2 border-stroke bg-white px-2 font-mono text-[13px] font-semibold uppercase leading-5 text-ink outline-none focus:border-ink"
       placeholder="#000000"
       maxlength="7"
+      aria-label={label}
     />
   </div>
 </div>
-
-<style>
-  .color-picker {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--color-stroke);
-  }
-
-  .label {
-    font-size: 14px;
-    color: var(--color-ink);
-    min-width: 80px;
-  }
-
-  .controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .preview {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    border: 2px solid var(--color-stroke);
-  }
-
-  .color-input {
-    width: 36px;
-    height: 28px;
-    padding: 0;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    background: none;
-  }
-
-  .color-input::-webkit-color-swatch-wrapper {
-    padding: 0;
-  }
-
-  .color-input::-webkit-color-swatch {
-    border: 2px solid var(--color-stroke);
-    border-radius: 4px;
-  }
-
-  .hex-input {
-    width: 80px;
-    padding: 6px 8px;
-    font-size: 13px;
-    font-family: monospace;
-    border: 2px solid var(--color-stroke);
-    border-radius: 6px;
-    background: var(--color-white);
-    color: var(--color-ink);
-    text-transform: uppercase;
-  }
-
-  .hex-input:focus {
-    outline: none;
-    border-color: var(--color-accent-sky);
-  }
-</style>

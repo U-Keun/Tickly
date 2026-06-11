@@ -46,6 +46,10 @@ export const en: Translations = {
 
   // Settings
   settingsTitle: 'Settings',
+  settingsGroupAppearance: 'Appearance',
+  settingsGroupDaily: 'Daily rhythm',
+  settingsGroupLegacy: 'Legacy features',
+  settingsLegacyBadge: 'Legacy',
   themeChange: 'Change Theme',
   languageChange: 'Change Language',
   back: 'Back',

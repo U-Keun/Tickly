@@ -44,6 +44,10 @@ export const ko = {
 
   // Settings
   settingsTitle: '설정',
+  settingsGroupAppearance: '표시',
+  settingsGroupDaily: '하루 기준',
+  settingsGroupLegacy: '이전 기능',
+  settingsLegacyBadge: 'Legacy',
   themeChange: '테마 변경',
   languageChange: '언어 변경',
   back: '뒤로 가기',

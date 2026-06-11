@@ -46,6 +46,10 @@ export const ja: Translations = {
 
   // Settings
   settingsTitle: '設定',
+  settingsGroupAppearance: '表示',
+  settingsGroupDaily: '1日の基準',
+  settingsGroupLegacy: '以前の機能',
+  settingsLegacyBadge: 'Legacy',
   themeChange: 'テーマ変更',
   languageChange: '言語変更',
   back: '戻る',

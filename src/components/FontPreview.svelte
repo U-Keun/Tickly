@@ -11,45 +11,19 @@
   let fontSize = $derived(fontSizes[settings.size]?.base || 16);
 </script>
 
-<div class="preview-container">
-  <div class="preview-card">
+<div class="rounded-[6px_24px_6px_24px] bg-canvas p-3">
+  <div class="rounded-[6px_24px_6px_24px] border-2 border-stroke bg-white/75 p-4">
     <div
-      class="preview-text"
+      class="mb-2 text-ink"
       style="font-family: {fontFamily}; font-size: {fontSize}px;"
     >
       {i18n.t('fontPreviewText')}
     </div>
     <div
-      class="preview-text-sm"
+      class="text-ink-muted"
       style="font-family: {fontFamily}; font-size: {fontSize - 2}px;"
     >
       {i18n.t('fontPreviewText')}
     </div>
   </div>
 </div>
-
-<style>
-  .preview-container {
-    background: var(--color-canvas);
-    border-radius: 12px;
-    padding: 16px;
-  }
-
-  .preview-card {
-    background: var(--color-white);
-    border-radius: 8px;
-    padding: 16px;
-    border: 1px solid var(--color-stroke);
-  }
-
-  .preview-text {
-    color: var(--color-ink);
-    margin-bottom: 8px;
-    line-height: 1.5;
-  }
-
-  .preview-text-sm {
-    color: var(--color-ink-muted);
-    line-height: 1.5;
-  }
-</style>

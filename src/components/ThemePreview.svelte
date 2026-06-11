@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ThemeColors } from '../types';
+  import { i18n } from '$lib/i18n';
 
   interface Props {
     colors: ThemeColors;
@@ -9,7 +10,7 @@
 </script>
 
 <div
-  class="preview-container"
+  class="min-h-40 overflow-hidden rounded-[6px_24px_6px_24px] border-2 border-[var(--preview-stroke)] bg-[var(--preview-paper)] p-3"
   style="
     --preview-paper: {colors.paper};
     --preview-canvas: {colors.canvas};
@@ -17,147 +18,46 @@
     --preview-ink-muted: {colors.inkMuted};
     --preview-stroke: {colors.stroke};
     --preview-accent-sky: {colors.accentSky};
+    --preview-accent-mint: {colors.accentMint};
     --preview-accent-peach: {colors.accentPeach};
     --preview-white: {colors.white};
   "
 >
-  <div class="preview-header">
-    <div class="preview-tabs">
-      <span class="tab active">기본</span>
-      <span class="tab">외출</span>
-    </div>
+  <div class="mb-4 flex gap-2">
+    <span class="rounded-full bg-[var(--preview-accent-sky)] px-3 py-1 text-[12px] font-semibold leading-5 text-[var(--preview-ink)]">
+      {i18n.t('home')}
+    </span>
+    <span class="rounded-full bg-[var(--preview-canvas)] px-3 py-1 text-[12px] font-semibold leading-5 text-[var(--preview-ink-muted)]">
+      {i18n.t('archive')}
+    </span>
   </div>
 
-  <div class="preview-content">
-    <div class="preview-item">
-      <div class="checkbox checked">
-        <svg viewBox="0 0 24 24">
-          <path d="M20 7L10 17l-5-5" />
+  <div class="flex flex-col gap-2">
+    <div class="flex items-center gap-2 rounded-[5px_16px_5px_16px] border-2 border-[var(--preview-ink)] bg-[var(--preview-canvas)] px-3 py-2">
+      <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-[4px_8px_4px_8px] border-2 border-[var(--preview-ink)] bg-[var(--preview-white)]">
+        <svg class="h-4 w-4 fill-none stroke-[var(--preview-ink)]" viewBox="0 0 24 24">
+          <path
+            d="M20 7L10 17l-5-5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="3"
+          />
         </svg>
       </div>
-      <span class="item-text done">완료된 항목</span>
+      <span class="min-w-0 truncate text-[13px] font-semibold leading-5 text-[var(--preview-ink-muted)] line-through">
+        {i18n.t('completed')}
+      </span>
     </div>
 
-    <div class="preview-item">
-      <div class="checkbox"></div>
-      <span class="item-text">할 일 항목</span>
+    <div class="flex items-center gap-2 rounded-[5px_16px_5px_16px] border-2 border-[var(--preview-ink)] bg-[var(--preview-canvas)] px-3 py-2">
+      <div class="h-6 w-6 shrink-0 rounded-[4px_8px_4px_8px] border-2 border-[var(--preview-ink)] bg-[var(--preview-white)]"></div>
+      <span class="min-w-0 truncate text-[13px] font-semibold leading-5 text-[var(--preview-ink)]">
+        {i18n.t('notCompleted')}
+      </span>
+      <div class="ml-auto flex gap-1">
+        <span class="h-5 w-5 rounded-full bg-[var(--preview-accent-mint)]"></span>
+        <span class="h-5 w-5 rounded-full bg-[var(--preview-accent-peach)]"></span>
+      </div>
     </div>
-  </div>
-
-  <div class="preview-buttons">
-    <div class="btn-add">+</div>
-    <div class="btn-reset">↻</div>
   </div>
 </div>
-
-<style>
-  .preview-container {
-    background: var(--preview-paper);
-    border: 2px solid var(--preview-stroke);
-    border-radius: 16px;
-    padding: 12px;
-    min-height: 160px;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .preview-header {
-    margin-bottom: 12px;
-  }
-
-  .preview-tabs {
-    display: flex;
-    gap: 8px;
-  }
-
-  .tab {
-    font-size: 11px;
-    padding: 4px 10px;
-    border-radius: 12px;
-    color: var(--preview-ink-muted);
-    background: var(--preview-canvas);
-  }
-
-  .tab.active {
-    background: var(--preview-accent-sky);
-    color: var(--preview-ink);
-    font-weight: 500;
-  }
-
-  .preview-content {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .preview-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 10px;
-    background: var(--preview-canvas);
-    border: 1.5px solid var(--preview-ink);
-    border-radius: 0 12px 0 12px;
-  }
-
-  .checkbox {
-    width: 18px;
-    height: 18px;
-    border: 1.5px solid var(--preview-ink);
-    border-radius: 3px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .checkbox.checked svg {
-    width: 12px;
-    height: 12px;
-    fill: none;
-    stroke: var(--preview-ink);
-    stroke-width: 2.5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .item-text {
-    font-size: 12px;
-    color: var(--preview-ink);
-  }
-
-  .item-text.done {
-    text-decoration: line-through;
-    opacity: 0.5;
-  }
-
-  .preview-buttons {
-    position: absolute;
-    bottom: 12px;
-    right: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .btn-add,
-  .btn-reset {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    font-weight: bold;
-  }
-
-  .btn-add {
-    background: var(--preview-accent-sky);
-    color: var(--preview-white);
-  }
-
-  .btn-reset {
-    background: var(--preview-accent-peach);
-    color: var(--preview-ink);
-  }
-</style>
