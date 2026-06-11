@@ -13,6 +13,7 @@ mod sync_commands;
 mod tag_commands;
 mod todo_commands;
 mod v2_checklist_commands;
+mod v2_native_dock_commands;
 mod v2_native_sheet_commands;
 mod widget_commands;
 
@@ -35,5 +36,6 @@ pub use sync_commands::*;
 pub use tag_commands::*;
 pub use todo_commands::*;
 pub use v2_checklist_commands::*;
+pub use v2_native_dock_commands::*;
 pub use v2_native_sheet_commands::*;
 pub use widget_commands::*;

@@ -6,6 +6,8 @@ export const ko = {
   // Bottom navigation
   reorder: '순서 바꾸기',
   home: '홈',
+  graph: '그래프',
+  archive: '보관함',
   settings: '설정',
 
   // FAB buttons

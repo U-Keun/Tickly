@@ -8,6 +8,8 @@ export const en: Translations = {
   // Bottom navigation
   reorder: 'Reorder',
   home: 'Home',
+  graph: 'Graph',
+  archive: 'Archive',
   settings: 'Settings',
 
   // FAB buttons

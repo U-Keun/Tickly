@@ -1,9 +1,11 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { onMount } from 'svelte';
 
   import { detectDesktopFromUserAgent, getErrorMessage, runSignInFlow } from '$lib/account/signInFlow';
   import { i18n } from '$lib/i18n';
+  import { getSettingsReturnTo, settingsPathWithReturnTo } from '$lib/settings/returnTo';
   import { authStore, syncStore } from '$lib/stores';
   import AccountLoginSection from '../../../components/account/AccountLoginSection.svelte';
   import AccountLogoutModal from '../../../components/account/AccountLogoutModal.svelte';
@@ -19,6 +21,7 @@
   let isSigningIn = $state(false);
   let isDesktop = $state(false);
   let supportsAppleSignIn = $state(false);
+  let returnTo = $derived(getSettingsReturnTo($page.url.searchParams));
 
   onMount(async () => {
     isDesktop = detectDesktopFromUserAgent(navigator.userAgent);
@@ -119,7 +122,7 @@
   }
 </script>
 
-<SettingsLayout title={i18n.t('cloudSync')} onBack={() => goto('/settings')}>
+<SettingsLayout title={i18n.t('cloudSync')} onBack={() => goto(settingsPathWithReturnTo('/settings', returnTo))}>
   <div class="account-content">
     {#if authStore.isLoading}
       <div class="loading-state">

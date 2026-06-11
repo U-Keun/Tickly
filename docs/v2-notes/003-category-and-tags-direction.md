@@ -59,6 +59,7 @@ References:
 - Categories are required primary spaces. Every v2 item belongs to exactly one category.
 - Tags are optional cross-cutting metadata on items. They support inline `#tag` entry, item display, detail editing, and search.
 - The category rail sits between `V2LeafCommandBar` and the item list, not in a separate framed page section.
+- The category rail is outside the item scroll container. Like the command bar, it stays fixed while only the item list scrolls.
 - Category buttons are grouped as a segmented control, so they read as space switching rather than independent tag chips.
 - The selected segment is rendered by a separate measured indicator, not by putting background/border styles on each selected button.
 - Add and manage live inside the same category rail box as a fixed right tool area, separated from the scrollable segments by a thin divider.

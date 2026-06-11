@@ -1,8 +1,10 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import { i18n } from '$lib/i18n';
   import * as settingsApi from '$lib/api/settingsApi';
+  import { getSettingsReturnTo, settingsPathWithReturnTo } from '$lib/settings/returnTo';
   import SettingsLayout from '../../../components/SettingsLayout.svelte';
   import SaveFooter from '../../../components/SaveFooter.svelte';
 
@@ -13,6 +15,7 @@
   let minute = $state('00');
   let originalHour = $state('00');
   let originalMinute = $state('00');
+  let returnTo = $derived(getSettingsReturnTo($page.url.searchParams));
   let hasChanges = $derived(hour !== originalHour || minute !== originalMinute);
 
   onMount(async () => {
@@ -29,11 +32,11 @@
   async function saveResetTime() {
     const time = `${hour}:${minute}`;
     await settingsApi.setSetting('reset_time', time);
-    goto('/settings');
+    goto(settingsPathWithReturnTo('/settings', returnTo));
   }
 </script>
 
-<SettingsLayout title={i18n.t('resetTimeTitle')} onBack={() => goto('/settings')}>
+<SettingsLayout title={i18n.t('resetTimeTitle')} onBack={() => goto(settingsPathWithReturnTo('/settings', returnTo))}>
   <p class="description">{i18n.t('resetTimeDescription')}</p>
 
   <div class="time-picker-container">

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import type { FontSettings, FontSize } from '../../../types';
   import {
@@ -17,8 +18,10 @@
     getFontPresetName,
     getFontSizeName
   } from '../../../lib/settings/fontLabels';
+  import { getSettingsReturnTo, settingsPathWithReturnTo } from '$lib/settings/returnTo';
   import { i18n } from '$lib/i18n';
   const translateLabel = (key: string) => i18n.t(key as keyof typeof i18n.t);
+  let returnTo = $derived(getSettingsReturnTo($page.url.searchParams));
 
   let currentSettings = $state<FontSettings>(getDefaultFontSettings());
   let originalSettings = $state<FontSettings | null>(null);
@@ -45,7 +48,7 @@
 
   async function handleSave() {
     await saveFontSettings(currentSettings);
-    goto('/settings');
+    goto(settingsPathWithReturnTo('/settings', returnTo));
   }
 
   function handleBack() {
@@ -53,7 +56,7 @@
     if (originalSettings) {
       applyFonts(originalSettings);
     }
-    goto('/settings');
+    goto(settingsPathWithReturnTo('/settings', returnTo));
   }
 </script>
 

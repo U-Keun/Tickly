@@ -117,6 +117,11 @@ interface TauriWindow extends Window {
 
 let nativeSheetInFlight = false;
 
+function dispatchNativeSheetState(isOpen: boolean): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('tickly:nativeSheetState', { detail: { isOpen } }));
+}
+
 function isIOS(): boolean {
   if (typeof navigator === 'undefined') return false;
 
@@ -210,10 +215,12 @@ async function openNativeSheet(request: V2NativeSheetRequest): Promise<V2NativeS
   }
 
   nativeSheetInFlight = true;
+  dispatchNativeSheetState(true);
 
   return new Promise((resolve) => {
     const cleanup = (): void => {
       nativeSheetInFlight = false;
+      dispatchNativeSheetState(false);
       window.removeEventListener('tickly:nativeSheetResult', handleResult);
     };
 

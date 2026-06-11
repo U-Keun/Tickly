@@ -1,7 +1,11 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { i18n, type Locale } from '$lib/i18n';
+  import { getSettingsReturnTo, settingsPathWithReturnTo } from '$lib/settings/returnTo';
   import SettingsLayout from '../../../components/SettingsLayout.svelte';
+
+  let returnTo = $derived(getSettingsReturnTo($page.url.searchParams));
 
   const languages: { id: Locale; name: string; nativeName: string }[] = [
     { id: 'ko', name: 'Korean', nativeName: '한국어' },
@@ -11,11 +15,11 @@
 
   async function selectLanguage(locale: Locale) {
     await i18n.setLocale(locale);
-    goto('/settings');
+    goto(settingsPathWithReturnTo('/settings', returnTo));
   }
 </script>
 
-<SettingsLayout title={i18n.t('languageTitle')} onBack={() => goto('/settings')}>
+<SettingsLayout title={i18n.t('languageTitle')} onBack={() => goto(settingsPathWithReturnTo('/settings', returnTo))}>
   <div class="settings-list">
     {#each languages as lang}
       <button

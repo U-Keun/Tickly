@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import type { ThemeColors, ThemePreset } from '../../../types';
   import {
@@ -20,9 +21,11 @@
     themeColorKeys,
     type ThemeColorKey
   } from '../../../lib/settings/themeLabels';
+  import { getSettingsReturnTo, settingsPathWithReturnTo } from '$lib/settings/returnTo';
   import { i18n } from '$lib/i18n';
 
   const translateLabel = (key: string) => i18n.t(key as keyof typeof i18n.t);
+  let returnTo = $derived(getSettingsReturnTo($page.url.searchParams));
 
   let selectedPresetId = $state<string | null>('default');
   let isCustomMode = $state(false);
@@ -71,7 +74,7 @@
       : { presetId: selectedPresetId, customColors: null };
 
     await saveTheme(theme);
-    goto('/settings');
+    goto(settingsPathWithReturnTo('/settings', returnTo));
   }
 
   function handleBack() {
@@ -89,7 +92,7 @@
     } else {
       applyTheme(getDefaultColors());
     }
-    goto('/settings');
+    goto(settingsPathWithReturnTo('/settings', returnTo));
   }
 </script>
 

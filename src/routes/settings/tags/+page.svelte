@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { i18n } from '$lib/i18n';
+  import { getSettingsReturnTo, settingsPathWithReturnTo } from '$lib/settings/returnTo';
   import SettingsLayout from '../../../components/SettingsLayout.svelte';
   import ConfirmModal from '../../../components/ConfirmModal.svelte';
   import type { Tag } from '../../../types';
@@ -10,6 +12,7 @@
   let tags = $state<Tag[]>([]);
   let deleteTarget = $state<Tag | null>(null);
   let showDeleteConfirm = $state(false);
+  let returnTo = $derived(getSettingsReturnTo($page.url.searchParams));
 
   onMount(async () => {
     await appStore.loadAllTags();
@@ -35,7 +38,7 @@
   }
 </script>
 
-<SettingsLayout title={i18n.t('tagManage')} onBack={() => goto('/settings')}>
+<SettingsLayout title={i18n.t('tagManage')} onBack={() => goto(settingsPathWithReturnTo('/settings', returnTo))}>
   {#if tags.length === 0}
     <div class="empty-state">
       <p>{i18n.t('tagEmpty')}</p>

@@ -1,13 +1,17 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { i18n } from '$lib/i18n';
+  import { getSettingsReturnTo, settingsPathWithReturnTo } from '$lib/settings/returnTo';
   import SettingsLayout from '../../components/SettingsLayout.svelte';
+
+  let returnTo = $derived(getSettingsReturnTo($page.url.searchParams));
 </script>
 
-<SettingsLayout title={i18n.t('settingsTitle')} onBack={() => goto('/v1')}>
+<SettingsLayout title={i18n.t('settingsTitle')} onBack={() => goto(returnTo)}>
   <div class="settings-list">
     <!-- Theme Setting -->
-    <button class="settings-item" onclick={() => goto('/settings/theme')}>
+    <button class="settings-item" onclick={() => goto(settingsPathWithReturnTo('/settings/theme', returnTo))}>
       <div class="item-left">
         <div class="item-icon">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -22,7 +26,7 @@
     </button>
 
     <!-- Font Setting -->
-    <button class="settings-item" onclick={() => goto('/settings/font')}>
+    <button class="settings-item" onclick={() => goto(settingsPathWithReturnTo('/settings/font', returnTo))}>
       <div class="item-left">
         <div class="item-icon font-icon">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -37,7 +41,7 @@
     </button>
 
     <!-- Language Setting -->
-    <button class="settings-item" onclick={() => goto('/settings/language')}>
+    <button class="settings-item" onclick={() => goto(settingsPathWithReturnTo('/settings/language', returnTo))}>
       <div class="item-left">
         <div class="item-icon language-icon">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -52,7 +56,7 @@
     </button>
 
     <!-- Reset Time Setting -->
-    <button class="settings-item" onclick={() => goto('/settings/reset-time')}>
+    <button class="settings-item" onclick={() => goto(settingsPathWithReturnTo('/settings/reset-time', returnTo))}>
       <div class="item-left">
         <div class="item-icon reset-time-icon">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -67,7 +71,7 @@
     </button>
 
     <!-- Tags Setting -->
-    <button class="settings-item" onclick={() => goto('/settings/tags')}>
+    <button class="settings-item" onclick={() => goto(settingsPathWithReturnTo('/settings/tags', returnTo))}>
       <div class="item-left">
         <div class="item-icon tags-icon">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,7 +86,7 @@
     </button>
 
     <!-- Account / Sync Setting -->
-    <button class="settings-item" onclick={() => goto('/settings/account')}>
+    <button class="settings-item" onclick={() => goto(settingsPathWithReturnTo('/settings/account', returnTo))}>
       <div class="item-left">
         <div class="item-icon account-icon">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

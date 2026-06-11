@@ -8,6 +8,8 @@ export const ja: Translations = {
   // Bottom navigation
   reorder: '並べ替え',
   home: 'ホーム',
+  graph: 'グラフ',
+  archive: 'アーカイブ',
   settings: '設定',
 
   // FAB buttons

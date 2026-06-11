@@ -44,6 +44,7 @@
     initialSearchQuery?: string;
     initialCategoryReorderMode?: boolean;
     initialOpenDrawerItemIds?: number[];
+    nativeDockVisible?: boolean;
     onSelectCategory: (id: number) => MaybePromise;
     onAddCategory: (name: string) => MaybePromise;
     onUpdateCategory: (id: number, name: string) => MaybePromise;
@@ -60,6 +61,7 @@
     onDeleteItem: (id: number) => MaybePromise;
     onReorderItems: (itemIds: number[]) => MaybePromise;
     onSearchItems: (query: string, limit: number) => Promise<V2ItemSearchResult[]>;
+    onNativeDockVisibilityChange?: (visible: boolean) => MaybePromise;
   }
 
   let {
@@ -72,6 +74,7 @@
     initialSearchQuery = '',
     initialCategoryReorderMode = false,
     initialOpenDrawerItemIds = [],
+    nativeDockVisible = false,
     onSelectCategory,
     onAddCategory,
     onUpdateCategory,
@@ -82,7 +85,8 @@
     onUpdateItemDetails,
     onDeleteItem,
     onReorderItems,
-    onSearchItems
+    onSearchItems,
+    onNativeDockVisibilityChange = () => undefined
   }: Props = $props();
 
   type CategoryDetailMode = 'create' | 'rename';
@@ -137,6 +141,7 @@
   let activeItems = $state<V2TodoItem[]>([]);
   let doneItems = $state<V2TodoItem[]>([]);
   let openDrawerItemIds = $state<Set<number>>(new Set());
+  let lastRequestedNativeDockVisible: boolean | null = null;
   let categoryReorderDraft = $state<V2Category[] | null>(null);
   let isTextClickSuppressed = $state(false);
   let textClickSuppressTimer: ReturnType<typeof setTimeout> | null = null;
@@ -179,6 +184,13 @@
   let hasSearchQuery = $derived(searchTerm.length > 0);
   let appliedSearchTerm = $derived(appliedSearchQuery.trim().toLocaleLowerCase());
   let hasAppliedSearchQuery = $derived(appliedSearchTerm.length > 0);
+  let hasDockBlockingSurface = $derived(
+    showCategoryDetailSheet ||
+      showCategoryManageSheet ||
+      categoryPendingDeletion !== null ||
+      itemPendingEdit !== null ||
+      itemPendingDeletion !== null
+  );
   let listEnterDuration = $derived(prefersReducedMotion ? 0 : LIST_ENTER_DURATION_MS);
   let listExitDuration = $derived(prefersReducedMotion ? 0 : LIST_EXIT_DURATION_MS);
   let listEnterY = $derived(prefersReducedMotion ? 0 : 4);
@@ -699,6 +711,16 @@
     searchTerm;
     selectedCategoryId;
     scheduleSearchSuggestions();
+  });
+
+  $effect(() => {
+    const nextVisible = !hasDockBlockingSurface;
+    if (lastRequestedNativeDockVisible === nextVisible) return;
+
+    lastRequestedNativeDockVisible = nextVisible;
+    untrack(() => {
+      void onNativeDockVisibilityChange(nextVisible);
+    });
   });
 
   function openCreateCategorySheet(): void {
@@ -1394,7 +1416,11 @@
 
 <div class="app-container v2-app-container isolate bg-canvas text-ink flex min-w-0 flex-col overflow-hidden">
   <main class="relative z-10 mx-auto flex min-h-0 w-full min-w-0 max-w-2xl flex-1 flex-col overflow-hidden">
-    <section class="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden pb-[max(0.75rem,var(--safe-area-bottom))] pl-[max(1rem,var(--safe-area-left))] pr-[max(1rem,var(--safe-area-right))] pt-[max(0.75rem,var(--safe-area-top))]">
+    <section
+      class={`relative flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden pl-[max(1rem,var(--safe-area-left))] pr-[max(1rem,var(--safe-area-right))] pt-[max(0.75rem,var(--safe-area-top))] ${
+        nativeDockVisible ? 'pb-0' : 'pb-[max(0.75rem,var(--safe-area-bottom))]'
+      }`}
+    >
       <div class="relative z-30 mb-4">
         <V2LeafCommandBar
           mode={searchMode ? 'search' : 'add'}
@@ -1426,146 +1452,152 @@
         </div>
       {/if}
 
-      <div class="todo-list-scroll w-full min-w-0 max-w-full" aria-busy={isListSwitching}>
-        <div class="categoryRailSticky sticky top-0 z-30 mb-4">
-          <div class="relative z-10">
-            <V2CategoryRail
-              categories={displayedCategories}
-              {selectedCategoryId}
-              isReorderMode={isCategoryReorderMode}
-              isReorderBusy={isSavingCategoryOrder}
-              onSelectCategory={selectCategoryWithTransition}
-              onManageCategory={openCategoryManageSheet}
-              onEnterReorderMode={enterCategoryReorderMode}
-              onFinishReorderMode={finishCategoryReorderMode}
-              onReorderConsider={handleCategoryReorderConsider}
-              onReorderFinalize={handleCategoryReorderFinalize}
-            />
+      <div class="relative z-30 mb-4">
+        <V2CategoryRail
+          categories={displayedCategories}
+          {selectedCategoryId}
+          isReorderMode={isCategoryReorderMode}
+          isReorderBusy={isSavingCategoryOrder}
+          onSelectCategory={selectCategoryWithTransition}
+          onManageCategory={openCategoryManageSheet}
+          onEnterReorderMode={enterCategoryReorderMode}
+          onFinishReorderMode={finishCategoryReorderMode}
+          onReorderConsider={handleCategoryReorderConsider}
+          onReorderFinalize={handleCategoryReorderFinalize}
+        />
+      </div>
+
+      <div
+        class="todoListViewport relative min-h-0 w-full min-w-0 max-w-full flex-1"
+        class:hasNativeDock={nativeDockVisible}
+      >
+        <div class="todo-list-scroll h-full w-full min-w-0 max-w-full" aria-busy={isListSwitching}>
+          <div class={`grid min-h-full w-full min-w-0 max-w-full overflow-hidden ${isListSwitching ? 'pointer-events-none' : ''}`}>
+            {#if isListContentVisible}
+              <div
+                class="col-start-1 row-start-1 min-h-0 w-full min-w-0 max-w-full will-change-transform"
+                in:fly={{
+                  y: listEnterY,
+                  duration: listEnterDuration,
+                  opacity: listTransitionOpacity,
+                  easing: cubicOut
+                }}
+                out:fade={{ duration: listExitDuration, easing: cubicIn }}
+              >
+                {#if activeItems.length === 0 && doneItems.length === 0}
+                  <div class="px-6 py-10 text-center text-ink-muted">
+                    {#if hasAppliedSearchQuery}
+                      <p class="font-medium text-ink">{i18n.t('v2NoSearchResultsTemplate')(appliedSearchQuery)}</p>
+                      <p class="mt-1 text-sm">{selectedCategory?.name ?? i18n.t('v2Categories')}</p>
+                    {:else}
+                      <p class="font-medium text-ink">{i18n.t('v2EmptyItemsTitle')}</p>
+                      <p class="mt-1 text-sm">{i18n.t('v2EmptyItemsSubtitle')}</p>
+                    {/if}
+                  </div>
+                {:else}
+                  <div class={`flex w-full min-w-0 max-w-full flex-col gap-2 ${nativeDockVisible ? 'pb-28' : 'pb-16'}`}>
+                    {#if activeItems.length > 0}
+                      <div
+                        use:dragHandleZone={{
+                          items: activeItems,
+                          flipDurationMs: reorderFlipDuration,
+                          type: 'v2-active-items',
+                          dragDisabled:
+                            isSavingReorder ||
+                            isListSwitching ||
+                            hasAppliedSearchQuery ||
+                            isCategoryReorderMode,
+                          morphDisabled: true,
+                          dropFromOthersDisabled: true,
+                          dropTargetStyle: { outline: 'none' },
+                          dropTargetClasses: [],
+                          delayTouchStart: 450,
+                          transformDraggedElement: keepDraggedItemQuiet
+                        }}
+                        onconsider={(event) => handleReorderConsider('active', event)}
+                        onfinalize={(event) => void handleReorderFinalize('active', event)}
+                        class="flex w-full min-w-0 max-w-full flex-col gap-2"
+                      >
+                        {#each activeItems as item (item.id)}
+                          <div
+                            use:trackItemNode={item.id}
+                            in:itemEntry={{ enabled: enteringItemIds.has(item.id) }}
+                            animate:flip={{ duration: itemFlipDuration }}
+                            class={`relative z-10 w-full min-w-0 max-w-full outline-none focus:outline-none focus-visible:outline-none ${
+                              movingItemId === item.id ? 'completionMoveHidden' : ''
+                            } ${exitingItemIds.has(item.id) ? 'itemExitCollapsing' : ''}`}
+                          >
+                            <V2LeafTodoItem
+                              {item}
+                              drawerOpen={openDrawerItemIds.has(item.id)}
+                              drawerOpenImmediate={movingItemId === item.id}
+                              onToggleItem={handleToggleItem}
+                              onDrawerOpenChange={setItemDrawerOpen}
+                              isTextClickSuppressed={isTextClickSuppressed}
+                              onRequestEditItem={requestEditItem}
+                              onRequestDeleteItem={requestDeleteItem}
+                              onRequestCompleteFanfare={requestCompletionFanfare}
+                            />
+                          </div>
+                        {/each}
+                      </div>
+                    {/if}
+
+                    {#if doneItems.length > 0}
+                      <div
+                        use:dragHandleZone={{
+                          items: doneItems,
+                          flipDurationMs: reorderFlipDuration,
+                          type: 'v2-done-items',
+                          dragDisabled:
+                            isSavingReorder ||
+                            isListSwitching ||
+                            hasAppliedSearchQuery ||
+                            isCategoryReorderMode,
+                          morphDisabled: true,
+                          dropFromOthersDisabled: true,
+                          dropTargetStyle: { outline: 'none' },
+                          dropTargetClasses: [],
+                          delayTouchStart: 450,
+                          transformDraggedElement: keepDraggedItemQuiet
+                        }}
+                        onconsider={(event) => handleReorderConsider('done', event)}
+                        onfinalize={(event) => void handleReorderFinalize('done', event)}
+                        class="flex w-full min-w-0 max-w-full flex-col gap-2"
+                      >
+                        {#each doneItems as item (item.id)}
+                          <div
+                            use:trackItemNode={item.id}
+                            in:itemEntry={{ enabled: enteringItemIds.has(item.id) }}
+                            animate:flip={{ duration: itemFlipDuration }}
+                            class={`relative z-10 w-full min-w-0 max-w-full outline-none focus:outline-none focus-visible:outline-none ${
+                              movingItemId === item.id ? 'completionMoveHidden' : ''
+                            } ${exitingItemIds.has(item.id) ? 'itemExitCollapsing' : ''}`}
+                          >
+                            <V2LeafTodoItem
+                              {item}
+                              drawerOpen={openDrawerItemIds.has(item.id)}
+                              drawerOpenImmediate={movingItemId === item.id}
+                              onToggleItem={handleToggleItem}
+                              onDrawerOpenChange={setItemDrawerOpen}
+                              isTextClickSuppressed={isTextClickSuppressed}
+                              onRequestEditItem={requestEditItem}
+                              onRequestDeleteItem={requestDeleteItem}
+                              onRequestCompleteFanfare={requestCompletionFanfare}
+                            />
+                          </div>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                {/if}
+              </div>
+            {/if}
           </div>
         </div>
 
-        <div class={`grid min-h-full w-full min-w-0 max-w-full overflow-hidden ${isListSwitching ? 'pointer-events-none' : ''}`}>
-          {#if isListContentVisible}
-            <div
-              class="col-start-1 row-start-1 min-h-0 w-full min-w-0 max-w-full will-change-transform"
-              in:fly={{
-                y: listEnterY,
-                duration: listEnterDuration,
-                opacity: listTransitionOpacity,
-                easing: cubicOut
-              }}
-              out:fade={{ duration: listExitDuration, easing: cubicIn }}
-            >
-              {#if activeItems.length === 0 && doneItems.length === 0}
-                <div class="px-6 py-10 text-center text-ink-muted">
-                  {#if hasAppliedSearchQuery}
-                    <p class="font-medium text-ink">{i18n.t('v2NoSearchResultsTemplate')(appliedSearchQuery)}</p>
-                    <p class="mt-1 text-sm">{selectedCategory?.name ?? i18n.t('v2Categories')}</p>
-                  {:else}
-                    <p class="font-medium text-ink">{i18n.t('v2EmptyItemsTitle')}</p>
-                    <p class="mt-1 text-sm">{i18n.t('v2EmptyItemsSubtitle')}</p>
-                  {/if}
-                </div>
-              {:else}
-                <div class="flex w-full min-w-0 max-w-full flex-col gap-2 pb-16">
-                  {#if activeItems.length > 0}
-                    <div
-                      use:dragHandleZone={{
-                        items: activeItems,
-                        flipDurationMs: reorderFlipDuration,
-                        type: 'v2-active-items',
-                        dragDisabled:
-                          isSavingReorder ||
-                          isListSwitching ||
-                          hasAppliedSearchQuery ||
-                          isCategoryReorderMode,
-                        morphDisabled: true,
-                        dropFromOthersDisabled: true,
-                        dropTargetStyle: { outline: 'none' },
-                        dropTargetClasses: [],
-                        delayTouchStart: 450,
-                        transformDraggedElement: keepDraggedItemQuiet
-                      }}
-                      onconsider={(event) => handleReorderConsider('active', event)}
-                      onfinalize={(event) => void handleReorderFinalize('active', event)}
-                      class="flex w-full min-w-0 max-w-full flex-col gap-2"
-                    >
-                      {#each activeItems as item (item.id)}
-                        <div
-                          use:trackItemNode={item.id}
-                          in:itemEntry={{ enabled: enteringItemIds.has(item.id) }}
-                          animate:flip={{ duration: itemFlipDuration }}
-                          class={`relative z-10 w-full min-w-0 max-w-full outline-none focus:outline-none focus-visible:outline-none ${
-                            movingItemId === item.id ? 'completionMoveHidden' : ''
-                          } ${exitingItemIds.has(item.id) ? 'itemExitCollapsing' : ''}`}
-                        >
-                          <V2LeafTodoItem
-                            {item}
-                            drawerOpen={openDrawerItemIds.has(item.id)}
-                            drawerOpenImmediate={movingItemId === item.id}
-                            onToggleItem={handleToggleItem}
-                            onDrawerOpenChange={setItemDrawerOpen}
-                            isTextClickSuppressed={isTextClickSuppressed}
-                            onRequestEditItem={requestEditItem}
-                            onRequestDeleteItem={requestDeleteItem}
-                            onRequestCompleteFanfare={requestCompletionFanfare}
-                          />
-                        </div>
-                      {/each}
-                    </div>
-                  {/if}
-
-                  {#if doneItems.length > 0}
-                    <div
-                      use:dragHandleZone={{
-                        items: doneItems,
-                        flipDurationMs: reorderFlipDuration,
-                        type: 'v2-done-items',
-                        dragDisabled:
-                          isSavingReorder ||
-                          isListSwitching ||
-                          hasAppliedSearchQuery ||
-                          isCategoryReorderMode,
-                        morphDisabled: true,
-                        dropFromOthersDisabled: true,
-                        dropTargetStyle: { outline: 'none' },
-                        dropTargetClasses: [],
-                        delayTouchStart: 450,
-                        transformDraggedElement: keepDraggedItemQuiet
-                      }}
-                      onconsider={(event) => handleReorderConsider('done', event)}
-                      onfinalize={(event) => void handleReorderFinalize('done', event)}
-                      class="flex w-full min-w-0 max-w-full flex-col gap-2"
-                    >
-                      {#each doneItems as item (item.id)}
-                        <div
-                          use:trackItemNode={item.id}
-                          in:itemEntry={{ enabled: enteringItemIds.has(item.id) }}
-                          animate:flip={{ duration: itemFlipDuration }}
-                          class={`relative z-10 w-full min-w-0 max-w-full outline-none focus:outline-none focus-visible:outline-none ${
-                            movingItemId === item.id ? 'completionMoveHidden' : ''
-                          } ${exitingItemIds.has(item.id) ? 'itemExitCollapsing' : ''}`}
-                        >
-                          <V2LeafTodoItem
-                            {item}
-                            drawerOpen={openDrawerItemIds.has(item.id)}
-                            drawerOpenImmediate={movingItemId === item.id}
-                            onToggleItem={handleToggleItem}
-                            onDrawerOpenChange={setItemDrawerOpen}
-                            isTextClickSuppressed={isTextClickSuppressed}
-                            onRequestEditItem={requestEditItem}
-                            onRequestDeleteItem={requestDeleteItem}
-                            onRequestCompleteFanfare={requestCompletionFanfare}
-                          />
-                        </div>
-                      {/each}
-                    </div>
-                  {/if}
-                </div>
-              {/if}
-            </div>
-          {/if}
-        </div>
+        <div class="listTopFade" aria-hidden="true"></div>
+        <div class="listBottomFade" aria-hidden="true"></div>
       </div>
     </section>
   </main>
@@ -1693,27 +1725,58 @@
     pointer-events: none;
   }
 
-  .categoryRailSticky::before {
+  .listTopFade {
     position: absolute;
-    inset: -8px -2px -24px;
-    z-index: 0;
-    content: '';
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 20;
+    height: 0.375rem;
     background: var(--color-canvas);
     pointer-events: none;
     -webkit-mask-image: linear-gradient(
       to bottom,
-      #000 0%,
-      rgb(0 0 0 / 0.88) 38%,
-      rgb(0 0 0 / 0.42) 76%,
+      rgb(0 0 0 / 0.45) 0%,
+      rgb(0 0 0 / 0.18) 58%,
       transparent 100%
     );
     mask-image: linear-gradient(
       to bottom,
-      #000 0%,
-      rgb(0 0 0 / 0.88) 38%,
-      rgb(0 0 0 / 0.42) 76%,
+      rgb(0 0 0 / 0.45) 0%,
+      rgb(0 0 0 / 0.18) 58%,
       transparent 100%
     );
+  }
+
+  .listBottomFade {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 20;
+    height: 4.75rem;
+    background: var(--color-canvas);
+    pointer-events: none;
+    -webkit-mask-image: linear-gradient(
+      to top,
+      #000 0%,
+      rgb(0 0 0 / 0.88) 22%,
+      rgb(0 0 0 / 0.52) 58%,
+      rgb(0 0 0 / 0.18) 82%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to top,
+      #000 0%,
+      rgb(0 0 0 / 0.88) 22%,
+      rgb(0 0 0 / 0.52) 58%,
+      rgb(0 0 0 / 0.18) 82%,
+      transparent 100%
+    );
+  }
+
+  .todoListViewport.hasNativeDock .listBottomFade {
+    display: none;
   }
 
   @media (prefers-reduced-motion: reduce) {
