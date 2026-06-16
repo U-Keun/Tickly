@@ -1,5 +1,14 @@
-import type { V2Category, V2ItemSearchResult, V2Tag, V2TodoItem } from '../../types';
+import type {
+  V2Category,
+  V2ItemSearchResult,
+  V2RepeatType,
+  V2Tag,
+  V2TodoItem
+} from '../../types';
+import * as settingsApi from '../api/settingsApi';
 import * as v2ChecklistApi from '../api/v2ChecklistApi';
+
+const MIN_REPEAT_TIMER_DELAY_MS = 1000;
 
 let categories = $state<V2Category[]>([]);
 let items = $state<V2TodoItem[]>([]);
@@ -7,6 +16,8 @@ let tags = $state<V2Tag[]>([]);
 let selectedCategoryId = $state<number | null>(null);
 let isLoading = $state(false);
 let errorMessage = $state<string | null>(null);
+let repeatProcessingTimeout: ReturnType<typeof setTimeout> | null = null;
+let repeatProcessingScheduleToken = 0;
 
 function sortCategories(nextCategories: V2Category[]): V2Category[] {
   return [...nextCategories].sort((a, b) => a.display_order - b.display_order);
@@ -59,6 +70,35 @@ function setError(error: unknown, fallback: string): Error {
   return nextError;
 }
 
+function parseResetTime(resetTime: string | null): { hour: number; minute: number } {
+  const [rawHour, rawMinute] = (resetTime || '00:00').split(':');
+  const hour = Number.parseInt(rawHour, 10);
+  const minute = Number.parseInt(rawMinute, 10);
+
+  return {
+    hour: Number.isInteger(hour) && hour >= 0 && hour <= 23 ? hour : 0,
+    minute: Number.isInteger(minute) && minute >= 0 && minute <= 59 ? minute : 0
+  };
+}
+
+function getNextResetAt(resetTime: string | null, now = new Date()): Date {
+  const { hour, minute } = parseResetTime(resetTime);
+  const nextResetAt = new Date(now);
+  nextResetAt.setHours(hour, minute, 0, 0);
+
+  if (nextResetAt.getTime() <= now.getTime()) {
+    nextResetAt.setDate(nextResetAt.getDate() + 1);
+  }
+
+  return nextResetAt;
+}
+
+function clearRepeatProcessingTimer(): void {
+  if (repeatProcessingTimeout === null) return;
+  clearTimeout(repeatProcessingTimeout);
+  repeatProcessingTimeout = null;
+}
+
 async function loadItemsForSelectedCategory(): Promise<void> {
   if (selectedCategoryId === null) {
     items = [];
@@ -73,6 +113,7 @@ async function load(): Promise<void> {
   errorMessage = null;
 
   try {
+    await v2ChecklistApi.v2ProcessRepeats();
     const [nextCategoriesRaw, nextTagsRaw] = await Promise.all([
       v2ChecklistApi.v2GetCategories(),
       v2ChecklistApi.v2GetTags()
@@ -233,12 +274,21 @@ async function updateItemDetails(
   id: number,
   text: string,
   memo: string | null,
-  tagNames: string[] = []
+  tagNames: string[] = [],
+  repeatType: V2RepeatType = 'none',
+  repeatDetail: string | null = null
 ): Promise<void> {
   errorMessage = null;
 
   try {
-    const updatedItem = await v2ChecklistApi.v2UpdateItemDetails(id, text, memo, tagNames);
+    const updatedItem = await v2ChecklistApi.v2UpdateItemDetails(
+      id,
+      text,
+      memo,
+      tagNames,
+      repeatType,
+      repeatDetail
+    );
     items = sortItems(items.map((item) => (item.id === id ? updatedItem : item)));
     await refreshTags();
   } catch (error) {
@@ -255,6 +305,52 @@ async function toggleItem(id: number): Promise<void> {
   } catch (error) {
     throw setError(error, 'Failed to toggle v2 item.');
   }
+}
+
+async function processRepeatsAndReload(): Promise<number> {
+  errorMessage = null;
+
+  try {
+    const reactivatedCount = await v2ChecklistApi.v2ProcessRepeats();
+    if (reactivatedCount > 0) {
+      await loadItemsForSelectedCategory();
+    }
+    return reactivatedCount;
+  } catch (error) {
+    throw setError(error, 'Failed to process v2 repeats.');
+  }
+}
+
+async function scheduleRepeatProcessing(): Promise<void> {
+  const scheduleToken = ++repeatProcessingScheduleToken;
+  clearRepeatProcessingTimer();
+
+  try {
+    const resetTime = await settingsApi.getSetting('reset_time');
+    if (scheduleToken !== repeatProcessingScheduleToken) return;
+
+    const nextResetAt = getNextResetAt(resetTime);
+    const delay = Math.max(
+      MIN_REPEAT_TIMER_DELAY_MS,
+      nextResetAt.getTime() - Date.now()
+    );
+
+    repeatProcessingTimeout = setTimeout(() => {
+      repeatProcessingTimeout = null;
+      void processRepeatsAndReload()
+        .catch(() => undefined)
+        .finally(() => {
+          void scheduleRepeatProcessing();
+        });
+    }, delay);
+  } catch (error) {
+    console.error('Failed to schedule v2 repeat processing.', error);
+  }
+}
+
+function disposeRepeatProcessingTimer(): void {
+  repeatProcessingScheduleToken += 1;
+  clearRepeatProcessingTimer();
 }
 
 async function deleteItem(id: number): Promise<void> {
@@ -332,6 +428,9 @@ export const v2ChecklistStore = {
   updateItemText,
   updateItemDetails,
   toggleItem,
+  processRepeatsAndReload,
+  scheduleRepeatProcessing,
+  disposeRepeatProcessingTimer,
   deleteItem,
   moveItem,
   reorderItems

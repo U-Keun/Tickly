@@ -32,8 +32,20 @@ private struct TicklyNativeSheetFormFieldRequest: Decodable {
     let placeholder: String
     let initialValue: String
     let initialTags: [String]?
+    let initialRepeatDetail: [Int]?
+    let repeatLabels: TicklyNativeSheetRepeatLabels?
     let suggestions: [String]?
     let required: Bool?
+}
+
+private struct TicklyNativeSheetRepeatLabels: Decodable {
+    let none: String
+    let daily: String
+    let weekly: String
+    let monthly: String
+    let weeklyDetail: String
+    let monthlyDetail: String
+    let weekdays: [String]
 }
 
 private struct TicklyNativeSheetActionRequest: Decodable {
@@ -162,7 +174,7 @@ private func ticklyPreferredSheetHeight(for request: TicklyNativeSheetRequest) -
 
     if request.kind == "form" {
         let fieldCount = CGFloat(request.form?.fields.count ?? 0)
-        return min(max(292 + fieldCount * 92, 390), 560)
+        return min(max(292 + fieldCount * 104, 430), 680)
     }
 
     let actionCount = CGFloat(request.actions?.count ?? 0)
@@ -238,6 +250,7 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
     private var formTextFields: [String: UITextField] = [:]
     private var formTextViews: [String: UITextView] = [:]
     private var formTagFields: [String: TagFieldView] = [:]
+    private var formRepeatFields: [String: RepeatFieldView] = [:]
     private var formRequiredFieldIds = Set<String>()
     private var textViewFieldIds: [ObjectIdentifier: String] = [:]
     private var textViewPlaceholders: [ObjectIdentifier: String] = [:]
@@ -489,7 +502,20 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
                 formRequiredFieldIds.insert(field.id)
             }
 
-            if field.kind == "tags" {
+            if field.kind == "repeat" {
+                let repeatField = RepeatFieldView(
+                    label: field.label,
+                    initialType: field.initialValue,
+                    initialDetail: field.initialRepeatDetail ?? [],
+                    labels: field.repeatLabels,
+                    style: Style.self
+                )
+                repeatField.onChange = { [weak self] in
+                    self?.updateSaveButtonState()
+                }
+                formRepeatFields[field.id] = repeatField
+                stack.addArrangedSubview(repeatField)
+            } else if field.kind == "tags" {
                 let tagField = TagFieldView(
                     label: field.label,
                     placeholder: field.placeholder,
@@ -726,6 +752,15 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
             values[fieldId] = .strings(tagField.tags)
         }
 
+        for (fieldId, repeatField) in formRepeatFields {
+            values[fieldId] = .string(repeatField.repeatType)
+            if fieldId == "repeat" {
+                values["repeatDetail"] = .strings(repeatField.repeatDetail.map(String.init))
+            } else {
+                values["\(fieldId)Detail"] = .strings(repeatField.repeatDetail.map(String.init))
+            }
+        }
+
         complete(status: "saved", value: nil, values: values, actionId: nil, shouldDismiss: true)
     }
 
@@ -763,6 +798,13 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
 
             if let tagField = formTagFields[fieldId] {
                 if tagField.tags.isEmpty {
+                    return false
+                }
+                continue
+            }
+
+            if let repeatField = formRepeatFields[fieldId] {
+                if !repeatField.isValid {
                     return false
                 }
                 continue
@@ -807,6 +849,312 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
         }
 
         emitResult(status: status, value: value, values: values, actionId: actionId)
+    }
+
+    private final class RepeatFieldView: UIView {
+        var onChange: (() -> Void)?
+
+        private let style: Style.Type
+        private let label: String
+        private let labels: TicklyNativeSheetRepeatLabels
+        private let rootStack = UIStackView()
+        private let typeStack = UIStackView()
+        private let detailLabel = UILabel()
+        private let detailStack = UIStackView()
+        private var typeButtons: [String: UIButton] = [:]
+        private var detailButtons: [Int: UIButton] = [:]
+        private var selectedType: String
+        private var selectedDetail: [Int]
+
+        var repeatType: String {
+            selectedType
+        }
+
+        var repeatDetail: [Int] {
+            normalizedDetail(for: selectedType, detail: selectedDetail)
+        }
+
+        var isValid: Bool {
+            selectedType == "none" ||
+                selectedType == "daily" ||
+                !repeatDetail.isEmpty
+        }
+
+        init(
+            label: String,
+            initialType: String,
+            initialDetail: [Int],
+            labels: TicklyNativeSheetRepeatLabels?,
+            style: Style.Type
+        ) {
+            self.label = label
+            self.labels = labels ?? TicklyNativeSheetRepeatLabels(
+                none: "None",
+                daily: "Daily",
+                weekly: "Weekly",
+                monthly: "Monthly",
+                weeklyDetail: "Repeat days",
+                monthlyDetail: "Repeat dates",
+                weekdays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+            )
+            self.style = style
+            self.selectedType = ["none", "daily", "weekly", "monthly"].contains(initialType)
+                ? initialType
+                : "none"
+            self.selectedDetail = initialDetail
+            super.init(frame: .zero)
+            buildLayout()
+            reloadDetail()
+            updateButtonStates()
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+
+        private func buildLayout() {
+            translatesAutoresizingMaskIntoConstraints = false
+            backgroundColor = style.paper
+            layer.cornerRadius = 14
+            layer.borderColor = style.ink.cgColor
+            layer.borderWidth = 2
+
+            rootStack.translatesAutoresizingMaskIntoConstraints = false
+            rootStack.axis = .vertical
+            rootStack.spacing = 10
+            addSubview(rootStack)
+
+            let titleStack = UIStackView()
+            titleStack.axis = .horizontal
+            titleStack.spacing = 7
+            titleStack.alignment = .center
+
+            let iconView = UIImageView(image: UIImage(systemName: "repeat"))
+            iconView.tintColor = style.ink
+            iconView.contentMode = .scaleAspectFit
+            iconView.widthAnchor.constraint(equalToConstant: 17).isActive = true
+            iconView.heightAnchor.constraint(equalToConstant: 17).isActive = true
+
+            let titleLabel = UILabel()
+            titleLabel.text = label
+            titleLabel.font = .preferredFont(forTextStyle: .subheadline)
+            titleLabel.adjustsFontForContentSizeCategory = true
+            titleLabel.textColor = style.ink
+
+            titleStack.addArrangedSubview(iconView)
+            titleStack.addArrangedSubview(titleLabel)
+
+            typeStack.axis = .horizontal
+            typeStack.spacing = 8
+            typeStack.distribution = .fillEqually
+
+            for type in ["none", "daily", "weekly", "monthly"] {
+                let button = UIButton(type: .system)
+                button.accessibilityIdentifier = type
+                button.addTarget(self, action: #selector(typeButtonTapped(_:)), for: .touchUpInside)
+                button.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+                typeButtons[type] = button
+                typeStack.addArrangedSubview(button)
+            }
+
+            detailLabel.font = .preferredFont(forTextStyle: .caption1)
+            detailLabel.adjustsFontForContentSizeCategory = true
+            detailLabel.textColor = style.inkMuted
+
+            detailStack.axis = .vertical
+            detailStack.spacing = 7
+
+            rootStack.addArrangedSubview(titleStack)
+            rootStack.addArrangedSubview(typeStack)
+            rootStack.addArrangedSubview(detailLabel)
+            rootStack.addArrangedSubview(detailStack)
+
+            NSLayoutConstraint.activate([
+                rootStack.topAnchor.constraint(equalTo: topAnchor, constant: 12),
+                rootStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+                rootStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+                rootStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12)
+            ])
+        }
+
+        private func typeTitle(for type: String) -> String {
+            switch type {
+            case "daily":
+                return labels.daily
+            case "weekly":
+                return labels.weekly
+            case "monthly":
+                return labels.monthly
+            default:
+                return labels.none
+            }
+        }
+
+        private func normalizedDetail(for type: String, detail: [Int]) -> [Int] {
+            let allowedRange: ClosedRange<Int>
+            if type == "weekly" {
+                allowedRange = 0...6
+            } else if type == "monthly" {
+                allowedRange = 1...31
+            } else {
+                return []
+            }
+
+            return Array(Set(detail.filter { allowedRange.contains($0) })).sorted()
+        }
+
+        private func detailTitle(for value: Int) -> String {
+            if selectedType == "weekly",
+               value >= 0,
+               value < labels.weekdays.count
+            {
+                return labels.weekdays[value]
+            }
+
+            return "\(value)"
+        }
+
+        private func defaultDetail(for type: String) -> [Int] {
+            let calendar = Calendar.current
+            if type == "weekly" {
+                return [calendar.component(.weekday, from: Date()) - 1]
+            }
+            if type == "monthly" {
+                return [calendar.component(.day, from: Date())]
+            }
+            return []
+        }
+
+        private func reloadDetail() {
+            for view in detailStack.arrangedSubviews {
+                detailStack.removeArrangedSubview(view)
+                view.removeFromSuperview()
+            }
+            detailButtons = [:]
+
+            if selectedType == "weekly" {
+                detailLabel.isHidden = false
+                detailStack.isHidden = false
+                detailLabel.text = labels.weeklyDetail
+                addDetailButtons(values: Array(0...6), columns: 7) { [weak self] value in
+                    guard let self else { return "\(value)" }
+                    if value >= 0 && value < self.labels.weekdays.count {
+                        return self.labels.weekdays[value]
+                    }
+                    return "\(value)"
+                }
+            } else if selectedType == "monthly" {
+                detailLabel.isHidden = false
+                detailStack.isHidden = false
+                detailLabel.text = labels.monthlyDetail
+                addDetailButtons(values: Array(1...31), columns: 7) { value in
+                    "\(value)"
+                }
+            } else {
+                detailLabel.isHidden = true
+                detailStack.isHidden = true
+            }
+        }
+
+        private func addDetailButtons(
+            values: [Int],
+            columns: Int,
+            title: (Int) -> String
+        ) {
+            var currentRow: UIStackView?
+
+            for (index, value) in values.enumerated() {
+                if index % columns == 0 {
+                    let row = UIStackView()
+                    row.axis = .horizontal
+                    row.spacing = 6
+                    row.distribution = .fillEqually
+                    detailStack.addArrangedSubview(row)
+                    currentRow = row
+                }
+
+                let button = UIButton(type: .system)
+                button.accessibilityIdentifier = "\(value)"
+                button.setTitle(title(value), for: .normal)
+                button.titleLabel?.font = .preferredFont(forTextStyle: .caption1)
+                button.addTarget(self, action: #selector(detailButtonTapped(_:)), for: .touchUpInside)
+                button.heightAnchor.constraint(greaterThanOrEqualToConstant: 36).isActive = true
+                detailButtons[value] = button
+                currentRow?.addArrangedSubview(button)
+            }
+
+            if let lastRow = currentRow {
+                let remainder = values.count % columns
+                if remainder != 0 {
+                    for _ in remainder..<columns {
+                        let spacer = UIView()
+                        lastRow.addArrangedSubview(spacer)
+                    }
+                }
+            }
+        }
+
+        private func updateButtonStates() {
+            for (type, button) in typeButtons {
+                let isSelected = type == selectedType
+                var configuration = UIButton.Configuration.filled()
+                configuration.title = typeTitle(for: type)
+                configuration.baseBackgroundColor = isSelected ? style.accentSky : UIColor.white
+                configuration.baseForegroundColor = isSelected ? style.ink : style.inkMuted
+                configuration.cornerStyle = .medium
+                configuration.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8)
+                button.configuration = configuration
+                button.layer.borderColor = (isSelected ? style.ink : style.inkMuted.withAlphaComponent(0.25)).cgColor
+                button.layer.borderWidth = isSelected ? 2 : 1
+                button.layer.cornerRadius = 12
+            }
+
+            let selectedValues = Set(repeatDetail)
+            for (value, button) in detailButtons {
+                let isSelected = selectedValues.contains(value)
+                var configuration = UIButton.Configuration.filled()
+                configuration.title = detailTitle(for: value)
+                configuration.baseBackgroundColor = isSelected ? style.accentSky : UIColor.white
+                configuration.baseForegroundColor = isSelected ? style.ink : style.inkMuted
+                configuration.cornerStyle = .medium
+                configuration.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 4, bottom: 6, trailing: 4)
+                button.configuration = configuration
+                button.layer.borderColor = (isSelected ? style.ink : style.inkMuted.withAlphaComponent(0.25)).cgColor
+                button.layer.borderWidth = isSelected ? 2 : 1
+                button.layer.cornerRadius = 10
+            }
+        }
+
+        @objc private func typeButtonTapped(_ sender: UIButton) {
+            guard let type = sender.accessibilityIdentifier else {
+                return
+            }
+
+            selectedType = type
+            let normalized = normalizedDetail(for: selectedType, detail: selectedDetail)
+            selectedDetail = normalized.isEmpty ? defaultDetail(for: selectedType) : normalized
+            reloadDetail()
+            updateButtonStates()
+            onChange?()
+        }
+
+        @objc private func detailButtonTapped(_ sender: UIButton) {
+            guard let rawValue = sender.accessibilityIdentifier,
+                  let value = Int(rawValue)
+            else {
+                return
+            }
+
+            if selectedDetail.contains(value) {
+                selectedDetail.removeAll { $0 == value }
+            } else {
+                selectedDetail.append(value)
+            }
+            selectedDetail = normalizedDetail(for: selectedType, detail: selectedDetail)
+            updateButtonStates()
+            onChange?()
+        }
     }
 
     private final class TagFieldView: UIView, UITextFieldDelegate {

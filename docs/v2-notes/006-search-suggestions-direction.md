@@ -27,7 +27,7 @@ flowchart TB
 - If the query matches a tag, the suggestion shows a small `#tag` hint under the item name.
 - Selecting a suggestion changes to that category, applies the query to the item list, and closes the suggestion board.
 - Reorder drag is disabled only after a search query is applied to the visible list.
-- v2 search reads `v2_todos.text`, `v2_todos.memo`, and related `v2_tags.name`; repeat rules, linked apps, reminders, and sync stay out of scope.
+- v2 search reads `v2_todos.text`, `v2_todos.memo`, and related `v2_tags.name`; local repeat rules exist on items but are not searched. Linked apps, reminders, and sync stay out of scope.
 
 ## Verification Target
 

@@ -1,6 +1,44 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub enum V2RepeatType {
+    #[serde(rename = "none")]
+    None,
+    #[serde(rename = "daily")]
+    Daily,
+    #[serde(rename = "weekly")]
+    Weekly,
+    #[serde(rename = "monthly")]
+    Monthly,
+}
+
+impl Default for V2RepeatType {
+    fn default() -> Self {
+        V2RepeatType::None
+    }
+}
+
+impl V2RepeatType {
+    pub fn from_str(value: &str) -> Self {
+        match value {
+            "daily" => V2RepeatType::Daily,
+            "weekly" => V2RepeatType::Weekly,
+            "monthly" => V2RepeatType::Monthly,
+            _ => V2RepeatType::None,
+        }
+    }
+
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            V2RepeatType::None => "none",
+            V2RepeatType::Daily => "daily",
+            V2RepeatType::Weekly => "weekly",
+            V2RepeatType::Monthly => "monthly",
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct V2Category {
     pub id: i64,
     pub name: String,
@@ -16,6 +54,10 @@ pub struct V2TodoItem {
     pub text: String,
     pub memo: Option<String>,
     pub tags: Vec<V2Tag>,
+    pub repeat_type: V2RepeatType,
+    pub repeat_detail: Option<String>,
+    pub next_due_at: Option<String>,
+    pub last_completed_at: Option<String>,
     pub done: bool,
     pub display_order: i64,
     pub created_at: String,

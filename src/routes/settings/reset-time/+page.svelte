@@ -2,11 +2,14 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
+  import { Clock3 } from '@lucide/svelte';
+
   import { i18n } from '$lib/i18n';
   import * as settingsApi from '$lib/api/settingsApi';
   import { getSettingsReturnTo, settingsPathWithReturnTo } from '$lib/settings/returnTo';
-  import SettingsLayout from '../../../components/SettingsLayout.svelte';
-  import SaveFooter from '../../../components/SaveFooter.svelte';
+  import V2SettingsActionFooter from '../../../components/settings/V2SettingsActionFooter.svelte';
+  import V2SettingsGroup from '../../../components/settings/V2SettingsGroup.svelte';
+  import V2SettingsShell from '../../../components/settings/V2SettingsShell.svelte';
 
   const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
   const minutes = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
@@ -32,73 +35,60 @@
   async function saveResetTime() {
     const time = `${hour}:${minute}`;
     await settingsApi.setSetting('reset_time', time);
-    goto(settingsPathWithReturnTo('/settings', returnTo));
+    await goto(settingsPathWithReturnTo('/settings', returnTo));
   }
 </script>
 
-<SettingsLayout title={i18n.t('resetTimeTitle')} onBack={() => goto(settingsPathWithReturnTo('/settings', returnTo))}>
-  <p class="description">{i18n.t('resetTimeDescription')}</p>
+<V2SettingsShell
+  title={i18n.t('resetTimeTitle')}
+  onBack={() => void goto(settingsPathWithReturnTo('/settings', returnTo))}
+>
+  <V2SettingsGroup title={i18n.t('resetTimeChange')} description={i18n.t('resetTimeDescription')}>
+    <div class="px-4 py-4">
+      <div
+        class="flex min-h-[96px] items-center gap-4 rounded-[6px_20px_6px_20px] border border-stroke bg-canvas px-4 py-4"
+      >
+        <span
+          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-[5px_14px_5px_14px] bg-accent-sky text-ink"
+          aria-hidden="true"
+        >
+          <Clock3 size={22} strokeWidth={2.2} />
+        </span>
 
-  <div class="time-picker-container">
-    <select class="time-select" bind:value={hour}>
-      {#each hours as h}
-        <option value={h}>{h}</option>
-      {/each}
-    </select>
-    <span class="time-separator">:</span>
-    <select class="time-select" bind:value={minute}>
-      {#each minutes as m}
-        <option value={m}>{m}</option>
-      {/each}
-    </select>
-  </div>
+        <div class="flex min-w-0 flex-1 items-center justify-end gap-2">
+          <label class="sr-only" for="reset-hour">{i18n.t('resetTimeHourLabel')}</label>
+          <select
+            id="reset-hour"
+            class="h-12 min-w-[74px] rounded-[6px_16px_6px_16px] border-2 border-ink bg-paper px-3 text-center text-[18px] font-semibold leading-6 text-ink outline-none transition-colors focus:bg-white"
+            bind:value={hour}
+          >
+            {#each hours as h}
+              <option value={h}>{h}</option>
+            {/each}
+          </select>
+
+          <span class="text-[22px] font-semibold leading-none text-ink" aria-hidden="true">:</span>
+
+          <label class="sr-only" for="reset-minute">{i18n.t('resetTimeMinuteLabel')}</label>
+          <select
+            id="reset-minute"
+            class="h-12 min-w-[74px] rounded-[6px_16px_6px_16px] border-2 border-ink bg-paper px-3 text-center text-[18px] font-semibold leading-6 text-ink outline-none transition-colors focus:bg-white"
+            bind:value={minute}
+          >
+            {#each minutes as m}
+              <option value={m}>{m}</option>
+            {/each}
+          </select>
+        </div>
+      </div>
+
+      <p class="mt-3 px-1 text-[13px] font-medium leading-5 text-ink-muted">
+        {i18n.t('resetTimeRepeatHint')}
+      </p>
+    </div>
+  </V2SettingsGroup>
 
   {#snippet footer()}
-    <SaveFooter onSave={saveResetTime} disabled={!hasChanges} />
+    <V2SettingsActionFooter onSave={saveResetTime} disabled={!hasChanges} />
   {/snippet}
-</SettingsLayout>
-
-<style>
-  .description {
-    font-size: 14px;
-    color: var(--color-ink-muted);
-    margin-bottom: 24px;
-    padding: 0 4px;
-  }
-
-  .time-picker-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-    padding: 24px 16px;
-    background: var(--color-canvas);
-    border-radius: 12px;
-  }
-
-  .time-select {
-    font-size: 18px;
-    font-weight: 500;
-    color: var(--color-ink);
-    background: var(--color-paper);
-    border: 1px solid var(--color-stroke);
-    border-radius: 8px;
-    padding: 8px 12px;
-    outline: none;
-    cursor: pointer;
-    appearance: none;
-    text-align: center;
-    text-align-last: center;
-    min-width: 64px;
-  }
-
-  .time-select:focus {
-    border-color: var(--color-accent-sky-strong);
-  }
-
-  .time-separator {
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--color-ink);
-  }
-</style>
+</V2SettingsShell>

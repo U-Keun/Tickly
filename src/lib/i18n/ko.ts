@@ -124,6 +124,8 @@ export const ko = {
   repeatMonthly: '매월',
   repeatDaysLabel: '반복 요일',
   repeatDatesLabel: '반복 날짜',
+  v2ItemRepeatLabel: '반복',
+  v2ItemRepeatPlaceholder: '반복 규칙',
   sun: '일',
   mon: '월',
   tue: '화',
@@ -156,6 +158,9 @@ export const ko = {
   resetTimeChange: '초기화 시간',
   resetTimeTitle: '초기화 시간',
   resetTimeDescription: '매일 할 일이 초기화되는 시간',
+  resetTimeRepeatHint: '반복 항목은 이 시간을 기준으로 하루가 바뀌면 다시 활성화됩니다.',
+  resetTimeHourLabel: '시',
+  resetTimeMinuteLabel: '분',
 
   // Account & Sync settings
   syncTitle: '동기화',

@@ -155,6 +155,7 @@ pub fn run() {
             v2_update_item_text,
             v2_update_item_details,
             v2_toggle_item,
+            v2_process_repeats,
             v2_delete_item,
             v2_reorder_items,
             v2_configure_native_dock,

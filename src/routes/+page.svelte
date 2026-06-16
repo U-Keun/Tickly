@@ -55,7 +55,14 @@
   onMount(() => {
     initializeTheme();
     initializeFonts();
-    void v2ChecklistStore.load().catch(() => undefined);
+    void v2ChecklistStore
+      .load()
+      .catch(() => undefined)
+      .finally(() => {
+        if (document.visibilityState === 'visible') {
+          void v2ChecklistStore.scheduleRepeatProcessing();
+        }
+      });
 
     nativeDockSupported = v2NativeDockApi.shouldUseNativeDock();
     const removeNativeDockActionListener =
@@ -65,8 +72,22 @@
       nativeSheetOpen = detail?.isOpen === true;
       syncNativeDock();
     };
+    const handleVisibilityChange = (): void => {
+      if (document.visibilityState !== 'visible') {
+        v2ChecklistStore.disposeRepeatProcessingTimer();
+        return;
+      }
+
+      void v2ChecklistStore
+        .processRepeatsAndReload()
+        .catch(() => undefined)
+        .finally(() => {
+          void v2ChecklistStore.scheduleRepeatProcessing();
+        });
+    };
 
     window.addEventListener('tickly:nativeSheetState', handleNativeSheetState);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     void i18n.loadLocale().finally(() => {
       syncNativeDock();
@@ -75,6 +96,8 @@
     return () => {
       removeNativeDockActionListener();
       window.removeEventListener('tickly:nativeSheetState', handleNativeSheetState);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      v2ChecklistStore.disposeRepeatProcessingTimer();
       if (nativeDockSupported) {
         void v2NativeDockApi.configureNativeDock(buildNativeDockRequest(false));
       }

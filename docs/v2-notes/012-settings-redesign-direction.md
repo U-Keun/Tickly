@@ -11,7 +11,8 @@ The v2 settings entry screen uses its own v2 shell while preserving the existing
 - Frequently used app-wide preferences are grouped first: appearance, font, language, and reset time.
 - Features that still rely on v1-era stores or flows remain accessible under a Legacy group.
 - Appearance sub-routes (`theme`, `font`, `language`) now share the v2 settings shell and Soft Leaf choice surfaces.
-- Remaining sub-routes keep their current implementation and `returnTo` behavior until they are rebuilt in focused slices.
+- Reset time also uses the v2 settings shell, but keeps the existing `reset_time` setting contract so repeat logic reads the same daily boundary.
+- Remaining legacy sub-routes keep their current implementation and `returnTo` behavior until they are rebuilt in focused slices.
 
 ```mermaid
 flowchart TD
@@ -19,6 +20,7 @@ flowchart TD
   Settings --> Appearance["Appearance: theme, font, language"]
   Appearance --> AppearanceScreens["v2 Soft Leaf sub-screens"]
   Settings --> Daily["Daily rhythm: reset time"]
+  Daily --> ResetTime["v2 Soft Leaf time picker"]
   Settings --> Legacy["Legacy features: tags, cloud sync"]
   Legacy --> V1Flows["Existing v1-era stores and screens"]
 ```
@@ -30,3 +32,4 @@ flowchart TD
 - Confirm each row routes to the existing sub-route without changing its behavior.
 - Confirm theme and font preview selections are temporary until Save, and Back restores the previous setting.
 - Confirm language selection still saves immediately and returns to the settings entry.
+- Confirm reset time saves the existing `reset_time` setting and returns to the settings entry.

@@ -1,5 +1,11 @@
 import { invoke } from './client';
-import type { V2Category, V2ItemSearchResult, V2Tag, V2TodoItem } from '../../types';
+import type {
+  V2Category,
+  V2ItemSearchResult,
+  V2RepeatType,
+  V2Tag,
+  V2TodoItem
+} from '../../types';
 
 export async function v2GetCategories(): Promise<V2Category[]> {
   return invoke<V2Category[]>('v2_get_categories');
@@ -52,13 +58,26 @@ export async function v2UpdateItemDetails(
   id: number,
   text: string,
   memo: string | null,
-  tagNames: string[] = []
+  tagNames: string[] = [],
+  repeatType: V2RepeatType = 'none',
+  repeatDetail: string | null = null
 ): Promise<V2TodoItem> {
-  return invoke<V2TodoItem>('v2_update_item_details', { id, text, memo, tagNames });
+  return invoke<V2TodoItem>('v2_update_item_details', {
+    id,
+    text,
+    memo,
+    tagNames,
+    repeatType,
+    repeatDetail
+  });
 }
 
 export async function v2ToggleItem(id: number): Promise<V2TodoItem> {
   return invoke<V2TodoItem>('v2_toggle_item', { id });
+}
+
+export async function v2ProcessRepeats(): Promise<number> {
+  return invoke<number>('v2_process_repeats');
 }
 
 export async function v2DeleteItem(id: number): Promise<void> {

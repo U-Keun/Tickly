@@ -4,6 +4,12 @@ import type { V2ItemSearchResult } from '../../types';
 import V2SearchSuggestionBoard from './V2SearchSuggestionBoard.svelte';
 
 const now = '2026-06-08T00:00:00Z';
+const repeatDefaults = {
+  repeat_type: 'none' as const,
+  repeat_detail: null,
+  next_due_at: null,
+  last_completed_at: null
+};
 
 const results: V2ItemSearchResult[] = [
   {
@@ -13,6 +19,7 @@ const results: V2ItemSearchResult[] = [
       text: 'Wallet',
       memo: null,
       tags: [{ id: 1, name: 'home', created_at: now, updated_at: now }],
+      ...repeatDefaults,
       done: false,
       display_order: 1000,
       created_at: now,
@@ -33,6 +40,7 @@ const results: V2ItemSearchResult[] = [
       text: 'Portable charger before leaving for a very long commute',
       memo: null,
       tags: [{ id: 2, name: 'travel', created_at: now, updated_at: now }],
+      ...repeatDefaults,
       done: true,
       display_order: 2000,
       created_at: now,
@@ -56,6 +64,7 @@ const memoResults: V2ItemSearchResult[] = [
       text: 'Passport',
       memo: 'Keep this in the blue travel pouch.',
       tags: [{ id: 2, name: 'travel', created_at: now, updated_at: now }],
+      ...repeatDefaults,
       done: false,
       display_order: 3000,
       created_at: now,
@@ -79,6 +88,7 @@ const tagResults: V2ItemSearchResult[] = [
       text: 'Read',
       memo: null,
       tags: [{ id: 3, name: 'church', created_at: now, updated_at: now }],
+      ...repeatDefaults,
       done: false,
       display_order: 4000,
       created_at: now,

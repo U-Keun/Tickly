@@ -4,6 +4,12 @@ import type { V2Category, V2ItemSearchResult, V2Tag, V2TodoItem } from '../../ty
 import V2ChecklistScreen from './V2ChecklistScreen.svelte';
 
 const now = '2026-06-08T00:00:00Z';
+const repeatDefaults = {
+  repeat_type: 'none' as const,
+  repeat_detail: null,
+  next_due_at: null,
+  last_completed_at: null
+};
 
 const tags: V2Tag[] = [
   { id: 1, name: 'home', created_at: now, updated_at: now },
@@ -42,6 +48,7 @@ const items: V2TodoItem[] = [
     text: 'Wallet',
     memo: 'Keep this in the front pocket.',
     tags: [tags[0]],
+    ...repeatDefaults,
     done: false,
     display_order: 1000,
     created_at: now,
@@ -53,6 +60,7 @@ const items: V2TodoItem[] = [
     text: 'Umbrella before leaving for a very long commute day',
     memo: null,
     tags: [tags[1]],
+    ...repeatDefaults,
     done: false,
     display_order: 2000,
     created_at: now,
@@ -72,6 +80,7 @@ const searchResults: V2ItemSearchResult[] = [
       text: 'Travel wallet pouch',
       memo: null,
       tags: [tags[1]],
+      ...repeatDefaults,
       done: false,
       display_order: 1000,
       created_at: now,
@@ -137,6 +146,7 @@ export const CompletedItems: Story = {
         text: 'Keys',
         memo: null,
         tags: [],
+        ...repeatDefaults,
         done: true,
         display_order: 3000,
         created_at: now,
@@ -155,6 +165,7 @@ export const LongTextItems: Story = {
         text: 'Umbrella before leaving for a very long commute day with errands after work and grocery pickup',
         memo: null,
         tags: [tags[1]],
+        ...repeatDefaults,
         done: false,
         display_order: 1000,
         created_at: now,
@@ -166,6 +177,7 @@ export const LongTextItems: Story = {
         text: 'SuperLongUnbrokenChecklistItemNameThatShouldNeverPushTheCardWiderThanTheiPhoneViewportEvenWhenTypedWithoutSpaces',
         memo: null,
         tags: [tags[2]],
+        ...repeatDefaults,
         done: false,
         display_order: 2000,
         created_at: now,
@@ -190,6 +202,39 @@ export const MemoSearch: Story = {
   }
 };
 
+export const RepeatItems: Story = {
+  args: {
+    items: [
+      {
+        ...items[0],
+        repeat_type: 'daily',
+        next_due_at: '2026-06-09'
+      },
+      {
+        ...items[1],
+        repeat_type: 'weekly',
+        repeat_detail: '[1,3,5]',
+        text: 'Plan weekly meals'
+      },
+      {
+        id: 12,
+        category_id: 1,
+        text: 'Pay rent',
+        memo: 'Check the transfer memo before sending.',
+        tags: [tags[0]],
+        repeat_type: 'monthly',
+        repeat_detail: '[1]',
+        next_due_at: null,
+        last_completed_at: null,
+        done: false,
+        display_order: 3000,
+        created_at: now,
+        updated_at: now
+      }
+    ]
+  }
+};
+
 export const CategoryReorderMode: Story = {
   args: {
     initialCategoryReorderMode: true
@@ -206,6 +251,7 @@ export const LongListDragReady: Story = {
         text: 'Keys',
         memo: null,
         tags: [],
+        ...repeatDefaults,
         done: false,
         display_order: 3000,
         created_at: now,
@@ -217,6 +263,7 @@ export const LongListDragReady: Story = {
         text: 'Water bottle',
         memo: null,
         tags: [tags[0]],
+        ...repeatDefaults,
         done: false,
         display_order: 4000,
         created_at: now,
@@ -228,6 +275,7 @@ export const LongListDragReady: Story = {
         text: 'Portable charger',
         memo: null,
         tags: [tags[1]],
+        ...repeatDefaults,
         done: true,
         display_order: 5000,
         created_at: now,

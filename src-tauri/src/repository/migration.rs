@@ -20,7 +20,9 @@ pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
     migrate_add_linked_app(conn)?;
     migrate_create_v2_checklist_tables(conn)?;
     migrate_add_v2_memo(conn)?;
+    migrate_add_v2_repeat_columns(conn)?;
     migrate_create_v2_tags(conn)?;
+    migrate_create_v2_completion_logs(conn)?;
     Ok(())
 }
 
@@ -309,6 +311,29 @@ fn migrate_add_v2_memo(conn: &Connection) -> Result<(), rusqlite::Error> {
     Ok(())
 }
 
+fn migrate_add_v2_repeat_columns(conn: &Connection) -> Result<(), rusqlite::Error> {
+    if should_add_column(conn, "v2_todos", "repeat_type") {
+        conn.execute(
+            "ALTER TABLE v2_todos ADD COLUMN repeat_type TEXT NOT NULL DEFAULT 'none'",
+            [],
+        )?;
+    }
+
+    if should_add_column(conn, "v2_todos", "repeat_detail") {
+        conn.execute("ALTER TABLE v2_todos ADD COLUMN repeat_detail TEXT", [])?;
+    }
+
+    if should_add_column(conn, "v2_todos", "next_due_at") {
+        conn.execute("ALTER TABLE v2_todos ADD COLUMN next_due_at TEXT", [])?;
+    }
+
+    if should_add_column(conn, "v2_todos", "last_completed_at") {
+        conn.execute("ALTER TABLE v2_todos ADD COLUMN last_completed_at TEXT", [])?;
+    }
+
+    Ok(())
+}
+
 fn migrate_create_v2_tags(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS v2_tags (
@@ -334,6 +359,23 @@ fn migrate_create_v2_tags(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_v2_todo_tags_tag_id ON v2_todo_tags(tag_id)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+fn migrate_create_v2_completion_logs(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS v2_completion_logs (
+            item_id INTEGER NOT NULL,
+            completed_on TEXT NOT NULL,
+            completed_count INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (item_id, completed_on),
+            FOREIGN KEY (item_id) REFERENCES v2_todos(id) ON DELETE CASCADE
+        )",
         [],
     )?;
 

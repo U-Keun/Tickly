@@ -163,12 +163,18 @@ export interface V2Category {
   updated_at: string;
 }
 
+export type V2RepeatType = 'none' | 'daily' | 'weekly' | 'monthly';
+
 export interface V2TodoItem {
   id: number;
   category_id: number;
   text: string;
   memo: string | null;
   tags: V2Tag[];
+  repeat_type: V2RepeatType;
+  repeat_detail: string | null;
+  next_due_at: string | null;
+  last_completed_at: string | null;
   done: boolean;
   display_order: number;
   created_at: string;

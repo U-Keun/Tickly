@@ -55,7 +55,7 @@ erDiagram
 
 ## Excluded From First Slice
 
-Search, tags, repeat rules, streaks, reminders, linked apps, graph view, widgets, Supabase sync, and data migration are intentionally excluded.
+Search, tags, and local repeat rules are now part of v2. Streaks, reminders, linked apps, graph view, widgets, Supabase sync, and data migration remain intentionally excluded.
 
 ## Verification Target
 

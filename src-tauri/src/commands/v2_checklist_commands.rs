@@ -1,7 +1,7 @@
 use tauri::State;
 
 use super::with_db;
-use crate::models::{V2Category, V2ItemSearchResult, V2Tag, V2TodoItem};
+use crate::models::{V2Category, V2ItemSearchResult, V2RepeatType, V2Tag, V2TodoItem};
 use crate::service::V2ChecklistService;
 use crate::AppState;
 
@@ -85,8 +85,15 @@ pub fn v2_update_item_details(
     text: String,
     memo: Option<String>,
     tag_names: Option<Vec<String>>,
+    repeat_type: Option<String>,
+    repeat_detail: Option<String>,
     state: State<AppState>,
 ) -> Result<V2TodoItem, String> {
+    let repeat = repeat_type
+        .as_deref()
+        .map(V2RepeatType::from_str)
+        .unwrap_or(V2RepeatType::None);
+
     with_db(&state, |db| {
         V2ChecklistService::update_item_details(
             db,
@@ -94,6 +101,8 @@ pub fn v2_update_item_details(
             &text,
             memo.as_deref(),
             tag_names.as_deref().unwrap_or(&[]),
+            &repeat,
+            repeat_detail.as_deref(),
         )
     })
 }
@@ -101,6 +110,11 @@ pub fn v2_update_item_details(
 #[tauri::command]
 pub fn v2_toggle_item(id: i64, state: State<AppState>) -> Result<V2TodoItem, String> {
     with_db(&state, |db| V2ChecklistService::toggle_item(db, id))
+}
+
+#[tauri::command]
+pub fn v2_process_repeats(state: State<AppState>) -> Result<i64, String> {
+    with_db(&state, V2ChecklistService::process_repeats)
 }
 
 #[tauri::command]

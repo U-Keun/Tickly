@@ -23,13 +23,25 @@ export interface V2NativeActionSheetOptions {
   cancelLabel: string;
 }
 
+export interface V2NativeRepeatLabels {
+  none: string;
+  daily: string;
+  weekly: string;
+  monthly: string;
+  weeklyDetail: string;
+  monthlyDetail: string;
+  weekdays: string[];
+}
+
 export interface V2NativeFormSheetField {
   id: string;
-  kind: 'text' | 'textarea' | 'tags';
+  kind: 'text' | 'textarea' | 'tags' | 'repeat';
   label: string;
   placeholder: string;
   initialValue: string;
   initialTags?: string[];
+  initialRepeatDetail?: number[];
+  repeatLabels?: V2NativeRepeatLabels;
   suggestions?: string[];
   required?: boolean;
 }

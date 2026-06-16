@@ -1,7 +1,8 @@
+use chrono::{Datelike, Local, NaiveDate, NaiveTime};
 use rusqlite::Connection;
 
-use crate::models::{V2Category, V2ItemSearchResult, V2Tag, V2TodoItem};
-use crate::repository::V2ChecklistRepository;
+use crate::models::{V2Category, V2ItemSearchResult, V2RepeatType, V2Tag, V2TodoItem};
+use crate::repository::{SettingsRepository, V2ChecklistRepository};
 
 pub struct V2ChecklistService;
 
@@ -87,6 +88,8 @@ impl V2ChecklistService {
         text: &str,
         memo: Option<&str>,
         tag_names: &[String],
+        repeat_type: &V2RepeatType,
+        repeat_detail: Option<&str>,
     ) -> Result<V2TodoItem, String> {
         let trimmed_text = Self::trim_required(text, "Item text")?;
         let normalized_memo = memo.and_then(|value| {
@@ -98,6 +101,22 @@ impl V2ChecklistService {
             }
         });
         let normalized_tags = Self::normalize_tag_names(tag_names)?;
+        let normalized_repeat_detail = Self::normalize_repeat_detail(repeat_type, repeat_detail)?;
+        let Some(existing_item) =
+            V2ChecklistRepository::get_item_by_id(conn, id).map_err(|error| error.to_string())?
+        else {
+            return Err("Item not found.".to_string());
+        };
+        let next_due_at = if existing_item.done && *repeat_type != V2RepeatType::None {
+            let logical_date = Self::logical_date(conn)?;
+            Self::calculate_next_due(
+                repeat_type,
+                normalized_repeat_detail.as_deref(),
+                logical_date,
+            )
+        } else {
+            None
+        };
 
         V2ChecklistRepository::update_item_details(
             conn,
@@ -105,6 +124,9 @@ impl V2ChecklistService {
             trimmed_text,
             normalized_memo,
             &normalized_tags,
+            repeat_type,
+            normalized_repeat_detail.as_deref(),
+            next_due_at.as_deref(),
         )
         .map_err(|error| error.to_string())
     }
@@ -116,12 +138,32 @@ impl V2ChecklistService {
             return Err("Item not found.".to_string());
         };
 
-        V2ChecklistRepository::set_item_done(conn, id, !item.done)
-            .map_err(|error| error.to_string())?;
+        let logical_date = Self::logical_date(conn)?;
+        let completed_on = logical_date.format("%Y-%m-%d").to_string();
+
+        if item.done {
+            V2ChecklistRepository::restore_item(conn, id, &completed_on)
+                .map_err(|error| error.to_string())?;
+        } else {
+            let next_due_at = Self::calculate_next_due(
+                &item.repeat_type,
+                item.repeat_detail.as_deref(),
+                logical_date,
+            );
+            V2ChecklistRepository::complete_item(conn, id, &completed_on, next_due_at.as_deref())
+                .map_err(|error| error.to_string())?;
+        }
 
         V2ChecklistRepository::get_item_by_id(conn, id)
             .map_err(|error| error.to_string())?
             .ok_or_else(|| "Item not found after toggle.".to_string())
+    }
+
+    pub fn process_repeats(conn: &Connection) -> Result<i64, String> {
+        let logical_date = Self::logical_date(conn)?;
+        let logical_date_text = logical_date.format("%Y-%m-%d").to_string();
+        V2ChecklistRepository::reactivate_due_repeats(conn, &logical_date_text)
+            .map_err(|error| error.to_string())
     }
 
     pub fn delete_item(conn: &Connection, id: i64) -> Result<(), String> {
@@ -156,6 +198,155 @@ impl V2ChecklistService {
         }
     }
 
+    fn logical_date(conn: &Connection) -> Result<NaiveDate, String> {
+        let reset_time =
+            SettingsRepository::get(conn, "reset_time").map_err(|error| error.to_string())?;
+        Ok(Self::logical_date_from_reset_time(
+            reset_time.as_deref().unwrap_or("00:00"),
+        ))
+    }
+
+    fn logical_date_from_reset_time(reset_time: &str) -> NaiveDate {
+        let now = Local::now();
+        let today = now.date_naive();
+        let parts: Vec<&str> = reset_time.split(':').collect();
+        let hour: u32 = parts
+            .first()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(0);
+        let minute: u32 = parts
+            .get(1)
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(0);
+        let reset_time_today = NaiveTime::from_hms_opt(hour, minute, 0).unwrap_or(NaiveTime::MIN);
+
+        if now.time() < reset_time_today {
+            today - chrono::Duration::days(1)
+        } else {
+            today
+        }
+    }
+
+    fn calculate_next_due(
+        repeat_type: &V2RepeatType,
+        repeat_detail: Option<&str>,
+        from_date: NaiveDate,
+    ) -> Option<String> {
+        match repeat_type {
+            V2RepeatType::None => None,
+            V2RepeatType::Daily => Some(
+                (from_date + chrono::Duration::days(1))
+                    .format("%Y-%m-%d")
+                    .to_string(),
+            ),
+            V2RepeatType::Weekly => {
+                let days = Self::parse_repeat_values(repeat_detail)?;
+                for offset in 1..=7 {
+                    let check_date = from_date + chrono::Duration::days(offset);
+                    let check_weekday = check_date.weekday().num_days_from_sunday();
+                    if days.contains(&check_weekday) {
+                        return Some(check_date.format("%Y-%m-%d").to_string());
+                    }
+                }
+                None
+            }
+            V2RepeatType::Monthly => {
+                let days = Self::parse_repeat_values(repeat_detail)?;
+                let current_day = from_date.day();
+                let current_month = from_date.month();
+                let current_year = from_date.year();
+
+                for &day in &days {
+                    if day > current_day {
+                        if let Some(next) =
+                            NaiveDate::from_ymd_opt(current_year, current_month, day)
+                        {
+                            return Some(next.format("%Y-%m-%d").to_string());
+                        }
+                    }
+                }
+
+                let (next_year, next_month) = if current_month == 12 {
+                    (current_year + 1, 1)
+                } else {
+                    (current_year, current_month + 1)
+                };
+
+                for &day in &days {
+                    if let Some(next) = NaiveDate::from_ymd_opt(next_year, next_month, day) {
+                        return Some(next.format("%Y-%m-%d").to_string());
+                    }
+                }
+
+                None
+            }
+        }
+    }
+
+    fn normalize_repeat_detail(
+        repeat_type: &V2RepeatType,
+        repeat_detail: Option<&str>,
+    ) -> Result<Option<String>, String> {
+        match repeat_type {
+            V2RepeatType::None | V2RepeatType::Daily => Ok(None),
+            V2RepeatType::Weekly => {
+                let values = Self::parse_and_validate_repeat_values(
+                    repeat_detail,
+                    0,
+                    6,
+                    "Weekly repeat days",
+                )?;
+                serde_json::to_string(&values)
+                    .map(Some)
+                    .map_err(|error| error.to_string())
+            }
+            V2RepeatType::Monthly => {
+                let values = Self::parse_and_validate_repeat_values(
+                    repeat_detail,
+                    1,
+                    31,
+                    "Monthly repeat dates",
+                )?;
+                serde_json::to_string(&values)
+                    .map(Some)
+                    .map_err(|error| error.to_string())
+            }
+        }
+    }
+
+    fn parse_repeat_values(repeat_detail: Option<&str>) -> Option<Vec<u32>> {
+        repeat_detail.and_then(|value| serde_json::from_str::<Vec<u32>>(value).ok())
+    }
+
+    fn parse_and_validate_repeat_values(
+        repeat_detail: Option<&str>,
+        min: u32,
+        max: u32,
+        label: &str,
+    ) -> Result<Vec<u32>, String> {
+        let values: Vec<u32> = repeat_detail
+            .and_then(|value| serde_json::from_str(value).ok())
+            .unwrap_or_default();
+
+        let mut normalized = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        for value in values {
+            if value < min || value > max {
+                return Err(format!("{label} contain an invalid value."));
+            }
+            if seen.insert(value) {
+                normalized.push(value);
+            }
+        }
+        normalized.sort_unstable();
+
+        if normalized.is_empty() {
+            return Err(format!("{label} cannot be empty."));
+        }
+
+        Ok(normalized)
+    }
+
     fn normalize_tag_names(tag_names: &[String]) -> Result<Vec<String>, String> {
         let mut normalized = Vec::new();
         let mut seen = std::collections::HashSet::new();
@@ -188,9 +379,32 @@ mod tests {
 
     fn setup_conn() -> Connection {
         let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute(
+            "CREATE TABLE settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )",
+            [],
+        )
+        .expect("settings schema");
         V2ChecklistRepository::create_tables(&conn).expect("v2 schema");
         V2ChecklistRepository::ensure_default_category(&conn).expect("default category");
         conn
+    }
+
+    fn date(year: i32, month: u32, day: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(year, month, day).expect("valid date")
+    }
+
+    fn completion_count(conn: &Connection, item_id: i64, completed_on: &str) -> i64 {
+        conn.query_row(
+            "SELECT COALESCE(completed_count, 0)
+             FROM v2_completion_logs
+             WHERE item_id = ?1 AND completed_on = ?2",
+            rusqlite::params![item_id, completed_on],
+            |row| row.get(0),
+        )
+        .unwrap_or(0)
     }
 
     #[test]
@@ -223,6 +437,138 @@ mod tests {
 
         let toggled = V2ChecklistService::toggle_item(&conn, item.id).unwrap();
         assert!(toggled.done);
+    }
+
+    #[test]
+    fn calculates_next_due_for_daily_weekly_and_monthly() {
+        assert_eq!(
+            V2ChecklistService::calculate_next_due(&V2RepeatType::Daily, None, date(2026, 6, 16)),
+            Some("2026-06-17".to_string())
+        );
+        assert_eq!(
+            V2ChecklistService::calculate_next_due(
+                &V2RepeatType::Weekly,
+                Some("[4]"),
+                date(2026, 6, 16),
+            ),
+            Some("2026-06-18".to_string())
+        );
+        assert_eq!(
+            V2ChecklistService::calculate_next_due(
+                &V2RepeatType::Weekly,
+                Some("[2]"),
+                date(2026, 6, 16),
+            ),
+            Some("2026-06-23".to_string())
+        );
+        assert_eq!(
+            V2ChecklistService::calculate_next_due(
+                &V2RepeatType::Monthly,
+                Some("[20]"),
+                date(2026, 6, 16),
+            ),
+            Some("2026-06-20".to_string())
+        );
+    }
+
+    #[test]
+    fn rejects_empty_weekly_repeat_detail() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        let item =
+            V2ChecklistService::create_item_with_tags(&conn, category_id, "Water plants", &[])
+                .unwrap();
+
+        let error = V2ChecklistService::update_item_details(
+            &conn,
+            item.id,
+            "Water plants",
+            None,
+            &[],
+            &V2RepeatType::Weekly,
+            Some("[]"),
+        )
+        .unwrap_err();
+
+        assert!(error.contains("Weekly repeat days"));
+    }
+
+    #[test]
+    fn completing_repeat_item_sets_due_date_and_completion_log() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        let item =
+            V2ChecklistService::create_item_with_tags(&conn, category_id, "Stretch", &[]).unwrap();
+
+        V2ChecklistService::update_item_details(
+            &conn,
+            item.id,
+            "Stretch",
+            None,
+            &[],
+            &V2RepeatType::Daily,
+            None,
+        )
+        .unwrap();
+        let completed = V2ChecklistService::toggle_item(&conn, item.id).unwrap();
+
+        assert!(completed.done);
+        assert_eq!(completed.repeat_type, V2RepeatType::Daily);
+        assert!(completed.next_due_at.is_some());
+        let completed_on = completed.last_completed_at.as_deref().unwrap();
+        assert_eq!(completion_count(&conn, item.id, completed_on), 1);
+    }
+
+    #[test]
+    fn restoring_completed_item_removes_today_completion_log() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        let item =
+            V2ChecklistService::create_item_with_tags(&conn, category_id, "Journal", &[]).unwrap();
+        let completed = V2ChecklistService::toggle_item(&conn, item.id).unwrap();
+        let completed_on = completed.last_completed_at.clone().unwrap();
+
+        let restored = V2ChecklistService::toggle_item(&conn, item.id).unwrap();
+
+        assert!(!restored.done);
+        assert_eq!(restored.last_completed_at, None);
+        assert_eq!(restored.next_due_at, None);
+        assert_eq!(completion_count(&conn, item.id, &completed_on), 0);
+    }
+
+    #[test]
+    fn process_repeats_reactivates_due_repeat_items() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        let item =
+            V2ChecklistService::create_item_with_tags(&conn, category_id, "Vitamins", &[]).unwrap();
+
+        V2ChecklistService::update_item_details(
+            &conn,
+            item.id,
+            "Vitamins",
+            None,
+            &[],
+            &V2RepeatType::Daily,
+            None,
+        )
+        .unwrap();
+        V2ChecklistService::toggle_item(&conn, item.id).unwrap();
+        conn.execute(
+            "UPDATE v2_todos SET next_due_at = '2000-01-01' WHERE id = ?1",
+            rusqlite::params![item.id],
+        )
+        .unwrap();
+
+        let reactivated = V2ChecklistService::process_repeats(&conn).unwrap();
+        let next_item = V2ChecklistRepository::get_item_by_id(&conn, item.id)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(reactivated, 1);
+        assert!(!next_item.done);
+        assert_eq!(next_item.next_due_at, None);
+        assert!(next_item.last_completed_at.is_some());
     }
 
     #[test]
@@ -272,6 +618,8 @@ mod tests {
             "  Wallet and keys  ",
             Some("  front pocket  "),
             &[],
+            &V2RepeatType::None,
+            None,
         )
         .unwrap();
         let updated = V2ChecklistRepository::get_item_by_id(&conn, item.id)
@@ -281,7 +629,16 @@ mod tests {
         assert_eq!(updated.text, "Wallet and keys");
         assert_eq!(updated.memo.as_deref(), Some("front pocket"));
 
-        V2ChecklistService::update_item_details(&conn, item.id, "Wallet", Some("  "), &[]).unwrap();
+        V2ChecklistService::update_item_details(
+            &conn,
+            item.id,
+            "Wallet",
+            Some("  "),
+            &[],
+            &V2RepeatType::None,
+            None,
+        )
+        .unwrap();
         let cleared = V2ChecklistRepository::get_item_by_id(&conn, item.id)
             .unwrap()
             .unwrap();
@@ -301,6 +658,8 @@ mod tests {
             "Passport",
             Some("Keep it in the blue wallet pouch."),
             &[],
+            &V2RepeatType::None,
+            None,
         )
         .unwrap();
 

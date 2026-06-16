@@ -6,8 +6,13 @@
   import { dragHandleZone } from 'svelte-dnd-action';
   import type { DndEvent } from 'svelte-dnd-action';
 
-  import type { V2Category, V2ItemSearchResult, V2Tag, V2TodoItem } from '../../types';
+  import type { V2Category, V2ItemSearchResult, V2RepeatType, V2Tag, V2TodoItem } from '../../types';
   import { i18n } from '$lib/i18n';
+  import {
+    asV2RepeatType,
+    parseV2RepeatDetail,
+    stringifyV2RepeatDetail
+  } from '$lib/v2/v2Repeat';
   import V2CategoryDetailSheet from './V2CategoryDetailSheet.svelte';
   import V2CategoryManageSheet from './V2CategoryManageSheet.svelte';
   import V2CheckboxFanfare from './V2CheckboxFanfare.svelte';
@@ -56,7 +61,9 @@
       id: number,
       text: string,
       memo: string | null,
-      tagNames?: string[]
+      tagNames?: string[],
+      repeatType?: V2RepeatType,
+      repeatDetail?: string | null
     ) => MaybePromise;
     onDeleteItem: (id: number) => MaybePromise;
     onReorderItems: (itemIds: number[]) => MaybePromise;
@@ -1277,6 +1284,20 @@
     itemPendingEdit = null;
   }
 
+  function parseNativeRepeatDetailValue(value: string | string[] | undefined): number[] {
+    if (Array.isArray(value)) {
+      return value
+        .map((entry) => Number(entry))
+        .filter((entry) => Number.isInteger(entry));
+    }
+
+    if (typeof value === 'string') {
+      return parseV2RepeatDetail(value);
+    }
+
+    return [];
+  }
+
   async function openItemDetailSheet(item: V2TodoItem): Promise<void> {
     const nativeResult = await v2NativeSheetApi.openNativeFormSheet({
       title: i18n.t('v2EditItemDetails'),
@@ -1304,6 +1325,31 @@
           initialValue: '',
           initialTags: item.tags.map((tag) => tag.name),
           suggestions: availableTags.map((tag) => tag.name)
+        },
+        {
+          id: 'repeat',
+          kind: 'repeat',
+          label: i18n.t('v2ItemRepeatLabel'),
+          placeholder: i18n.t('v2ItemRepeatPlaceholder'),
+          initialValue: item.repeat_type,
+          initialRepeatDetail: parseV2RepeatDetail(item.repeat_detail),
+          repeatLabels: {
+            none: i18n.t('repeatNone'),
+            daily: i18n.t('repeatDaily'),
+            weekly: i18n.t('repeatWeekly'),
+            monthly: i18n.t('repeatMonthly'),
+            weeklyDetail: i18n.t('repeatDaysLabel'),
+            monthlyDetail: i18n.t('repeatDatesLabel'),
+            weekdays: [
+              i18n.t('sun'),
+              i18n.t('mon'),
+              i18n.t('tue'),
+              i18n.t('wed'),
+              i18n.t('thu'),
+              i18n.t('fri'),
+              i18n.t('sat')
+            ]
+          }
         }
       ],
       confirmLabel: i18n.t('v2SaveItem'),
@@ -1324,11 +1370,16 @@
         const textValue = nativeResult.values.text;
         const memoValue = nativeResult.values.memo;
         const tagValues = nativeResult.values.tags;
+        const repeatTypeValue = nativeResult.values.repeat;
+        const repeatDetailValue = nativeResult.values.repeatDetail;
+        const repeatType = asV2RepeatType(repeatTypeValue);
         await saveItemDetails(
           item.id,
           typeof textValue === 'string' ? textValue : '',
           typeof memoValue === 'string' ? memoValue : '',
-          Array.isArray(tagValues) ? tagValues : []
+          Array.isArray(tagValues) ? tagValues : [],
+          repeatType,
+          stringifyV2RepeatDetail(repeatType, parseNativeRepeatDetailValue(repeatDetailValue))
         );
       } catch {
         // The v2 store owns the visible error banner.
@@ -1340,13 +1391,15 @@
     id: number,
     text: string,
     memo: string | null,
-    tagNames: string[] = []
+    tagNames: string[] = [],
+    repeatType: V2RepeatType = 'none',
+    repeatDetail: string | null = null
   ): Promise<void> {
     if (isSavingItemEdit) return;
 
     isSavingItemEdit = true;
     try {
-      await onUpdateItemDetails(id, text, memo, tagNames);
+      await onUpdateItemDetails(id, text, memo, tagNames, repeatType, repeatDetail);
     } finally {
       isSavingItemEdit = false;
     }

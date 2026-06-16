@@ -1,8 +1,13 @@
 <script lang="ts">
   import { iosFocusFix } from '$lib/iosFocusFix';
   import { i18n } from '$lib/i18n';
-  import type { V2Tag, V2TodoItem } from '../../types';
+  import {
+    parseV2RepeatDetail,
+    stringifyV2RepeatDetail
+  } from '$lib/v2/v2Repeat';
+  import type { V2RepeatType, V2Tag, V2TodoItem } from '../../types';
   import V2BottomSheet from './V2BottomSheet.svelte';
+  import V2RepeatEditor from './V2RepeatEditor.svelte';
   import V2TagEditor from './V2TagEditor.svelte';
 
   type MaybePromise = void | Promise<void>;
@@ -16,7 +21,9 @@
       id: number,
       text: string,
       memo: string | null,
-      tagNames?: string[]
+      tagNames?: string[],
+      repeatType?: V2RepeatType,
+      repeatDetail?: string | null
     ) => MaybePromise;
     onClose: () => void;
   }
@@ -33,6 +40,8 @@
   let draftText = $state('');
   let draftMemo = $state('');
   let draftTagNames = $state<string[]>([]);
+  let draftRepeatType = $state<V2RepeatType>('none');
+  let draftRepeatDetail = $state<number[]>([]);
   let preparedItemId = $state<number | null>(null);
 
   let trimmedText = $derived(draftText.trim());
@@ -44,6 +53,8 @@
       draftText = '';
       draftMemo = '';
       draftTagNames = [];
+      draftRepeatType = 'none';
+      draftRepeatDetail = [];
       preparedItemId = null;
       return;
     }
@@ -52,6 +63,8 @@
       draftText = item.text;
       draftMemo = item.memo ?? '';
       draftTagNames = item.tags.map((tag) => tag.name);
+      draftRepeatType = item.repeat_type;
+      draftRepeatDetail = parseV2RepeatDetail(item.repeat_detail);
       preparedItemId = item.id;
     }
   });
@@ -66,7 +79,14 @@
     if (!item || !trimmedText || isSaving) return;
 
     try {
-      await onSaveDetails(item.id, trimmedText, trimmedMemo || null, draftTagNames);
+      await onSaveDetails(
+        item.id,
+        trimmedText,
+        trimmedMemo || null,
+        draftTagNames,
+        draftRepeatType,
+        stringifyV2RepeatDetail(draftRepeatType, draftRepeatDetail)
+      );
       onClose();
     } catch {
       // The v2 store owns the visible error banner; keep the sheet open.
@@ -117,6 +137,16 @@
           }}
         />
       </label>
+
+      <V2RepeatEditor
+        repeatType={draftRepeatType}
+        repeatDetail={draftRepeatDetail}
+        disabled={isSaving}
+        onChange={(repeatType, repeatDetail) => {
+          draftRepeatType = repeatType;
+          draftRepeatDetail = repeatDetail;
+        }}
+      />
 
       <div class="flex gap-2">
         <button

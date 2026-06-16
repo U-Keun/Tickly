@@ -11,6 +11,10 @@ const item: V2TodoItem = {
   text: 'Wallet',
   memo: null,
   tags: [],
+  repeat_type: 'none',
+  repeat_detail: null,
+  next_due_at: null,
+  last_completed_at: null,
   done: false,
   display_order: 1000,
   created_at: '2026-06-08T00:00:00Z',
@@ -61,6 +65,19 @@ export const MemoPreview: Story = {
       ...item,
       memo: 'Keep this in the small front pocket so it is easy to find before leaving.',
       tags: [{ id: 1, name: 'travel', created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-08T00:00:00Z' }]
+    },
+    initialDrawerOpen: true
+  }
+};
+
+export const RepeatPreview: Story = {
+  args: {
+    item: {
+      ...item,
+      text: 'Plan weekly meals',
+      memo: 'Use the shared grocery list.',
+      repeat_type: 'weekly',
+      repeat_detail: '[1,3,5]'
     },
     initialDrawerOpen: true
   }

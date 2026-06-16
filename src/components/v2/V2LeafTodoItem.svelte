@@ -2,11 +2,12 @@
   import { onDestroy } from 'svelte';
   import { cubicOut } from 'svelte/easing';
   import { slide } from 'svelte/transition';
-  import { Hash, Pencil, Trash2 } from '@lucide/svelte';
+  import { Hash, Pencil, Repeat2, Trash2 } from '@lucide/svelte';
   import { dragHandle } from 'svelte-dnd-action';
 
   import type { V2TodoItem } from '../../types';
   import { i18n } from '$lib/i18n';
+  import { parseV2RepeatDetail } from '$lib/v2/v2Repeat';
   import V2CheckboxFanfare from './V2CheckboxFanfare.svelte';
 
   type MaybePromise = void | Promise<void>;
@@ -71,6 +72,8 @@
   let drawerSlideDuration = $derived(drawerOpenImmediate ? 0 : DRAWER_SLIDE_DURATION_MS);
   let firstTag = $derived(item.tags[0] ?? null);
   let extraTagCount = $derived(Math.max(0, item.tags.length - 1));
+  let hasRepeat = $derived(item.repeat_type !== 'none');
+  let repeatSummary = $derived(formatRepeatSummary());
 
   $effect(() => {
     if (didApplyInitialDrawerOpen) return;
@@ -319,6 +322,32 @@
     await onRequestDeleteItem(item);
   }
 
+  function formatRepeatSummary(): string {
+    if (item.repeat_type === 'daily') {
+      return i18n.t('repeatDaily');
+    }
+
+    const detail = parseV2RepeatDetail(item.repeat_detail);
+
+    if (item.repeat_type === 'weekly') {
+      const weekdayLabelKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+      const labels = detail
+        .filter((day) => day >= 0 && day < weekdayLabelKeys.length)
+        .map((day) => i18n.t(weekdayLabelKeys[day]))
+        .join(', ');
+
+      return labels ? `${i18n.t('repeatWeekly')} · ${labels}` : i18n.t('repeatWeekly');
+    }
+
+    if (item.repeat_type === 'monthly') {
+      return detail.length > 0
+        ? `${i18n.t('repeatMonthly')} · ${detail.join(', ')}`
+        : i18n.t('repeatMonthly');
+    }
+
+    return '';
+  }
+
 </script>
 
 <article
@@ -393,6 +422,12 @@
       </button>
 
       <div class="tagReserveSlot h-11 shrink-0">
+        {#if hasRepeat}
+          <span class="rowRepeatIndicator" title={repeatSummary} aria-label={repeatSummary}>
+            <Repeat2 size={13} strokeWidth={2.5} aria-hidden="true" />
+          </span>
+        {/if}
+
         {#if firstTag}
           <span class="rowTagPill" title={item.tags.map((tag) => `#${tag.name}`).join(' ')}>
             <Hash size={12} strokeWidth={2.5} aria-hidden="true" />
@@ -429,6 +464,13 @@
                 </span>
               {/each}
             </div>
+          {/if}
+
+          {#if hasRepeat}
+            <p class="drawerRepeatPreview">
+              <Repeat2 size={14} strokeWidth={2.4} aria-hidden="true" />
+              <span>{repeatSummary}</span>
+            </p>
           {/if}
 
           <div class="drawerActions">
@@ -530,8 +572,20 @@
     width: 100%;
     align-items: center;
     justify-content: flex-end;
+    gap: 4px;
     overflow: hidden;
     padding-right: 4px;
+  }
+
+  .rowRepeatIndicator {
+    display: inline-grid;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--color-white);
+    color: var(--color-ink-muted);
   }
 
   .rowTagPill {
@@ -649,6 +703,30 @@
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 4;
     line-clamp: 4;
+  }
+
+  .drawerRepeatPreview {
+    display: inline-flex;
+    align-self: flex-start;
+    width: fit-content;
+    max-width: calc(100% - 8px);
+    align-items: center;
+    gap: 5px;
+    margin: 0 4px;
+    border-radius: 999px;
+    background: var(--color-paper);
+    padding: 6px 10px;
+    color: var(--color-ink-muted);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .drawerRepeatPreview span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .drawerTags {

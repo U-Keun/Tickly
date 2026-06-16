@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { V2Category, V2ItemSearchResult, V2Tag, V2TodoItem } from '../../types';
+  import type { V2Category, V2ItemSearchResult, V2RepeatType, V2Tag, V2TodoItem } from '../../types';
   import V2ChecklistScreen from './V2ChecklistScreen.svelte';
 
   interface Props {
@@ -10,6 +10,12 @@
 
   const now = '2026-06-08T00:00:00Z';
   const orderStep = 1000;
+  const repeatDefaults = {
+    repeat_type: 'none' as const,
+    repeat_detail: null,
+    next_due_at: null,
+    last_completed_at: null
+  };
   const initialTags: V2Tag[] = [
     { id: 1, name: 'home', created_at: now, updated_at: now },
     { id: 2, name: 'travel', created_at: now, updated_at: now },
@@ -55,6 +61,7 @@
         text: 'Wallet',
         memo: 'Keep this in the small front pocket.',
         tags: [initialTags[0]],
+        ...repeatDefaults,
         done: false,
         display_order: 1000,
         created_at: now,
@@ -66,6 +73,7 @@
         text: 'Umbrella before leaving for a very long commute day',
         memo: null,
         tags: [initialTags[1]],
+        ...repeatDefaults,
         done: false,
         display_order: 2000,
         created_at: now,
@@ -79,6 +87,7 @@
         text: 'Passport',
         memo: 'Check the hotel booking folder before packing.',
         tags: [initialTags[1]],
+        ...repeatDefaults,
         done: false,
         display_order: 1000,
         created_at: now,
@@ -90,6 +99,7 @@
         text: 'Portable charger',
         memo: null,
         tags: [initialTags[1]],
+        ...repeatDefaults,
         done: true,
         display_order: 2000,
         created_at: now,
@@ -103,6 +113,7 @@
         text: 'Review v2 category surface',
         memo: null,
         tags: [initialTags[2]],
+        ...repeatDefaults,
         done: false,
         display_order: 1000,
         created_at: now,
@@ -223,6 +234,7 @@
       text: text.trim(),
       memo: null,
       tags: resolveTags(tagNames),
+      ...repeatDefaults,
       done: false,
       display_order: (currentItems.length + 1) * orderStep,
       created_at: now,
@@ -246,7 +258,9 @@
     id: number,
     text: string,
     memo: string | null,
-    tagNames: string[] = []
+    tagNames: string[] = [],
+    repeatType: V2RepeatType = 'none',
+    repeatDetail: string | null = null
   ): Promise<void> {
     if (selectedCategoryId === null) return;
 
@@ -259,6 +273,9 @@
               text: text.trim(),
               memo: memo?.trim() || null,
               tags: resolveTags(tagNames),
+              repeat_type: repeatType,
+              repeat_detail: repeatDetail,
+              next_due_at: null,
               updated_at: now
             }
           : item

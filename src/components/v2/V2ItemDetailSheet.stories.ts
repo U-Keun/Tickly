@@ -9,6 +9,10 @@ const item: V2TodoItem = {
   text: 'Wallet',
   memo: null,
   tags: [],
+  repeat_type: 'none',
+  repeat_detail: null,
+  next_due_at: null,
+  last_completed_at: null,
   done: false,
   display_order: 1000,
   created_at: '2026-06-08T00:00:00Z',
@@ -56,6 +60,17 @@ export const WithMemo: Story = {
       ...item,
       memo: 'Keep this with the keys by the door.',
       tags: [{ id: 1, name: 'home', created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-08T00:00:00Z' }]
+    }
+  }
+};
+
+export const WeeklyRepeat: Story = {
+  args: {
+    item: {
+      ...item,
+      repeat_type: 'weekly',
+      repeat_detail: '[1,3,5]',
+      text: 'Plan weekly meals'
     }
   }
 };

@@ -126,6 +126,8 @@ export const ja: Translations = {
   repeatMonthly: '毎月',
   repeatDaysLabel: '繰り返す曜日',
   repeatDatesLabel: '繰り返す日付',
+  v2ItemRepeatLabel: '繰り返し',
+  v2ItemRepeatPlaceholder: '繰り返しルール',
   sun: '日',
   mon: '月',
   tue: '火',
@@ -158,6 +160,9 @@ export const ja: Translations = {
   resetTimeChange: 'リセット時間',
   resetTimeTitle: 'リセット時間',
   resetTimeDescription: '毎日のタスクがリセットされる時間',
+  resetTimeRepeatHint: '繰り返し項目は、この時間を基準に日付が変わると再び有効になります。',
+  resetTimeHourLabel: '時',
+  resetTimeMinuteLabel: '分',
 
   // Account & Sync settings
   syncTitle: '同期',

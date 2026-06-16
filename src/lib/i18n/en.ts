@@ -126,6 +126,8 @@ export const en: Translations = {
   repeatMonthly: 'Monthly',
   repeatDaysLabel: 'Repeat Days',
   repeatDatesLabel: 'Repeat Dates',
+  v2ItemRepeatLabel: 'Repeat',
+  v2ItemRepeatPlaceholder: 'Repeat rule',
   sun: 'Sun',
   mon: 'Mon',
   tue: 'Tue',
@@ -158,6 +160,9 @@ export const en: Translations = {
   resetTimeChange: 'Reset Time',
   resetTimeTitle: 'Reset Time',
   resetTimeDescription: 'Time when daily tasks reset',
+  resetTimeRepeatHint: 'Repeating items reactivate when the day rolls over at this time.',
+  resetTimeHourLabel: 'Hour',
+  resetTimeMinuteLabel: 'Minute',
 
   // Account & Sync settings
   syncTitle: 'Sync',
