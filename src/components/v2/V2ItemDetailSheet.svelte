@@ -106,8 +106,29 @@
   preferredHeight={680}
   onClose={handleClose}
 >
+  {#snippet footer()}
+    <div class="flex gap-[10px]">
+      <button
+        type="submit"
+        form="v2-item-detail-form"
+        class="min-h-12 flex-1 rounded-[14px] bg-[var(--color-accent-sky-strong)] px-4 text-sm font-semibold text-[var(--color-ink)] transition-colors hover:bg-[var(--color-accent-sky)] disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={!trimmedText || isSaving}
+      >
+        {i18n.t('v2SaveItem')}
+      </button>
+      <button
+        type="button"
+        class="min-h-12 flex-1 rounded-[14px] bg-[var(--color-canvas)] px-4 text-sm font-semibold text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-mist)] disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={isSaving}
+        onclick={handleClose}
+      >
+        {i18n.t('cancel')}
+      </button>
+    </div>
+  {/snippet}
+
   {#if item}
-    <form class="flex flex-col gap-4" onsubmit={submitEdit}>
+    <form id="v2-item-detail-form" class="flex flex-col gap-4" onsubmit={submitEdit}>
       <label class="flex flex-col">
         <span class="sr-only">{i18n.t('v2ItemTextLabel')}</span>
         <input
@@ -183,23 +204,6 @@
         {/if}
       </label>
 
-      <div class="flex gap-[10px]">
-        <button
-          type="submit"
-          class="min-h-12 flex-1 rounded-[14px] bg-[var(--color-accent-sky-strong)] px-4 text-sm font-semibold text-[var(--color-ink)] transition-colors hover:bg-[var(--color-accent-sky)] disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={!trimmedText || isSaving}
-        >
-          {i18n.t('v2SaveItem')}
-        </button>
-        <button
-          type="button"
-          class="min-h-12 flex-1 rounded-[14px] bg-[var(--color-canvas)] px-4 text-sm font-semibold text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-mist)] disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={isSaving}
-          onclick={handleClose}
-        >
-          {i18n.t('cancel')}
-        </button>
-      </div>
     </form>
   {/if}
 </V2BottomSheet>

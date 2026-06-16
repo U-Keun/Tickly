@@ -246,6 +246,7 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
     private let textField = UITextField()
     private let saveButton = UIButton(type: .system)
     private let surfaceView = UIView()
+    private let fixedButtonStack = UIStackView()
     private let surfaceFillLayer = CAShapeLayer()
     private let surfaceBorderLayer = CAShapeLayer()
     private var formTextFields: [String: UITextField] = [:]
@@ -391,6 +392,15 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
         scrollView.alwaysBounceVertical = false
         surfaceView.addSubview(scrollView)
 
+        let usesFixedButtonStack = request.kind == "text" || request.kind == "form"
+        fixedButtonStack.translatesAutoresizingMaskIntoConstraints = false
+        fixedButtonStack.axis = .horizontal
+        fixedButtonStack.spacing = 10
+        fixedButtonStack.distribution = .fillEqually
+        fixedButtonStack.isHidden = !usesFixedButtonStack
+        fixedButtonStack.setContentHuggingPriority(.required, for: .vertical)
+        surfaceView.addSubview(fixedButtonStack)
+
         let stack = UIStackView()
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.axis = .vertical
@@ -400,16 +410,16 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
         addHeader(to: stack)
 
         if request.kind == "text", let textRequest = request.text {
-            addTextContent(textRequest, to: stack)
+            addTextContent(textRequest, to: stack, buttonsTo: fixedButtonStack)
             updateSaveButtonState()
         } else if request.kind == "form", let formRequest = request.form {
-            addFormContent(formRequest, to: stack)
+            addFormContent(formRequest, to: stack, buttonsTo: fixedButtonStack)
             updateSaveButtonState()
         } else {
             addActionContent(to: stack)
         }
 
-        NSLayoutConstraint.activate([
+        var constraints = [
             surfaceView.topAnchor.constraint(equalTo: view.topAnchor),
             surfaceView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             surfaceView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -418,14 +428,28 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
             scrollView.topAnchor.constraint(equalTo: surfaceView.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: surfaceView.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: surfaceView.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: surfaceView.safeAreaLayoutGuide.bottomAnchor),
 
             stack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 24),
             stack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 24),
             stack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -24),
             stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -24),
             stack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -48)
-        ])
+        ]
+
+        if usesFixedButtonStack {
+            constraints.append(contentsOf: [
+                scrollView.bottomAnchor.constraint(equalTo: fixedButtonStack.topAnchor, constant: -16),
+                fixedButtonStack.leadingAnchor.constraint(equalTo: surfaceView.leadingAnchor, constant: 24),
+                fixedButtonStack.trailingAnchor.constraint(equalTo: surfaceView.trailingAnchor, constant: -24),
+                fixedButtonStack.bottomAnchor.constraint(equalTo: surfaceView.safeAreaLayoutGuide.bottomAnchor, constant: -12)
+            ])
+        } else {
+            constraints.append(
+                scrollView.bottomAnchor.constraint(equalTo: surfaceView.safeAreaLayoutGuide.bottomAnchor)
+            )
+        }
+
+        NSLayoutConstraint.activate(constraints)
     }
 
     private func addHeader(to stack: UIStackView) {
@@ -452,7 +476,11 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
         stack.setCustomSpacing(22, after: messageLabel)
     }
 
-    private func addTextContent(_ textRequest: TicklyNativeSheetTextRequest, to stack: UIStackView) {
+    private func addTextContent(
+        _ textRequest: TicklyNativeSheetTextRequest,
+        to stack: UIStackView,
+        buttonsTo buttonStack: UIStackView
+    ) {
         let fieldLabel = UILabel()
         fieldLabel.text = textRequest.label
         fieldLabel.font = .preferredFont(forTextStyle: .subheadline)
@@ -480,11 +508,6 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
         textField.rightView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 1))
         textField.rightViewMode = .always
 
-        let buttonStack = UIStackView()
-        buttonStack.axis = .horizontal
-        buttonStack.spacing = 10
-        buttonStack.distribution = .fillEqually
-
         saveButton.configuration = buttonConfiguration(
             title: textRequest.confirmLabel,
             backgroundColor: Style.accentSkyStrong,
@@ -508,10 +531,13 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
         stack.addArrangedSubview(fieldLabel)
         stack.setCustomSpacing(8, after: fieldLabel)
         stack.addArrangedSubview(textField)
-        stack.addArrangedSubview(buttonStack)
     }
 
-    private func addFormContent(_ formRequest: TicklyNativeSheetFormRequest, to stack: UIStackView) {
+    private func addFormContent(
+        _ formRequest: TicklyNativeSheetFormRequest,
+        to stack: UIStackView,
+        buttonsTo buttonStack: UIStackView
+    ) {
         for field in formRequest.fields {
             if field.required ?? false {
                 formRequiredFieldIds.insert(field.id)
@@ -638,11 +664,6 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
             }
         }
 
-        let buttonStack = UIStackView()
-        buttonStack.axis = .horizontal
-        buttonStack.spacing = 10
-        buttonStack.distribution = .fillEqually
-
         saveButton.configuration = buttonConfiguration(
             title: formRequest.confirmLabel,
             backgroundColor: Style.accentSkyStrong,
@@ -662,7 +683,6 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
 
         buttonStack.addArrangedSubview(saveButton)
         buttonStack.addArrangedSubview(cancelButton)
-        stack.addArrangedSubview(buttonStack)
     }
 
     private func addActionContent(to stack: UIStackView) {

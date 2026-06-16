@@ -11,6 +11,7 @@
     preferredHeight?: number | null;
     onClose: () => void;
     children?: Snippet;
+    footer?: Snippet;
   }
 
   let {
@@ -19,7 +20,8 @@
     description = '',
     preferredHeight = null,
     onClose,
-    children
+    children,
+    footer
   }: Props = $props();
   let wasShown = $state(false);
   let viewportBottomGap = $state(0);
@@ -186,8 +188,14 @@
           </header>
 
           {#if children}
-            <div class="min-h-0 overflow-y-auto px-6 pb-6">
+            <div class={`min-h-0 overflow-y-auto px-6 ${footer ? 'pb-3' : 'pb-6'}`}>
               {@render children()}
+            </div>
+          {/if}
+
+          {#if footer}
+            <div class="shrink-0 px-6 pb-6 pt-3">
+              {@render footer()}
             </div>
           {/if}
         </div>
