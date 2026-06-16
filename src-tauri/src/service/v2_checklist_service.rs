@@ -1,7 +1,9 @@
 use chrono::{Datelike, Local, NaiveDate, NaiveTime};
 use rusqlite::Connection;
 
-use crate::models::{V2Category, V2ItemSearchResult, V2RepeatType, V2Tag, V2TodoItem};
+use crate::models::{
+    V2ArchivedItem, V2Category, V2ItemSearchResult, V2RepeatType, V2Tag, V2TodoItem,
+};
 use crate::repository::{SettingsRepository, V2ChecklistRepository};
 
 pub struct V2ChecklistService;
@@ -171,6 +173,24 @@ impl V2ChecklistService {
         let logical_date_text = logical_date.format("%Y-%m-%d").to_string();
         V2ChecklistRepository::reactivate_due_repeats(conn, &logical_date_text)
             .map_err(|error| error.to_string())
+    }
+
+    pub fn archive_completed_items(conn: &Connection, category_id: i64) -> Result<i64, String> {
+        Self::require_category(conn, category_id)?;
+        V2ChecklistRepository::archive_completed_items(conn, category_id)
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn get_archived_items(conn: &Connection) -> Result<Vec<V2ArchivedItem>, String> {
+        V2ChecklistRepository::get_archived_items(conn).map_err(|error| error.to_string())
+    }
+
+    pub fn restore_archived_item(conn: &Connection, id: i64) -> Result<V2TodoItem, String> {
+        V2ChecklistRepository::restore_archived_item(conn, id).map_err(|error| error.to_string())
+    }
+
+    pub fn delete_archived_item(conn: &Connection, id: i64) -> Result<(), String> {
+        V2ChecklistRepository::delete_archived_item(conn, id).map_err(|error| error.to_string())
     }
 
     pub fn delete_item(conn: &Connection, id: i64) -> Result<(), String> {

@@ -1,5 +1,6 @@
 import { invoke } from './client';
 import type {
+  V2ArchivedItem,
   V2Category,
   V2ItemSearchResult,
   V2RepeatType,
@@ -84,6 +85,22 @@ export async function v2ToggleItem(id: number): Promise<V2TodoItem> {
 
 export async function v2ProcessRepeats(): Promise<number> {
   return invoke<number>('v2_process_repeats');
+}
+
+export async function v2ArchiveCompletedItems(categoryId: number): Promise<number> {
+  return invoke<number>('v2_archive_completed_items', { categoryId });
+}
+
+export async function v2GetArchivedItems(): Promise<V2ArchivedItem[]> {
+  return invoke<V2ArchivedItem[]>('v2_get_archived_items');
+}
+
+export async function v2RestoreArchivedItem(id: number): Promise<V2TodoItem> {
+  return invoke<V2TodoItem>('v2_restore_archived_item', { id });
+}
+
+export async function v2DeleteArchivedItem(id: number): Promise<void> {
+  return invoke<void>('v2_delete_archived_item', { id });
 }
 
 export async function v2DeleteItem(id: number): Promise<void> {

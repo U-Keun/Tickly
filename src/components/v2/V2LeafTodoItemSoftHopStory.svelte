@@ -15,6 +15,7 @@
     next_due_at: null,
     last_completed_at: null,
     reminder_at: null,
+    archived_at: null,
     done: false,
     display_order: 1000,
     created_at: now,

@@ -48,6 +48,7 @@ export const en: Translations = {
   settingsTitle: 'Settings',
   settingsGroupAppearance: 'Appearance',
   settingsGroupDaily: 'Daily rhythm',
+  settingsGroupData: 'Data management',
   settingsGroupLegacy: 'Legacy features',
   settingsLegacyBadge: 'Legacy',
   themeChange: 'Change Theme',
@@ -301,4 +302,28 @@ export const en: Translations = {
   v2DeleteItemConfirmMessageTemplate: (text: string) => `"${text}" will be deleted.`,
   v2DeleteItemConfirmAction: 'Delete',
   v2DeletingItem: 'Deleting...',
+  v2ArchiveCompletedConfirmTitle: 'Archive completed items?',
+  v2ArchiveCompletedConfirmMessageTemplate: (categoryName: string, count: number) =>
+    `${count} completed non-repeating item${count === 1 ? '' : 's'} in "${categoryName}" will move to Archive.\nRepeating items will stay here.`,
+  v2ArchiveCompletedConfirmAction: 'Archive',
+  v2ArchivingCompletedItems: 'Archiving...',
+  v2ArchiveEmptyTitle: 'No completed items to archive.',
+  v2ArchiveEmptyMessage: 'This category has no completed non-repeating items to archive.',
+  v2ArchiveEmptyMessageTemplate: (categoryName: string) =>
+    `"${categoryName}" has no completed non-repeating items to archive.`,
+  v2ArchiveManageTitle: 'Manage Archive',
+  v2ArchiveManageGroupTitle: 'Archived items',
+  v2ArchiveManageDescription:
+    'Review archived items and restore them to the completed list when needed.',
+  v2ArchiveManageEmptyTitle: 'No archived items.',
+  v2ArchiveManageEmptyDescription:
+    'Completed non-repeating items will appear here after you archive them.',
+  v2ArchivedAtTemplate: (date: string) => `Archived: ${date}`,
+  v2RestoreArchivedItem: 'Restore',
+  v2RestoringArchivedItem: 'Restoring...',
+  v2DeleteArchivedItem: 'Delete forever',
+  v2DeletingArchivedItem: 'Deleting...',
+  v2DeleteArchivedConfirmTitle: 'Permanently delete archived item?',
+  v2DeleteArchivedConfirmMessageTemplate: (text: string) =>
+    `"${text}" will be deleted from Archive too. This cannot be undone.`,
 };

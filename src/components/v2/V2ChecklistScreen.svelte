@@ -21,6 +21,7 @@
   import V2ItemDetailSheet from './V2ItemDetailSheet.svelte';
   import V2LeafCommandBar from './V2LeafCommandBar.svelte';
   import V2LeafTodoItem from './V2LeafTodoItem.svelte';
+  import V2ModalShell from './V2ModalShell.svelte';
   import V2SearchSuggestionBoard from './V2SearchSuggestionBoard.svelte';
   import * as v2NativeSheetApi from '$lib/api/v2NativeSheetApi';
 
@@ -49,6 +50,7 @@
     initialSearchQuery?: string;
     initialCategoryReorderMode?: boolean;
     initialOpenDrawerItemIds?: number[];
+    archiveRequestToken?: number;
     nativeDockVisible?: boolean;
     onSelectCategory: (id: number) => MaybePromise;
     onAddCategory: (name: string) => MaybePromise;
@@ -69,6 +71,7 @@
     onDeleteItem: (id: number) => MaybePromise;
     onReorderItems: (itemIds: number[]) => MaybePromise;
     onSearchItems: (query: string, limit: number) => Promise<V2ItemSearchResult[]>;
+    onArchiveCompletedItems: (categoryId: number) => Promise<number>;
     onNativeDockVisibilityChange?: (visible: boolean) => MaybePromise;
   }
 
@@ -82,6 +85,7 @@
     initialSearchQuery = '',
     initialCategoryReorderMode = false,
     initialOpenDrawerItemIds = [],
+    archiveRequestToken = 0,
     nativeDockVisible = false,
     onSelectCategory,
     onAddCategory,
@@ -94,6 +98,7 @@
     onDeleteItem,
     onReorderItems,
     onSearchItems,
+    onArchiveCompletedItems,
     onNativeDockVisibilityChange = () => undefined
   }: Props = $props();
 
@@ -135,6 +140,10 @@
   let isSavingItemEdit = $state(false);
   let itemPendingDeletion = $state<V2TodoItem | null>(null);
   let isDeletingItem = $state(false);
+  let showArchiveConfirm = $state(false);
+  let showArchiveEmptyNotice = $state(false);
+  let isArchivingCompletedItems = $state(false);
+  let lastHandledArchiveRequestToken = $state(0);
   let isSavingReorder = $state(false);
   let searchMode = $state(false);
   let searchQuery = $state('');
@@ -197,7 +206,9 @@
       showCategoryManageSheet ||
       categoryPendingDeletion !== null ||
       itemPendingEdit !== null ||
-      itemPendingDeletion !== null
+      itemPendingDeletion !== null ||
+      showArchiveConfirm ||
+      showArchiveEmptyNotice
   );
   let listEnterDuration = $derived(prefersReducedMotion ? 0 : LIST_ENTER_DURATION_MS);
   let listExitDuration = $derived(prefersReducedMotion ? 0 : LIST_EXIT_DURATION_MS);
@@ -210,6 +221,10 @@
     categories.find((category) => category.id === selectedCategoryId) ?? null
   );
   let displayedCategories = $derived(categoryReorderDraft ?? categories);
+  let archivableCompletedItems = $derived(
+    items.filter((item) => item.done && item.repeat_type === 'none')
+  );
+  let archivableCompletedItemCount = $derived(archivableCompletedItems.length);
 
   function wait(ms: number): Promise<void> {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -722,6 +737,14 @@
   });
 
   $effect(() => {
+    const nextArchiveRequestToken = archiveRequestToken;
+    if (nextArchiveRequestToken === lastHandledArchiveRequestToken) return;
+
+    lastHandledArchiveRequestToken = nextArchiveRequestToken;
+    untrack(openArchivePrompt);
+  });
+
+  $effect(() => {
     const nextVisible = !hasDockBlockingSurface;
     if (lastRequestedNativeDockVisible === nextVisible) return;
 
@@ -1152,6 +1175,47 @@
         completionFanfareTimer = null;
       }
     }, TODO_COMPLETION_FANFARE_DURATION_MS);
+  }
+
+  function openArchivePrompt(): void {
+    isSuggestionBoardOpen = false;
+    clearOpenItemDrawers();
+
+    if (!selectedCategory || archivableCompletedItemCount === 0) {
+      showArchiveConfirm = false;
+      showArchiveEmptyNotice = true;
+      return;
+    }
+
+    showArchiveEmptyNotice = false;
+    showArchiveConfirm = true;
+  }
+
+  function cancelArchiveCompletedItems(): void {
+    if (isArchivingCompletedItems) return;
+    showArchiveConfirm = false;
+  }
+
+  function closeArchiveEmptyNotice(): void {
+    showArchiveEmptyNotice = false;
+  }
+
+  async function confirmArchiveCompletedItems(): Promise<void> {
+    if (selectedCategoryId === null || isArchivingCompletedItems) return;
+
+    isArchivingCompletedItems = true;
+    try {
+      const archivedCount = await onArchiveCompletedItems(selectedCategoryId);
+      showArchiveConfirm = false;
+      if (archivedCount === 0) {
+        showArchiveEmptyNotice = true;
+      }
+      clearOpenItemDrawers();
+    } catch {
+      // The v2 store owns the visible error banner; keep the confirm modal open.
+    } finally {
+      isArchivingCompletedItems = false;
+    }
   }
 
   function requestRenameCategory(): void {
@@ -1748,6 +1812,42 @@
     onConfirm={confirmDeleteItem}
     onCancel={cancelDeleteItem}
   />
+
+  <V2ConfirmModal
+    show={showArchiveConfirm}
+    title={i18n.t('v2ArchiveCompletedConfirmTitle')}
+    message={selectedCategory
+      ? i18n.t('v2ArchiveCompletedConfirmMessageTemplate')(
+          selectedCategory.name,
+          archivableCompletedItemCount
+        )
+      : ''}
+    confirmLabel={isArchivingCompletedItems
+      ? i18n.t('v2ArchivingCompletedItems')
+      : i18n.t('v2ArchiveCompletedConfirmAction')}
+    cancelLabel={i18n.t('cancel')}
+    tone="primary"
+    isBusy={isArchivingCompletedItems}
+    onConfirm={confirmArchiveCompletedItems}
+    onCancel={cancelArchiveCompletedItems}
+  />
+
+  <V2ModalShell
+    show={showArchiveEmptyNotice}
+    title={i18n.t('v2ArchiveEmptyTitle')}
+    description={selectedCategory
+      ? i18n.t('v2ArchiveEmptyMessageTemplate')(selectedCategory.name)
+      : i18n.t('v2ArchiveEmptyMessage')}
+    onClose={closeArchiveEmptyNotice}
+  >
+    <button
+      type="button"
+      class="min-h-11 w-full rounded-[12px] bg-[var(--color-accent-sky-strong)] px-4 text-sm font-semibold text-[var(--color-ink)] transition-colors hover:bg-[var(--color-accent-sky)]"
+      onclick={closeArchiveEmptyNotice}
+    >
+      {i18n.t('done')}
+    </button>
+  </V2ModalShell>
 </div>
 
 <style>

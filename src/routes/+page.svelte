@@ -12,6 +12,7 @@
   let nativeDockSupported = $state(false);
   let nativeDockRequestedVisible = $state(true);
   let nativeSheetOpen = $state(false);
+  let archiveRequestToken = $state(0);
   let nativeDockVisible = $derived(nativeDockSupported && nativeDockRequestedVisible && !nativeSheetOpen);
 
   function shouldShowNativeDock(): boolean {
@@ -46,6 +47,11 @@
   function handleNativeDockAction(actionId: v2NativeDockApi.V2NativeDockActionId): void {
     if (actionId === 'settings') {
       void goto('/settings?returnTo=%2F');
+      return;
+    }
+
+    if (actionId === 'archive') {
+      archiveRequestToken += 1;
       return;
     }
 
@@ -122,6 +128,8 @@
   onDeleteItem={v2ChecklistStore.deleteItem}
   onReorderItems={v2ChecklistStore.reorderItems}
   onSearchItems={v2ChecklistStore.searchItems}
+  {archiveRequestToken}
+  onArchiveCompletedItems={v2ChecklistStore.archiveCompletedItems}
   {nativeDockVisible}
   onNativeDockVisibilityChange={setNativeDockRequestedVisible}
 />

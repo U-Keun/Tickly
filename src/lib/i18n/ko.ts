@@ -46,6 +46,7 @@ export const ko = {
   settingsTitle: '설정',
   settingsGroupAppearance: '표시',
   settingsGroupDaily: '하루 기준',
+  settingsGroupData: '데이터 관리',
   settingsGroupLegacy: '이전 기능',
   settingsLegacyBadge: 'Legacy',
   themeChange: '테마 변경',
@@ -299,6 +300,28 @@ export const ko = {
   v2DeleteItemConfirmMessageTemplate: (text: string) => `"${text}" 항목이 삭제됩니다.`,
   v2DeleteItemConfirmAction: '삭제',
   v2DeletingItem: '삭제 중...',
+  v2ArchiveCompletedConfirmTitle: '완료 항목을 보관할까요?',
+  v2ArchiveCompletedConfirmMessageTemplate: (categoryName: string, count: number) =>
+    `"${categoryName}" 카테고리의 완료된 일반 항목 ${count}개가 보관함으로 이동합니다.\n반복 항목은 그대로 남습니다.`,
+  v2ArchiveCompletedConfirmAction: '보관',
+  v2ArchivingCompletedItems: '보관 중...',
+  v2ArchiveEmptyTitle: '정리할 완료 항목이 없습니다.',
+  v2ArchiveEmptyMessage: '현재 카테고리에 보관할 수 있는 완료된 일반 항목이 없습니다.',
+  v2ArchiveEmptyMessageTemplate: (categoryName: string) =>
+    `"${categoryName}" 카테고리에 보관할 수 있는 완료된 일반 항목이 없습니다.`,
+  v2ArchiveManageTitle: '보관함 관리',
+  v2ArchiveManageGroupTitle: '보관된 항목',
+  v2ArchiveManageDescription: '보관된 항목을 확인하고 필요하면 완료 영역으로 복원할 수 있습니다.',
+  v2ArchiveManageEmptyTitle: '보관된 항목이 없습니다.',
+  v2ArchiveManageEmptyDescription: '완료된 일반 항목을 보관하면 여기에 표시됩니다.',
+  v2ArchivedAtTemplate: (date: string) => `보관일: ${date}`,
+  v2RestoreArchivedItem: '복원',
+  v2RestoringArchivedItem: '복원 중...',
+  v2DeleteArchivedItem: '완전히 삭제',
+  v2DeletingArchivedItem: '삭제 중...',
+  v2DeleteArchivedConfirmTitle: '보관 항목을 완전히 삭제할까요?',
+  v2DeleteArchivedConfirmMessageTemplate: (text: string) =>
+    `"${text}" 항목이 보관함에서도 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`,
 };
 
 export type Translations = typeof ko;

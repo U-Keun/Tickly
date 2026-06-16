@@ -344,6 +344,20 @@ async function processRepeatsAndReload(): Promise<number> {
   }
 }
 
+async function archiveCompletedItems(categoryId: number): Promise<number> {
+  errorMessage = null;
+
+  try {
+    const archivedCount = await v2ChecklistApi.v2ArchiveCompletedItems(categoryId);
+    if (archivedCount > 0 && selectedCategoryId === categoryId) {
+      await loadItemsForSelectedCategory();
+    }
+    return archivedCount;
+  } catch (error) {
+    throw setError(error, 'Failed to archive v2 completed items.');
+  }
+}
+
 async function scheduleRepeatProcessing(): Promise<void> {
   const scheduleToken = ++repeatProcessingScheduleToken;
   clearRepeatProcessingTimer();
@@ -453,6 +467,7 @@ export const v2ChecklistStore = {
   updateItemDetails,
   toggleItem,
   processRepeatsAndReload,
+  archiveCompletedItems,
   scheduleRepeatProcessing,
   disposeRepeatProcessingTimer,
   deleteItem,

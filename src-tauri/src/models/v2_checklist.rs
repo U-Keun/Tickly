@@ -59,6 +59,7 @@ pub struct V2TodoItem {
     pub next_due_at: Option<String>,
     pub last_completed_at: Option<String>,
     pub reminder_at: Option<String>,
+    pub archived_at: Option<String>,
     pub done: bool,
     pub display_order: i64,
     pub created_at: String,
@@ -75,6 +76,12 @@ pub struct V2Tag {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct V2ItemSearchResult {
+    pub item: V2TodoItem,
+    pub category: V2Category,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct V2ArchivedItem {
     pub item: V2TodoItem,
     pub category: V2Category,
 }

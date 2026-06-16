@@ -9,7 +9,8 @@ const repeatDefaults = {
   repeat_detail: null,
   next_due_at: null,
   last_completed_at: null,
-  reminder_at: null
+  reminder_at: null,
+  archived_at: null
 };
 
 const tags: V2Tag[] = [
@@ -111,6 +112,7 @@ const meta = {
     onUpdateItemDetails: async () => {},
     onDeleteItem: async () => {},
     onReorderItems: async () => {},
+    onArchiveCompletedItems: async () => 0,
     onSearchItems: async (query: string, limit: number) =>
       searchResults
         .filter((result) => {
@@ -148,6 +150,50 @@ export const CompletedItems: Story = {
         memo: null,
         tags: [],
         ...repeatDefaults,
+        done: true,
+        display_order: 3000,
+        created_at: now,
+        updated_at: now
+      }
+    ]
+  }
+};
+
+export const ArchiveConfirm: Story = {
+  args: {
+    archiveRequestToken: 1,
+    items: [
+      ...items,
+      {
+        id: 3,
+        category_id: 1,
+        text: 'Keys',
+        memo: null,
+        tags: [],
+        ...repeatDefaults,
+        done: true,
+        display_order: 3000,
+        created_at: now,
+        updated_at: now
+      }
+    ],
+    onArchiveCompletedItems: async () => 1
+  }
+};
+
+export const ArchiveEmptyNotice: Story = {
+  args: {
+    archiveRequestToken: 1,
+    items: [
+      ...items,
+      {
+        id: 30,
+        category_id: 1,
+        text: 'Daily vitamins',
+        memo: null,
+        tags: [],
+        ...repeatDefaults,
+        repeat_type: 'daily',
         done: true,
         display_order: 3000,
         created_at: now,
@@ -228,6 +274,7 @@ export const RepeatItems: Story = {
         next_due_at: null,
         last_completed_at: null,
         reminder_at: null,
+        archived_at: null,
         done: false,
         display_order: 3000,
         created_at: now,

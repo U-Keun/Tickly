@@ -47,6 +47,15 @@
       />
     </V2SettingsGroup>
 
+    <V2SettingsGroup title={i18n.t('settingsGroupData')}>
+      <V2SettingsRow
+        icon="archive"
+        tone="sky"
+        label={i18n.t('v2ArchiveManageTitle')}
+        onSelect={() => goToSetting('/settings/archive')}
+      />
+    </V2SettingsGroup>
+
     <V2SettingsGroup title={i18n.t('settingsGroupLegacy')}>
       <V2SettingsRow
         icon="tags"

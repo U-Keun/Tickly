@@ -19,6 +19,10 @@
       <V2SettingsRow icon="clock" tone="peach" label="초기화 시간" onSelect={() => {}} />
     </V2SettingsGroup>
 
+    <V2SettingsGroup title="데이터 관리">
+      <V2SettingsRow icon="archive" tone="sky" label="보관함 관리" onSelect={() => {}} />
+    </V2SettingsGroup>
+
     <V2SettingsGroup title="이전 기능">
       <V2SettingsRow icon="tags" tone="mint" label="태그 관리" badge="Legacy" onSelect={() => {}} />
       <V2SettingsRow icon="cloud" tone="sky" label="클라우드 동기화" badge="Legacy" onSelect={() => {}} />

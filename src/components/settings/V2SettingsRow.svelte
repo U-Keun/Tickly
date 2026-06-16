@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    Archive,
     ChevronRight,
     Clock3,
     Cloud,
@@ -10,7 +11,7 @@
   } from '@lucide/svelte';
 
   type MaybePromise = void | Promise<void>;
-  type IconName = 'palette' | 'type' | 'languages' | 'clock' | 'tags' | 'cloud';
+  type IconName = 'palette' | 'type' | 'languages' | 'clock' | 'archive' | 'tags' | 'cloud';
   type Tone = 'sky' | 'mint' | 'peach' | 'neutral';
 
   interface Props {
@@ -28,6 +29,7 @@
     type: Type,
     languages: Languages,
     clock: Clock3,
+    archive: Archive,
     tags: Tags,
     cloud: Cloud
   };

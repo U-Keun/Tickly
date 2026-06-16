@@ -21,7 +21,7 @@ flowchart LR
 ## Boundaries
 
 - `v2_todos` owns `repeat_type`, `repeat_detail`, `next_due_at`, and `last_completed_at`.
-- `v2_completion_logs` records local completion counts by logical date for future Archive, Streak, and Graph slices.
+- `v2_completion_logs` records local completion counts by logical date for future history, Streak, and Graph slices.
 - Weekly detail is JSON `[0-6]`; monthly detail is JSON `[1-31]`.
 - The logical date uses the existing reset-time setting, but v2 does not read v1 todo/repeat tables.
 - While the v2 main screen is visible, a single one-shot timer is scheduled for the next reset time and then rescheduled after it fires.
@@ -30,7 +30,7 @@ flowchart LR
 
 ## Out Of Scope
 
-Supabase sync, widgets, Streak screen, Graph screen, Archive screen, and data migration remain out of this slice. Local reminder times are handled as item metadata in the reminder slice and are rescheduled when repeats reactivate.
+Supabase sync, widgets, Streak screen, Graph screen, archive history views, and data migration remain out of this slice. Local reminder times are handled as item metadata in the reminder slice and are rescheduled when repeats reactivate. Local archive cleanup is a later v2 slice and excludes repeating items.
 
 ## Verification
 

@@ -48,6 +48,7 @@ export const ja: Translations = {
   settingsTitle: '設定',
   settingsGroupAppearance: '表示',
   settingsGroupDaily: '1日の基準',
+  settingsGroupData: 'データ管理',
   settingsGroupLegacy: '以前の機能',
   settingsLegacyBadge: 'Legacy',
   themeChange: 'テーマ変更',
@@ -301,4 +302,28 @@ export const ja: Translations = {
   v2DeleteItemConfirmMessageTemplate: (text: string) => `"${text}" は削除されます。`,
   v2DeleteItemConfirmAction: '削除',
   v2DeletingItem: '削除中...',
+  v2ArchiveCompletedConfirmTitle: '完了項目をアーカイブしますか？',
+  v2ArchiveCompletedConfirmMessageTemplate: (categoryName: string, count: number) =>
+    `「${categoryName}」カテゴリの完了済み通常項目 ${count} 件をアーカイブに移動します。\n繰り返し項目はそのまま残ります。`,
+  v2ArchiveCompletedConfirmAction: 'アーカイブ',
+  v2ArchivingCompletedItems: 'アーカイブ中...',
+  v2ArchiveEmptyTitle: '整理できる完了項目がありません。',
+  v2ArchiveEmptyMessage: '現在のカテゴリにはアーカイブできる完了済み通常項目がありません。',
+  v2ArchiveEmptyMessageTemplate: (categoryName: string) =>
+    `「${categoryName}」カテゴリにはアーカイブできる完了済み通常項目がありません。`,
+  v2ArchiveManageTitle: 'アーカイブ管理',
+  v2ArchiveManageGroupTitle: 'アーカイブ済み項目',
+  v2ArchiveManageDescription:
+    'アーカイブ済み項目を確認し、必要な場合は完了リストへ復元できます。',
+  v2ArchiveManageEmptyTitle: 'アーカイブ済み項目はありません。',
+  v2ArchiveManageEmptyDescription:
+    '完了済み通常項目をアーカイブすると、ここに表示されます。',
+  v2ArchivedAtTemplate: (date: string) => `アーカイブ日: ${date}`,
+  v2RestoreArchivedItem: '復元',
+  v2RestoringArchivedItem: '復元中...',
+  v2DeleteArchivedItem: '完全に削除',
+  v2DeletingArchivedItem: '削除中...',
+  v2DeleteArchivedConfirmTitle: 'アーカイブ項目を完全に削除しますか？',
+  v2DeleteArchivedConfirmMessageTemplate: (text: string) =>
+    `「${text}」はアーカイブからも削除されます。この操作は元に戻せません。`,
 };

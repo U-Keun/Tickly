@@ -21,6 +21,7 @@ pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
     migrate_create_v2_checklist_tables(conn)?;
     migrate_add_v2_memo(conn)?;
     migrate_add_v2_repeat_columns(conn)?;
+    migrate_add_v2_archived_at(conn)?;
     migrate_create_v2_tags(conn)?;
     migrate_create_v2_completion_logs(conn)?;
     Ok(())
@@ -333,6 +334,14 @@ fn migrate_add_v2_repeat_columns(conn: &Connection) -> Result<(), rusqlite::Erro
 
     if should_add_column(conn, "v2_todos", "reminder_at") {
         conn.execute("ALTER TABLE v2_todos ADD COLUMN reminder_at TEXT", [])?;
+    }
+
+    Ok(())
+}
+
+fn migrate_add_v2_archived_at(conn: &Connection) -> Result<(), rusqlite::Error> {
+    if should_add_column(conn, "v2_todos", "archived_at") {
+        conn.execute("ALTER TABLE v2_todos ADD COLUMN archived_at TEXT", [])?;
     }
 
     Ok(())

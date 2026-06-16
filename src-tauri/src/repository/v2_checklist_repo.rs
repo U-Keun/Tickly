@@ -1,6 +1,8 @@
 use rusqlite::{params, Connection, OptionalExtension};
 
-use crate::models::{V2Category, V2ItemSearchResult, V2RepeatType, V2Tag, V2TodoItem};
+use crate::models::{
+    V2ArchivedItem, V2Category, V2ItemSearchResult, V2RepeatType, V2Tag, V2TodoItem,
+};
 
 pub struct V2ChecklistRepository;
 
@@ -8,7 +10,7 @@ impl V2ChecklistRepository {
     const ORDER_STEP: i64 = 1000;
     const CATEGORY_COLUMNS: &'static str = "id, name, display_order, created_at, updated_at";
     const TAG_COLUMNS: &'static str = "id, name, created_at, updated_at";
-    const ITEM_COLUMNS: &'static str = "id, category_id, text, memo, repeat_type, repeat_detail, next_due_at, last_completed_at, reminder_at, done, display_order, created_at, updated_at";
+    const ITEM_COLUMNS: &'static str = "id, category_id, text, memo, repeat_type, repeat_detail, next_due_at, last_completed_at, reminder_at, archived_at, done, display_order, created_at, updated_at";
 
     pub fn create_tables(conn: &Connection) -> Result<(), rusqlite::Error> {
         conn.execute_batch(
@@ -30,6 +32,7 @@ impl V2ChecklistRepository {
                 next_due_at TEXT,
                 last_completed_at TEXT,
                 reminder_at TEXT,
+                archived_at TEXT,
                 done BOOLEAN NOT NULL DEFAULT 0,
                 display_order INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
@@ -70,6 +73,11 @@ impl V2ChecklistRepository {
             );",
         )?;
         Self::ensure_v2_todo_columns(conn)?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_v2_todos_archive_category_order
+             ON v2_todos(archived_at, category_id, done, display_order)",
+            [],
+        )?;
 
         Ok(())
     }
@@ -95,6 +103,9 @@ impl V2ChecklistRepository {
         }
         if !Self::v2_todos_has_column(conn, "reminder_at")? {
             conn.execute("ALTER TABLE v2_todos ADD COLUMN reminder_at TEXT", [])?;
+        }
+        if !Self::v2_todos_has_column(conn, "archived_at")? {
+            conn.execute("ALTER TABLE v2_todos ADD COLUMN archived_at TEXT", [])?;
         }
         Ok(())
     }
@@ -155,10 +166,11 @@ impl V2ChecklistRepository {
             next_due_at: row.get(6)?,
             last_completed_at: row.get(7)?,
             reminder_at: row.get(8)?,
-            done: row.get(9)?,
-            display_order: row.get(10)?,
-            created_at: row.get(11)?,
-            updated_at: row.get(12)?,
+            archived_at: row.get(9)?,
+            done: row.get(10)?,
+            display_order: row.get(11)?,
+            created_at: row.get(12)?,
+            updated_at: row.get(13)?,
         })
     }
 
@@ -185,18 +197,27 @@ impl V2ChecklistRepository {
                 next_due_at: row.get(6)?,
                 last_completed_at: row.get(7)?,
                 reminder_at: row.get(8)?,
-                done: row.get(9)?,
-                display_order: row.get(10)?,
-                created_at: row.get(11)?,
-                updated_at: row.get(12)?,
+                archived_at: row.get(9)?,
+                done: row.get(10)?,
+                display_order: row.get(11)?,
+                created_at: row.get(12)?,
+                updated_at: row.get(13)?,
             },
             category: V2Category {
-                id: row.get(13)?,
-                name: row.get(14)?,
-                display_order: row.get(15)?,
-                created_at: row.get(16)?,
-                updated_at: row.get(17)?,
+                id: row.get(14)?,
+                name: row.get(15)?,
+                display_order: row.get(16)?,
+                created_at: row.get(17)?,
+                updated_at: row.get(18)?,
             },
+        })
+    }
+
+    fn row_to_archived_item(row: &rusqlite::Row) -> Result<V2ArchivedItem, rusqlite::Error> {
+        let search_result = Self::row_to_search_result(row)?;
+        Ok(V2ArchivedItem {
+            item: search_result.item,
+            category: search_result.category,
         })
     }
 
@@ -478,6 +499,7 @@ impl V2ChecklistRepository {
         let sql = format!(
             "SELECT {} FROM v2_todos
              WHERE category_id = ?1
+               AND archived_at IS NULL
              ORDER BY done ASC, display_order ASC",
             Self::ITEM_COLUMNS
         );
@@ -506,6 +528,7 @@ impl V2ChecklistRepository {
                 t.next_due_at,
                 t.last_completed_at,
                 t.reminder_at,
+                t.archived_at,
                 t.done,
                 t.display_order,
                 t.created_at,
@@ -517,7 +540,9 @@ impl V2ChecklistRepository {
                 c.updated_at
              FROM v2_todos t
              INNER JOIN v2_categories c ON c.id = t.category_id
-             WHERE t.text LIKE ?1 ESCAPE '\\'
+             WHERE t.archived_at IS NULL
+               AND (
+                t.text LIKE ?1 ESCAPE '\\'
                 OR COALESCE(t.memo, '') LIKE ?2 ESCAPE '\\'
                 OR EXISTS (
                     SELECT 1
@@ -526,6 +551,7 @@ impl V2ChecklistRepository {
                     WHERE tt.todo_id = t.id
                       AND tg.name LIKE ?3 ESCAPE '\\'
                 )
+               )
             ORDER BY c.display_order ASC, t.done ASC, t.display_order ASC
              LIMIT ?4";
         let mut stmt = conn.prepare(&sql)?;
@@ -567,6 +593,7 @@ impl V2ChecklistRepository {
             "SELECT {} FROM v2_todos
              WHERE done = 0
                AND reminder_at IS NOT NULL
+               AND archived_at IS NULL
              ORDER BY category_id ASC, display_order ASC",
             Self::ITEM_COLUMNS
         );
@@ -627,6 +654,7 @@ impl V2ChecklistRepository {
             next_due_at: None,
             last_completed_at: None,
             reminder_at: None,
+            archived_at: None,
             done: false,
             display_order,
             created_at: now.clone(),
@@ -795,11 +823,133 @@ impl V2ChecklistRepository {
              WHERE done = 1
                AND repeat_type != 'none'
                AND next_due_at IS NOT NULL
-               AND next_due_at <= ?2",
+               AND next_due_at <= ?2
+               AND archived_at IS NULL",
             params![now, logical_date],
         )?;
 
         Ok(updated as i64)
+    }
+
+    pub fn archive_completed_items(
+        conn: &Connection,
+        category_id: i64,
+    ) -> Result<i64, rusqlite::Error> {
+        let now = Self::now_iso();
+        let updated = conn.execute(
+            "UPDATE v2_todos
+             SET archived_at = ?1,
+                 updated_at = ?2
+             WHERE category_id = ?3
+               AND done = 1
+               AND repeat_type = 'none'
+               AND archived_at IS NULL",
+            params![&now, &now, category_id],
+        )?;
+
+        Ok(updated as i64)
+    }
+
+    pub fn get_archived_items(conn: &Connection) -> Result<Vec<V2ArchivedItem>, rusqlite::Error> {
+        let sql = "\
+            SELECT
+                t.id,
+                t.category_id,
+                t.text,
+                t.memo,
+                t.repeat_type,
+                t.repeat_detail,
+                t.next_due_at,
+                t.last_completed_at,
+                t.reminder_at,
+                t.archived_at,
+                t.done,
+                t.display_order,
+                t.created_at,
+                t.updated_at,
+                c.id,
+                c.name,
+                c.display_order,
+                c.created_at,
+                c.updated_at
+             FROM v2_todos t
+             INNER JOIN v2_categories c ON c.id = t.category_id
+             WHERE t.archived_at IS NOT NULL
+             ORDER BY t.archived_at DESC, c.display_order ASC, t.display_order ASC";
+        let mut stmt = conn.prepare(sql)?;
+        let mut archived_items = stmt
+            .query_map([], Self::row_to_archived_item)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        for archived_item in archived_items.iter_mut() {
+            archived_item.item.tags = Self::get_tags_for_item(conn, archived_item.item.id)?;
+        }
+
+        Ok(archived_items)
+    }
+
+    pub fn restore_archived_item(
+        conn: &Connection,
+        id: i64,
+    ) -> Result<V2TodoItem, rusqlite::Error> {
+        let now = Self::now_iso();
+        let updated = conn.execute(
+            "UPDATE v2_todos
+             SET archived_at = NULL,
+                 done = 1,
+                 updated_at = ?1
+             WHERE id = ?2
+               AND archived_at IS NOT NULL",
+            params![&now, id],
+        )?;
+        if updated == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+
+        Self::get_item_by_id(conn, id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
+    pub fn delete_archived_item(conn: &Connection, id: i64) -> Result<(), rusqlite::Error> {
+        conn.execute("BEGIN TRANSACTION", [])?;
+
+        if let Err(error) = conn.execute("DELETE FROM v2_todo_tags WHERE todo_id = ?1", params![id])
+        {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+
+        if let Err(error) = conn.execute(
+            "DELETE FROM v2_completion_logs WHERE item_id = ?1",
+            params![id],
+        ) {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+
+        let updated = match conn.execute(
+            "DELETE FROM v2_todos
+             WHERE id = ?1
+               AND archived_at IS NOT NULL",
+            params![id],
+        ) {
+            Ok(updated) => updated,
+            Err(error) => {
+                let _ = conn.execute("ROLLBACK", []);
+                return Err(error);
+            }
+        };
+        if updated == 0 {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+
+        if let Err(error) = Self::cleanup_unused_tags(conn) {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+
+        conn.execute("COMMIT", [])?;
+        Ok(())
     }
 
     fn increment_completion_log(
@@ -966,6 +1116,8 @@ mod tests {
             V2ChecklistRepository::v2_todos_has_column(&conn, "next_due_at").unwrap();
         let has_reminder_at =
             V2ChecklistRepository::v2_todos_has_column(&conn, "reminder_at").unwrap();
+        let has_archived_at =
+            V2ChecklistRepository::v2_todos_has_column(&conn, "archived_at").unwrap();
         let completion_log_count: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'v2_completion_logs'",
@@ -978,6 +1130,7 @@ mod tests {
         assert!(has_repeat_type);
         assert!(has_next_due_at);
         assert!(has_reminder_at);
+        assert!(has_archived_at);
         assert_eq!(completion_log_count, 1);
     }
 
@@ -1061,5 +1214,108 @@ mod tests {
         let tags = V2ChecklistRepository::get_tags(&conn).unwrap();
         assert_eq!(tags.len(), 1);
         assert_eq!(tags[0].name, "home");
+    }
+
+    #[test]
+    fn archives_only_completed_non_repeating_items_in_category() {
+        let conn = setup_conn();
+        let home = V2ChecklistRepository::get_categories(&conn).unwrap()[0].clone();
+        let work = V2ChecklistRepository::create_category(&conn, "Work").unwrap();
+        let completed =
+            V2ChecklistRepository::create_item(&conn, home.id, "Completed", &[]).unwrap();
+        let pending = V2ChecklistRepository::create_item(&conn, home.id, "Pending", &[]).unwrap();
+        let repeating = V2ChecklistRepository::create_item(&conn, home.id, "Repeat", &[]).unwrap();
+        let other_category =
+            V2ChecklistRepository::create_item(&conn, work.id, "Other", &[]).unwrap();
+
+        V2ChecklistRepository::complete_item(&conn, completed.id, "2026-06-16", None).unwrap();
+        V2ChecklistRepository::complete_item(&conn, pending.id, "2026-06-16", None).unwrap();
+        V2ChecklistRepository::restore_item(&conn, pending.id, "2026-06-16").unwrap();
+        V2ChecklistRepository::update_item_details(
+            &conn,
+            repeating.id,
+            "Repeat",
+            None,
+            &[],
+            &V2RepeatType::Daily,
+            None,
+            Some("2026-06-17"),
+            None,
+        )
+        .unwrap();
+        V2ChecklistRepository::complete_item(&conn, repeating.id, "2026-06-16", Some("2026-06-17"))
+            .unwrap();
+        V2ChecklistRepository::complete_item(&conn, other_category.id, "2026-06-16", None).unwrap();
+
+        let archived_count =
+            V2ChecklistRepository::archive_completed_items(&conn, home.id).unwrap();
+        let archived = V2ChecklistRepository::get_archived_items(&conn).unwrap();
+        let remaining_home = V2ChecklistRepository::get_items(&conn, home.id).unwrap();
+        let remaining_work = V2ChecklistRepository::get_items(&conn, work.id).unwrap();
+
+        assert_eq!(archived_count, 1);
+        assert_eq!(archived.len(), 1);
+        assert_eq!(archived[0].item.id, completed.id);
+        assert!(remaining_home.iter().any(|item| item.id == pending.id));
+        assert!(remaining_home.iter().any(|item| item.id == repeating.id));
+        assert!(remaining_work
+            .iter()
+            .any(|item| item.id == other_category.id));
+    }
+
+    #[test]
+    fn archived_items_are_hidden_from_lists_and_search_until_restored() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistRepository::get_categories(&conn).unwrap()[0].id;
+        let item = V2ChecklistRepository::create_item(
+            &conn,
+            category_id,
+            "Archive candidate",
+            &["hidden".to_string()],
+        )
+        .unwrap();
+
+        V2ChecklistRepository::complete_item(&conn, item.id, "2026-06-16", None).unwrap();
+        V2ChecklistRepository::archive_completed_items(&conn, category_id).unwrap();
+
+        let visible_items = V2ChecklistRepository::get_items(&conn, category_id).unwrap();
+        let search_results = V2ChecklistRepository::search_items(&conn, "Archive", 10).unwrap();
+        let archived_items = V2ChecklistRepository::get_archived_items(&conn).unwrap();
+
+        assert!(visible_items.is_empty());
+        assert!(search_results.is_empty());
+        assert_eq!(archived_items.len(), 1);
+        assert_eq!(archived_items[0].item.tags[0].name, "hidden");
+
+        let restored = V2ChecklistRepository::restore_archived_item(&conn, item.id).unwrap();
+        let visible_items = V2ChecklistRepository::get_items(&conn, category_id).unwrap();
+
+        assert_eq!(restored.archived_at, None);
+        assert!(restored.done);
+        assert_eq!(visible_items.len(), 1);
+        assert_eq!(visible_items[0].id, item.id);
+    }
+
+    #[test]
+    fn deletes_only_archived_items_permanently() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistRepository::get_categories(&conn).unwrap()[0].id;
+        let active = V2ChecklistRepository::create_item(&conn, category_id, "Active", &[]).unwrap();
+        let archived =
+            V2ChecklistRepository::create_item(&conn, category_id, "Archived", &[]).unwrap();
+
+        V2ChecklistRepository::complete_item(&conn, archived.id, "2026-06-16", None).unwrap();
+        V2ChecklistRepository::archive_completed_items(&conn, category_id).unwrap();
+
+        let active_delete_result = V2ChecklistRepository::delete_archived_item(&conn, active.id);
+        assert!(active_delete_result.is_err());
+
+        V2ChecklistRepository::delete_archived_item(&conn, archived.id).unwrap();
+        let archived_items = V2ChecklistRepository::get_archived_items(&conn).unwrap();
+        let visible_items = V2ChecklistRepository::get_items(&conn, category_id).unwrap();
+
+        assert!(archived_items.is_empty());
+        assert_eq!(visible_items.len(), 1);
+        assert_eq!(visible_items[0].id, active.id);
     }
 }

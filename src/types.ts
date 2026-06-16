@@ -176,6 +176,7 @@ export interface V2TodoItem {
   next_due_at: string | null;
   last_completed_at: string | null;
   reminder_at: string | null;
+  archived_at: string | null;
   done: boolean;
   display_order: number;
   created_at: string;
@@ -190,6 +191,11 @@ export interface V2Tag {
 }
 
 export interface V2ItemSearchResult {
+  item: V2TodoItem;
+  category: V2Category;
+}
+
+export interface V2ArchivedItem {
   item: V2TodoItem;
   category: V2Category;
 }

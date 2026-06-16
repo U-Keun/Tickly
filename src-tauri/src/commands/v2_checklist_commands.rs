@@ -1,7 +1,9 @@
 use tauri::State;
 
 use super::with_db;
-use crate::models::{V2Category, V2ItemSearchResult, V2RepeatType, V2Tag, V2TodoItem};
+use crate::models::{
+    V2ArchivedItem, V2Category, V2ItemSearchResult, V2RepeatType, V2Tag, V2TodoItem,
+};
 use crate::service::V2ChecklistService;
 use crate::AppState;
 
@@ -122,6 +124,32 @@ pub fn v2_toggle_item(id: i64, state: State<AppState>) -> Result<V2TodoItem, Str
 #[tauri::command]
 pub fn v2_process_repeats(state: State<AppState>) -> Result<i64, String> {
     with_db(&state, V2ChecklistService::process_repeats)
+}
+
+#[tauri::command]
+pub fn v2_archive_completed_items(category_id: i64, state: State<AppState>) -> Result<i64, String> {
+    with_db(&state, |db| {
+        V2ChecklistService::archive_completed_items(db, category_id)
+    })
+}
+
+#[tauri::command]
+pub fn v2_get_archived_items(state: State<AppState>) -> Result<Vec<V2ArchivedItem>, String> {
+    with_db(&state, V2ChecklistService::get_archived_items)
+}
+
+#[tauri::command]
+pub fn v2_restore_archived_item(id: i64, state: State<AppState>) -> Result<V2TodoItem, String> {
+    with_db(&state, |db| {
+        V2ChecklistService::restore_archived_item(db, id)
+    })
+}
+
+#[tauri::command]
+pub fn v2_delete_archived_item(id: i64, state: State<AppState>) -> Result<(), String> {
+    with_db(&state, |db| {
+        V2ChecklistService::delete_archived_item(db, id)
+    })
 }
 
 #[tauri::command]

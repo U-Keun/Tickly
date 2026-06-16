@@ -15,7 +15,8 @@
     repeat_detail: null,
     next_due_at: null,
     last_completed_at: null,
-    reminder_at: null
+    reminder_at: null,
+    archived_at: null
   };
   const initialTags: V2Tag[] = [
     { id: 1, name: 'home', created_at: now, updated_at: now },
@@ -307,6 +308,23 @@
     setItemsForCategory(selectedCategoryId, nextItems);
   }
 
+  async function archiveCompletedItems(categoryId: number): Promise<number> {
+    const currentItems = itemsByCategory[categoryId] ?? [];
+    const archivableIds = new Set(
+      currentItems
+        .filter((item) => item.done && item.repeat_type === 'none' && item.archived_at === null)
+        .map((item) => item.id)
+    );
+
+    if (archivableIds.size === 0) return 0;
+
+    setItemsForCategory(
+      categoryId,
+      currentItems.filter((item) => !archivableIds.has(item.id))
+    );
+    return archivableIds.size;
+  }
+
   async function searchItems(query: string, limit: number): Promise<V2ItemSearchResult[]> {
     const normalizedQuery = query.trim().toLocaleLowerCase();
     if (!normalizedQuery) return [];
@@ -343,5 +361,6 @@
   onUpdateItemDetails={updateItemDetails}
   onDeleteItem={deleteItem}
   onReorderItems={reorderItems}
+  onArchiveCompletedItems={archiveCompletedItems}
   onSearchItems={searchItems}
 />
