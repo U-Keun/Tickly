@@ -38,9 +38,24 @@ pub struct V2NativeSheetFormFieldRequest {
     pub label: String,
     pub placeholder: String,
     pub initial_value: String,
+    pub clear_label: Option<String>,
     pub initial_tags: Option<Vec<String>>,
+    pub initial_repeat_detail: Option<Vec<i32>>,
+    pub repeat_labels: Option<V2NativeSheetRepeatLabels>,
     pub suggestions: Option<Vec<String>>,
     pub required: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct V2NativeSheetRepeatLabels {
+    pub none: String,
+    pub daily: String,
+    pub weekly: String,
+    pub monthly: String,
+    pub weekly_detail: String,
+    pub monthly_detail: String,
+    pub weekdays: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

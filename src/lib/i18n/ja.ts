@@ -285,6 +285,8 @@ export const ja: Translations = {
   v2MemoSearchSnippetTemplate: (memo: string) => `メモ: ${memo}`,
   v2ItemTagsLabel: 'タグ',
   v2ItemTagsPlaceholder: 'タグを追加',
+  v2ItemReminderLabel: 'リマインダー時刻',
+  v2ItemReminderPlaceholder: 'リマインダー時刻',
   v2AddAnotherTag: 'タグを追加',
   v2TagSuggestions: 'タグ候補',
   v2SelectedTags: '選択したタグ',

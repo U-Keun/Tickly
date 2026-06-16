@@ -40,6 +40,11 @@ pub fn v2_get_items(category_id: i64, state: State<AppState>) -> Result<Vec<V2To
 }
 
 #[tauri::command]
+pub fn v2_get_active_reminder_items(state: State<AppState>) -> Result<Vec<V2TodoItem>, String> {
+    with_db(&state, V2ChecklistService::get_active_reminder_items)
+}
+
+#[tauri::command]
 pub fn v2_get_tags(state: State<AppState>) -> Result<Vec<V2Tag>, String> {
     with_db(&state, V2ChecklistService::get_tags)
 }
@@ -87,6 +92,7 @@ pub fn v2_update_item_details(
     tag_names: Option<Vec<String>>,
     repeat_type: Option<String>,
     repeat_detail: Option<String>,
+    reminder_at: Option<String>,
     state: State<AppState>,
 ) -> Result<V2TodoItem, String> {
     let repeat = repeat_type
@@ -103,6 +109,7 @@ pub fn v2_update_item_details(
             tag_names.as_deref().unwrap_or(&[]),
             &repeat,
             repeat_detail.as_deref(),
+            reminder_at.as_deref(),
         )
     })
 }

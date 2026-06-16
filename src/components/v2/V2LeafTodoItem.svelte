@@ -2,7 +2,7 @@
   import { onDestroy } from 'svelte';
   import { cubicOut } from 'svelte/easing';
   import { slide } from 'svelte/transition';
-  import { Hash, Pencil, Repeat2, Trash2 } from '@lucide/svelte';
+  import { Bell, Hash, Pencil, Repeat2, Trash2 } from '@lucide/svelte';
   import { dragHandle } from 'svelte-dnd-action';
 
   import type { V2TodoItem } from '../../types';
@@ -73,7 +73,9 @@
   let firstTag = $derived(item.tags[0] ?? null);
   let extraTagCount = $derived(Math.max(0, item.tags.length - 1));
   let hasRepeat = $derived(item.repeat_type !== 'none');
+  let hasReminder = $derived(item.reminder_at !== null && item.reminder_at.trim().length > 0);
   let repeatSummary = $derived(formatRepeatSummary());
+  let reminderSummary = $derived(formatReminderSummary());
 
   $effect(() => {
     if (didApplyInitialDrawerOpen) return;
@@ -348,6 +350,11 @@
     return '';
   }
 
+  function formatReminderSummary(): string {
+    if (!item.reminder_at) return '';
+    return `${i18n.t('v2ItemReminderLabel')} · ${item.reminder_at}`;
+  }
+
 </script>
 
 <article
@@ -428,7 +435,12 @@
           </span>
         {/if}
 
-        {#if firstTag}
+        {#if hasReminder}
+          <span class="rowReminderPill" title={reminderSummary} aria-label={reminderSummary}>
+            <Bell size={12} strokeWidth={2.5} aria-hidden="true" />
+            <span>{item.reminder_at}</span>
+          </span>
+        {:else if firstTag}
           <span class="rowTagPill" title={item.tags.map((tag) => `#${tag.name}`).join(' ')}>
             <Hash size={12} strokeWidth={2.5} aria-hidden="true" />
             <span class="truncate">{firstTag.name}</span>
@@ -470,6 +482,13 @@
             <p class="drawerRepeatPreview">
               <Repeat2 size={14} strokeWidth={2.4} aria-hidden="true" />
               <span>{repeatSummary}</span>
+            </p>
+          {/if}
+
+          {#if hasReminder}
+            <p class="drawerReminderPreview">
+              <Bell size={14} strokeWidth={2.4} aria-hidden="true" />
+              <span>{item.reminder_at}</span>
             </p>
           {/if}
 
@@ -603,6 +622,28 @@
     line-height: 1.2;
   }
 
+  .rowReminderPill {
+    display: inline-flex;
+    min-width: 0;
+    max-width: calc(100% - 4px);
+    align-items: center;
+    gap: 3px;
+    border-radius: 999px;
+    background: var(--color-white);
+    padding: 3px 7px;
+    color: var(--color-ink-muted);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .rowReminderPill span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .tickText::after {
     position: absolute;
     right: 0;
@@ -720,6 +761,30 @@
     font-size: 12px;
     font-weight: 700;
     line-height: 1.2;
+  }
+
+  .drawerReminderPreview {
+    display: inline-flex;
+    align-self: flex-start;
+    width: fit-content;
+    max-width: calc(100% - 8px);
+    align-items: center;
+    gap: 5px;
+    margin: 0 4px;
+    border-radius: 999px;
+    background: var(--color-paper);
+    padding: 6px 10px;
+    color: var(--color-ink-muted);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .drawerReminderPreview span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .drawerRepeatPreview span {

@@ -14,7 +14,8 @@
     repeat_type: 'none' as const,
     repeat_detail: null,
     next_due_at: null,
-    last_completed_at: null
+    last_completed_at: null,
+    reminder_at: null
   };
   const initialTags: V2Tag[] = [
     { id: 1, name: 'home', created_at: now, updated_at: now },
@@ -260,7 +261,8 @@
     memo: string | null,
     tagNames: string[] = [],
     repeatType: V2RepeatType = 'none',
-    repeatDetail: string | null = null
+    repeatDetail: string | null = null,
+    reminderAt: string | null = null
   ): Promise<void> {
     if (selectedCategoryId === null) return;
 
@@ -275,6 +277,7 @@
               tags: resolveTags(tagNames),
               repeat_type: repeatType,
               repeat_detail: repeatDetail,
+              reminder_at: reminderAt,
               next_due_at: null,
               updated_at: now
             }

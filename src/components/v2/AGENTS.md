@@ -8,7 +8,8 @@ Apply parent component rules first.
 - Keep them independent from v1 stores and feature-specific components.
 - v2 local tags are now in scope as item metadata. Keep them backed by v2 props/API/store data, not v1 tag flows.
 - v2 local repeat rules are now in scope as item metadata. Keep repeat UI local to v2 data and commands.
-- Do not add sync, widget, reminder, graph, or streak behavior here until v2 scope expands.
+- v2 local reminders are now in scope as item metadata. Keep reminder UI local to v2 data and v2 notification APIs, not v1 notification stores.
+- Do not add sync, widget, graph, or streak behavior here until v2 scope expands.
 
 ## Storybook
 

@@ -285,6 +285,8 @@ export const en: Translations = {
   v2MemoSearchSnippetTemplate: (memo: string) => `Memo: ${memo}`,
   v2ItemTagsLabel: 'Tags',
   v2ItemTagsPlaceholder: 'Add tags',
+  v2ItemReminderLabel: 'Reminder time',
+  v2ItemReminderPlaceholder: 'Reminder time',
   v2AddAnotherTag: 'Add tag',
   v2TagSuggestions: 'Tag suggestions',
   v2SelectedTags: 'Selected tags',

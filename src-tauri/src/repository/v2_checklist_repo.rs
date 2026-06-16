@@ -8,7 +8,7 @@ impl V2ChecklistRepository {
     const ORDER_STEP: i64 = 1000;
     const CATEGORY_COLUMNS: &'static str = "id, name, display_order, created_at, updated_at";
     const TAG_COLUMNS: &'static str = "id, name, created_at, updated_at";
-    const ITEM_COLUMNS: &'static str = "id, category_id, text, memo, repeat_type, repeat_detail, next_due_at, last_completed_at, done, display_order, created_at, updated_at";
+    const ITEM_COLUMNS: &'static str = "id, category_id, text, memo, repeat_type, repeat_detail, next_due_at, last_completed_at, reminder_at, done, display_order, created_at, updated_at";
 
     pub fn create_tables(conn: &Connection) -> Result<(), rusqlite::Error> {
         conn.execute_batch(
@@ -29,6 +29,7 @@ impl V2ChecklistRepository {
                 repeat_detail TEXT,
                 next_due_at TEXT,
                 last_completed_at TEXT,
+                reminder_at TEXT,
                 done BOOLEAN NOT NULL DEFAULT 0,
                 display_order INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
@@ -92,6 +93,9 @@ impl V2ChecklistRepository {
         if !Self::v2_todos_has_column(conn, "last_completed_at")? {
             conn.execute("ALTER TABLE v2_todos ADD COLUMN last_completed_at TEXT", [])?;
         }
+        if !Self::v2_todos_has_column(conn, "reminder_at")? {
+            conn.execute("ALTER TABLE v2_todos ADD COLUMN reminder_at TEXT", [])?;
+        }
         Ok(())
     }
 
@@ -150,10 +154,11 @@ impl V2ChecklistRepository {
             repeat_detail: row.get(5)?,
             next_due_at: row.get(6)?,
             last_completed_at: row.get(7)?,
-            done: row.get(8)?,
-            display_order: row.get(9)?,
-            created_at: row.get(10)?,
-            updated_at: row.get(11)?,
+            reminder_at: row.get(8)?,
+            done: row.get(9)?,
+            display_order: row.get(10)?,
+            created_at: row.get(11)?,
+            updated_at: row.get(12)?,
         })
     }
 
@@ -179,17 +184,18 @@ impl V2ChecklistRepository {
                 repeat_detail: row.get(5)?,
                 next_due_at: row.get(6)?,
                 last_completed_at: row.get(7)?,
-                done: row.get(8)?,
-                display_order: row.get(9)?,
-                created_at: row.get(10)?,
-                updated_at: row.get(11)?,
+                reminder_at: row.get(8)?,
+                done: row.get(9)?,
+                display_order: row.get(10)?,
+                created_at: row.get(11)?,
+                updated_at: row.get(12)?,
             },
             category: V2Category {
-                id: row.get(12)?,
-                name: row.get(13)?,
-                display_order: row.get(14)?,
-                created_at: row.get(15)?,
-                updated_at: row.get(16)?,
+                id: row.get(13)?,
+                name: row.get(14)?,
+                display_order: row.get(15)?,
+                created_at: row.get(16)?,
+                updated_at: row.get(17)?,
             },
         })
     }
@@ -499,6 +505,7 @@ impl V2ChecklistRepository {
                 t.repeat_detail,
                 t.next_due_at,
                 t.last_completed_at,
+                t.reminder_at,
                 t.done,
                 t.display_order,
                 t.created_at,
@@ -519,7 +526,7 @@ impl V2ChecklistRepository {
                     WHERE tt.todo_id = t.id
                       AND tg.name LIKE ?3 ESCAPE '\\'
                 )
-             ORDER BY c.display_order ASC, t.done ASC, t.display_order ASC
+            ORDER BY c.display_order ASC, t.done ASC, t.display_order ASC
              LIMIT ?4";
         let mut stmt = conn.prepare(&sql)?;
         let results = stmt
@@ -553,6 +560,24 @@ impl V2ChecklistRepository {
         }
     }
 
+    pub fn get_active_reminder_items(
+        conn: &Connection,
+    ) -> Result<Vec<V2TodoItem>, rusqlite::Error> {
+        let sql = format!(
+            "SELECT {} FROM v2_todos
+             WHERE done = 0
+               AND reminder_at IS NOT NULL
+             ORDER BY category_id ASC, display_order ASC",
+            Self::ITEM_COLUMNS
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let items = stmt
+            .query_map([], Self::row_to_item)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Self::attach_tags_to_items(conn, items)
+    }
+
     pub fn create_item(
         conn: &Connection,
         category_id: i64,
@@ -575,8 +600,8 @@ impl V2ChecklistRepository {
 
         if let Err(error) = conn.execute(
             "INSERT INTO v2_todos
-                (category_id, text, memo, repeat_type, repeat_detail, next_due_at, last_completed_at, done, display_order, created_at, updated_at)
-             VALUES (?1, ?2, NULL, 'none', NULL, NULL, NULL, 0, ?3, ?4, ?5)",
+                (category_id, text, memo, repeat_type, repeat_detail, next_due_at, last_completed_at, reminder_at, done, display_order, created_at, updated_at)
+             VALUES (?1, ?2, NULL, 'none', NULL, NULL, NULL, NULL, 0, ?3, ?4, ?5)",
             params![category_id, text, display_order, &now, &now],
         ) {
             let _ = conn.execute("ROLLBACK", []);
@@ -601,6 +626,7 @@ impl V2ChecklistRepository {
             repeat_detail: None,
             next_due_at: None,
             last_completed_at: None,
+            reminder_at: None,
             done: false,
             display_order,
             created_at: now.clone(),
@@ -634,6 +660,7 @@ impl V2ChecklistRepository {
         repeat_type: &V2RepeatType,
         repeat_detail: Option<&str>,
         next_due_at: Option<&str>,
+        reminder_at: Option<&str>,
     ) -> Result<V2TodoItem, rusqlite::Error> {
         conn.execute("BEGIN TRANSACTION", [])?;
         let now = Self::now_iso();
@@ -645,14 +672,16 @@ impl V2ChecklistRepository {
                  repeat_type = ?3,
                  repeat_detail = ?4,
                  next_due_at = ?5,
-                 updated_at = ?6
-             WHERE id = ?7",
+                 reminder_at = ?6,
+                 updated_at = ?7
+             WHERE id = ?8",
             params![
                 text,
                 memo,
                 repeat_type_value,
                 repeat_detail,
                 next_due_at,
+                reminder_at,
                 now,
                 id
             ],
@@ -935,6 +964,8 @@ mod tests {
             V2ChecklistRepository::v2_todos_has_column(&conn, "repeat_type").unwrap();
         let has_next_due_at =
             V2ChecklistRepository::v2_todos_has_column(&conn, "next_due_at").unwrap();
+        let has_reminder_at =
+            V2ChecklistRepository::v2_todos_has_column(&conn, "reminder_at").unwrap();
         let completion_log_count: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'v2_completion_logs'",
@@ -946,6 +977,7 @@ mod tests {
         assert!(has_memo);
         assert!(has_repeat_type);
         assert!(has_next_due_at);
+        assert!(has_reminder_at);
         assert_eq!(completion_log_count, 1);
     }
 
@@ -1017,6 +1049,7 @@ mod tests {
             None,
             &["home".to_string()],
             &V2RepeatType::None,
+            None,
             None,
             None,
         )

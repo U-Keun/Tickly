@@ -283,6 +283,8 @@ export const ko = {
   v2MemoSearchSnippetTemplate: (memo: string) => `메모: ${memo}`,
   v2ItemTagsLabel: '태그',
   v2ItemTagsPlaceholder: '태그 추가',
+  v2ItemReminderLabel: '알림 시간',
+  v2ItemReminderPlaceholder: '알림 시간',
   v2AddAnotherTag: '태그 추가',
   v2TagSuggestions: '태그 추천',
   v2SelectedTags: '선택된 태그',

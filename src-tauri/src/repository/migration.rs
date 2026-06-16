@@ -331,6 +331,10 @@ fn migrate_add_v2_repeat_columns(conn: &Connection) -> Result<(), rusqlite::Erro
         conn.execute("ALTER TABLE v2_todos ADD COLUMN last_completed_at TEXT", [])?;
     }
 
+    if should_add_column(conn, "v2_todos", "reminder_at") {
+        conn.execute("ALTER TABLE v2_todos ADD COLUMN reminder_at TEXT", [])?;
+    }
+
     Ok(())
 }
 

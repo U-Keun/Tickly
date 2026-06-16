@@ -64,41 +64,43 @@
 </script>
 
 <div class="flex flex-col gap-2">
-  <div class="flex min-h-12 flex-wrap items-center gap-2 rounded-[14px] border-2 border-[var(--color-ink)] bg-[var(--color-paper)] px-3 py-2 focus-within:bg-[var(--color-canvas)]">
-    {#each normalizedTagNames as tagName (tagName.toLocaleLowerCase())}
-      <span class="inline-flex min-h-8 max-w-full items-center gap-1 rounded-full bg-[var(--color-white)] px-2.5 text-sm font-semibold text-[var(--color-ink)]">
-        <Hash size={13} strokeWidth={2.5} aria-hidden="true" />
-        <span class="truncate">{tagName}</span>
-        <button
-          type="button"
-          class="grid h-7 w-7 place-items-center rounded-full text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-canvas)] disabled:opacity-50"
-          aria-label={i18n.t('v2RemoveTagTemplate')(tagName)}
-          title={i18n.t('v2RemoveTagTemplate')(tagName)}
-          disabled={disabled}
-          onclick={() => removeTag(tagName)}
-        >
-          <X size={14} strokeWidth={2.5} aria-hidden="true" />
-        </button>
-      </span>
-    {/each}
+  <div class="min-h-[58px] rounded-[14px] border-2 border-[var(--color-ink)] bg-[var(--color-paper)] px-3 py-[10px] focus-within:bg-[var(--color-canvas)]">
+    <div class="flex min-h-[38px] flex-nowrap items-center gap-2 overflow-x-auto overflow-y-hidden">
+      {#each normalizedTagNames as tagName (tagName.toLocaleLowerCase())}
+        <span class="inline-flex min-h-[34px] max-w-[180px] shrink-0 items-center gap-1 rounded-full bg-[var(--color-white)] px-2.5 text-sm font-semibold text-[var(--color-ink)]">
+          <Hash size={13} strokeWidth={2.5} aria-hidden="true" />
+          <span class="truncate">{tagName}</span>
+          <button
+            type="button"
+            class="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-canvas)] disabled:opacity-50"
+            aria-label={i18n.t('v2RemoveTagTemplate')(tagName)}
+            title={i18n.t('v2RemoveTagTemplate')(tagName)}
+            disabled={disabled}
+            onclick={() => removeTag(tagName)}
+          >
+            <X size={14} strokeWidth={2.5} aria-hidden="true" />
+          </button>
+        </span>
+      {/each}
 
-    <input
-      bind:value={draftTag}
-      class="min-h-8 min-w-28 flex-1 bg-transparent text-base text-[var(--color-ink)] outline-none placeholder:text-[var(--color-ink-muted)] disabled:opacity-50"
-      placeholder={normalizedTagNames.length === 0 ? i18n.t('v2ItemTagsPlaceholder') : i18n.t('v2AddAnotherTag')}
-      aria-label={i18n.t('v2ItemTagsLabel')}
-      autocomplete="off"
-      {disabled}
-      onkeydown={handleKeydown}
-    />
+      <input
+        bind:value={draftTag}
+        class="min-h-9 min-w-[120px] flex-1 bg-transparent text-base text-[var(--color-ink)] outline-none placeholder:text-[var(--color-ink-muted)] disabled:opacity-50"
+        placeholder={normalizedTagNames.length === 0 ? i18n.t('v2ItemTagsPlaceholder') : i18n.t('v2AddAnotherTag')}
+        aria-label={i18n.t('v2ItemTagsLabel')}
+        autocomplete="off"
+        {disabled}
+        onkeydown={handleKeydown}
+      />
+    </div>
   </div>
 
   {#if draftTag.trim() && draftSuggestions.length > 0}
-    <div class="flex flex-wrap gap-2">
+    <div class="flex flex-nowrap gap-2 overflow-x-auto overflow-y-hidden">
       {#each draftSuggestions as tag (tag.id)}
         <button
           type="button"
-          class="inline-flex min-h-8 items-center gap-1 rounded-full bg-[var(--color-canvas)] px-3 text-xs font-semibold text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-mist)] disabled:opacity-50"
+          class="inline-flex min-h-[34px] shrink-0 items-center gap-1 rounded-full bg-[var(--color-canvas)] px-3 text-xs font-semibold text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-mist)] disabled:opacity-50"
           disabled={disabled}
           onclick={() => commitTag(tag.name)}
         >

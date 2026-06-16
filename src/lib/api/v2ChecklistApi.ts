@@ -31,6 +31,10 @@ export async function v2GetItems(categoryId: number): Promise<V2TodoItem[]> {
   return invoke<V2TodoItem[]>('v2_get_items', { categoryId });
 }
 
+export async function v2GetActiveReminderItems(): Promise<V2TodoItem[]> {
+  return invoke<V2TodoItem[]>('v2_get_active_reminder_items');
+}
+
 export async function v2GetTags(): Promise<V2Tag[]> {
   return invoke<V2Tag[]>('v2_get_tags');
 }
@@ -60,7 +64,8 @@ export async function v2UpdateItemDetails(
   memo: string | null,
   tagNames: string[] = [],
   repeatType: V2RepeatType = 'none',
-  repeatDetail: string | null = null
+  repeatDetail: string | null = null,
+  reminderAt: string | null = null
 ): Promise<V2TodoItem> {
   return invoke<V2TodoItem>('v2_update_item_details', {
     id,
@@ -68,7 +73,8 @@ export async function v2UpdateItemDetails(
     memo,
     tagNames,
     repeatType,
-    repeatDetail
+    repeatDetail,
+    reminderAt
   });
 }
 

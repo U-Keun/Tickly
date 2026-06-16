@@ -7,6 +7,7 @@ import type {
 } from '../../types';
 import * as settingsApi from '../api/settingsApi';
 import * as v2ChecklistApi from '../api/v2ChecklistApi';
+import * as v2ReminderNotificationApi from '../api/v2ReminderNotificationApi';
 
 const MIN_REPEAT_TIMER_DELAY_MS = 1000;
 
@@ -108,6 +109,15 @@ async function loadItemsForSelectedCategory(): Promise<void> {
   items = sortItems(await v2ChecklistApi.v2GetItems(selectedCategoryId));
 }
 
+async function syncReminderNotifications(): Promise<void> {
+  try {
+    const reminderItems = await v2ChecklistApi.v2GetActiveReminderItems();
+    await v2ReminderNotificationApi.syncActiveReminderNotifications(reminderItems);
+  } catch (error) {
+    console.error('Failed to sync v2 reminder notifications.', error);
+  }
+}
+
 async function load(): Promise<void> {
   isLoading = true;
   errorMessage = null;
@@ -136,6 +146,7 @@ async function load(): Promise<void> {
     }
 
     await loadItemsForSelectedCategory();
+    await syncReminderNotifications();
   } catch (error) {
     throw setError(error, 'Failed to load v2 checklist.');
   } finally {
@@ -186,6 +197,9 @@ async function deleteCategory(id: number): Promise<void> {
   errorMessage = null;
 
   try {
+    const reminderItemIds = items
+      .filter((item) => item.category_id === id && item.reminder_at)
+      .map((item) => item.id);
     await v2ChecklistApi.v2DeleteCategory(id);
     const nextCategories = categories.filter((category) => category.id !== id);
     categories = nextCategories;
@@ -201,6 +215,10 @@ async function deleteCategory(id: number): Promise<void> {
       items = nextItems;
     }
     await refreshTags();
+    await Promise.all(
+      reminderItemIds.map((itemId) => v2ReminderNotificationApi.cancelReminderForItem(itemId))
+    );
+    await syncReminderNotifications();
   } catch (error) {
     throw setError(error, 'Failed to delete v2 category.');
   }
@@ -276,7 +294,8 @@ async function updateItemDetails(
   memo: string | null,
   tagNames: string[] = [],
   repeatType: V2RepeatType = 'none',
-  repeatDetail: string | null = null
+  repeatDetail: string | null = null,
+  reminderAt: string | null = null
 ): Promise<void> {
   errorMessage = null;
 
@@ -287,10 +306,12 @@ async function updateItemDetails(
       memo,
       tagNames,
       repeatType,
-      repeatDetail
+      repeatDetail,
+      reminderAt
     );
     items = sortItems(items.map((item) => (item.id === id ? updatedItem : item)));
     await refreshTags();
+    await v2ReminderNotificationApi.syncReminderForItem(updatedItem);
   } catch (error) {
     throw setError(error, 'Failed to update v2 item details.');
   }
@@ -302,6 +323,7 @@ async function toggleItem(id: number): Promise<void> {
   try {
     const updatedItem = await v2ChecklistApi.v2ToggleItem(id);
     items = sortItems(items.map((item) => (item.id === id ? updatedItem : item)));
+    await v2ReminderNotificationApi.syncReminderForItem(updatedItem);
   } catch (error) {
     throw setError(error, 'Failed to toggle v2 item.');
   }
@@ -315,6 +337,7 @@ async function processRepeatsAndReload(): Promise<number> {
     if (reactivatedCount > 0) {
       await loadItemsForSelectedCategory();
     }
+    await syncReminderNotifications();
     return reactivatedCount;
   } catch (error) {
     throw setError(error, 'Failed to process v2 repeats.');
@@ -360,6 +383,7 @@ async function deleteItem(id: number): Promise<void> {
     await v2ChecklistApi.v2DeleteItem(id);
     items = items.filter((item) => item.id !== id);
     await refreshTags();
+    await v2ReminderNotificationApi.cancelReminderForItem(id);
   } catch (error) {
     throw setError(error, 'Failed to delete v2 item.');
   }

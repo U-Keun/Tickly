@@ -8,7 +8,8 @@ const repeatDefaults = {
   repeat_type: 'none' as const,
   repeat_detail: null,
   next_due_at: null,
-  last_completed_at: null
+  last_completed_at: null,
+  reminder_at: null
 };
 
 const results: V2ItemSearchResult[] = [

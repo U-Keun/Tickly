@@ -35,10 +35,11 @@ export interface V2NativeRepeatLabels {
 
 export interface V2NativeFormSheetField {
   id: string;
-  kind: 'text' | 'textarea' | 'tags' | 'repeat';
+  kind: 'text' | 'textarea' | 'tags' | 'repeat' | 'time';
   label: string;
   placeholder: string;
   initialValue: string;
+  clearLabel?: string;
   initialTags?: string[];
   initialRepeatDetail?: number[];
   repeatLabels?: V2NativeRepeatLabels;

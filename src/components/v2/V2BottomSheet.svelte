@@ -8,11 +8,19 @@
     show: boolean;
     title: string;
     description?: string;
+    preferredHeight?: number | null;
     onClose: () => void;
     children?: Snippet;
   }
 
-  let { show, title, description = '', onClose, children }: Props = $props();
+  let {
+    show,
+    title,
+    description = '',
+    preferredHeight = null,
+    onClose,
+    children
+  }: Props = $props();
   let wasShown = $state(false);
   let viewportBottomGap = $state(0);
   let keyboardBottomInset = $state(0);
@@ -151,7 +159,7 @@
       style={`bottom: ${keyboardBottomInset}px; transition: bottom 180ms cubic-bezier(0.22, 1, 0.36, 1);`}
     >
       <div
-        class="relative w-full max-w-md overflow-visible text-[var(--color-ink)]"
+        class="relative w-full max-w-[440px] overflow-visible text-[var(--color-ink)]"
         role="presentation"
         onclick={(event) => event.stopPropagation()}
         onkeydown={(event) => event.stopPropagation()}
@@ -159,17 +167,17 @@
         out:fly={{ y: 24, duration: 190, easing: cubicOut }}
       >
         <div
-          class="relative z-10 flex flex-col overflow-hidden rounded-[6px_24px_6px_24px] border-2 border-[var(--color-ink)] bg-[var(--color-white)] pt-3 shadow-2xl"
-          style={`max-height: min(${sheetMaxHeight}px, 720px);`}
+          class="relative z-10 flex flex-col overflow-hidden rounded-[6px_24px_6px_24px] border-[2.5px] border-[var(--color-ink)] bg-[var(--color-white)] shadow-[0_-4px_18px_rgba(0,0,0,0.14)]"
+          style={preferredHeight
+            ? `height: min(${preferredHeight}px, ${sheetMaxHeight}px, 720px); max-height: min(${sheetMaxHeight}px, 720px);`
+            : `max-height: min(${sheetMaxHeight}px, 720px);`}
           role="dialog"
           aria-modal="true"
           aria-label={title}
           tabindex="-1"
         >
-          <div class="mx-auto h-1.5 w-11 rounded-full bg-[var(--color-stroke)]" aria-hidden="true"></div>
-
-          <header class="px-5 pb-4 pt-4">
-            <h2 class="text-lg font-semibold leading-6 text-[var(--color-ink)]">{title}</h2>
+          <header class="px-6 pb-[22px] pt-6">
+            <h2 class="text-[22px] font-semibold leading-7 text-[var(--color-ink)]">{title}</h2>
             {#if description}
               <p class="mt-2 whitespace-pre-line text-sm leading-6 text-[var(--color-ink-muted)]">
                 {description}
@@ -178,7 +186,7 @@
           </header>
 
           {#if children}
-            <div class="min-h-0 overflow-y-auto px-5 pb-5">
+            <div class="min-h-0 overflow-y-auto px-6 pb-6">
               {@render children()}
             </div>
           {/if}

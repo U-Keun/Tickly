@@ -15,6 +15,7 @@ const item: V2TodoItem = {
   repeat_detail: null,
   next_due_at: null,
   last_completed_at: null,
+  reminder_at: null,
   done: false,
   display_order: 1000,
   created_at: '2026-06-08T00:00:00Z',
@@ -78,6 +79,16 @@ export const RepeatPreview: Story = {
       memo: 'Use the shared grocery list.',
       repeat_type: 'weekly',
       repeat_detail: '[1,3,5]'
+    },
+    initialDrawerOpen: true
+  }
+};
+
+export const ReminderPreview: Story = {
+  args: {
+    item: {
+      ...item,
+      reminder_at: '09:30'
     },
     initialDrawerOpen: true
   }

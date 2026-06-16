@@ -23,7 +23,8 @@
       memo: string | null,
       tagNames?: string[],
       repeatType?: V2RepeatType,
-      repeatDetail?: string | null
+      repeatDetail?: string | null,
+      reminderAt?: string | null
     ) => MaybePromise;
     onClose: () => void;
   }
@@ -42,11 +43,13 @@
   let draftTagNames = $state<string[]>([]);
   let draftRepeatType = $state<V2RepeatType>('none');
   let draftRepeatDetail = $state<number[]>([]);
+  let draftReminderAt = $state('');
   let preparedItemId = $state<number | null>(null);
 
   let trimmedText = $derived(draftText.trim());
   let trimmedMemo = $derived(draftMemo.trim());
   let isVisible = $derived(show && item !== null);
+  let isReminderFocused = $state(false);
 
   $effect(() => {
     if (!isVisible || !item) {
@@ -55,6 +58,7 @@
       draftTagNames = [];
       draftRepeatType = 'none';
       draftRepeatDetail = [];
+      draftReminderAt = '';
       preparedItemId = null;
       return;
     }
@@ -65,6 +69,7 @@
       draftTagNames = item.tags.map((tag) => tag.name);
       draftRepeatType = item.repeat_type;
       draftRepeatDetail = parseV2RepeatDetail(item.repeat_detail);
+      draftReminderAt = item.reminder_at ?? '';
       preparedItemId = item.id;
     }
   });
@@ -85,7 +90,8 @@
         trimmedMemo || null,
         draftTagNames,
         draftRepeatType,
-        stringifyV2RepeatDetail(draftRepeatType, draftRepeatDetail)
+        stringifyV2RepeatDetail(draftRepeatType, draftRepeatDetail),
+        draftReminderAt || null
       );
       onClose();
     } catch {
@@ -97,6 +103,7 @@
 <V2BottomSheet
   show={isVisible}
   title={i18n.t('v2EditItemDetails')}
+  preferredHeight={680}
   onClose={handleClose}
 >
   {#if item}
@@ -106,7 +113,7 @@
         <input
           use:iosFocusFix
           bind:value={draftText}
-          class="min-h-12 rounded-[14px] border-2 border-[var(--color-ink)] bg-[var(--color-paper)] px-4 text-base text-[var(--color-ink)] outline-none transition-colors focus:bg-[var(--color-canvas)]"
+          class="min-h-[52px] rounded-[14px] border-2 border-[var(--color-ink)] bg-[var(--color-paper)] px-[14px] text-base text-[var(--color-ink)] outline-none transition-colors focus:bg-[var(--color-canvas)]"
           placeholder={i18n.t('v2ItemTextPlaceholder')}
           aria-label={i18n.t('v2ItemTextLabel')}
           autocomplete="off"
@@ -119,7 +126,7 @@
         <textarea
           use:iosFocusFix
           bind:value={draftMemo}
-          class="min-h-28 resize-none rounded-[14px] border-2 border-[var(--color-ink)] bg-[var(--color-paper)] px-4 py-3 text-base leading-6 text-[var(--color-ink)] outline-none transition-colors focus:bg-[var(--color-canvas)]"
+          class="min-h-[112px] resize-none rounded-[14px] border-2 border-[var(--color-ink)] bg-[var(--color-paper)] px-[14px] py-3 text-base leading-6 text-[var(--color-ink)] outline-none transition-colors focus:bg-[var(--color-canvas)]"
           placeholder={i18n.t('v2ItemMemoPlaceholder')}
           aria-label={i18n.t('v2ItemMemoLabel')}
           disabled={isSaving}
@@ -148,17 +155,45 @@
         }}
       />
 
-      <div class="flex gap-2">
+      <label class="relative flex flex-col">
+        <span class="sr-only">{i18n.t('v2ItemReminderLabel')}</span>
+        <input
+          use:iosFocusFix
+          type="time"
+          bind:value={draftReminderAt}
+          class={`min-h-[52px] rounded-[14px] border-2 border-[var(--color-ink)] bg-[var(--color-paper)] px-[14px] text-base outline-none transition-colors focus:bg-[var(--color-canvas)] ${
+            draftReminderAt || isReminderFocused
+              ? 'text-[var(--color-ink)]'
+              : 'text-transparent'
+          }`}
+          aria-label={i18n.t('v2ItemReminderLabel')}
+          title={i18n.t('v2ItemReminderPlaceholder')}
+          disabled={isSaving}
+          onfocus={() => {
+            isReminderFocused = true;
+          }}
+          onblur={() => {
+            isReminderFocused = false;
+          }}
+        />
+        {#if !draftReminderAt && !isReminderFocused}
+          <span class="pointer-events-none absolute left-[14px] top-1/2 -translate-y-1/2 text-base text-[var(--color-ink-muted)] opacity-55">
+            {i18n.t('v2ItemReminderPlaceholder')}
+          </span>
+        {/if}
+      </label>
+
+      <div class="flex gap-[10px]">
         <button
           type="submit"
-          class="min-h-11 flex-1 rounded-[12px] bg-[var(--color-accent-sky-strong)] px-4 text-sm font-semibold text-[var(--color-ink)] transition-colors hover:bg-[var(--color-accent-sky)] disabled:cursor-not-allowed disabled:opacity-50"
+          class="min-h-12 flex-1 rounded-[14px] bg-[var(--color-accent-sky-strong)] px-4 text-sm font-semibold text-[var(--color-ink)] transition-colors hover:bg-[var(--color-accent-sky)] disabled:cursor-not-allowed disabled:opacity-50"
           disabled={!trimmedText || isSaving}
         >
           {i18n.t('v2SaveItem')}
         </button>
         <button
           type="button"
-          class="min-h-11 flex-1 rounded-[12px] bg-[var(--color-canvas)] px-4 text-sm font-semibold text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-mist)] disabled:cursor-not-allowed disabled:opacity-50"
+          class="min-h-12 flex-1 rounded-[14px] bg-[var(--color-canvas)] px-4 text-sm font-semibold text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-mist)] disabled:cursor-not-allowed disabled:opacity-50"
           disabled={isSaving}
           onclick={handleClose}
         >

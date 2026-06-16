@@ -13,6 +13,7 @@ const item: V2TodoItem = {
   repeat_detail: null,
   next_due_at: null,
   last_completed_at: null,
+  reminder_at: null,
   done: false,
   display_order: 1000,
   created_at: '2026-06-08T00:00:00Z',
@@ -72,6 +73,37 @@ export const WeeklyRepeat: Story = {
       repeat_detail: '[1,3,5]',
       text: 'Plan weekly meals'
     }
+  }
+};
+
+export const WithReminder: Story = {
+  args: {
+    item: {
+      ...item,
+      reminder_at: '09:30'
+    }
+  }
+};
+
+export const FullEditingSurface: Story = {
+  args: {
+    item: {
+      ...item,
+      text: 'Review the redesigned editing sheet before the next build',
+      memo: 'Compare this fallback surface with the native Swift sheet: field height, border weight, repeat controls, tags, reminder, and action buttons should feel like the same product.',
+      tags: [
+        { id: 1, name: 'design', created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-08T00:00:00Z' },
+        { id: 2, name: 'ios', created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-08T00:00:00Z' }
+      ],
+      repeat_type: 'weekly',
+      repeat_detail: '[1,3,5]',
+      reminder_at: '18:30'
+    },
+    availableTags: [
+      { id: 1, name: 'design', created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-08T00:00:00Z' },
+      { id: 2, name: 'ios', created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-08T00:00:00Z' },
+      { id: 3, name: 'review', created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-08T00:00:00Z' }
+    ]
   }
 };
 

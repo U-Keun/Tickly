@@ -41,7 +41,7 @@ The first detail expansion added `memo` to `v2_todos`. The next local metadata e
 ## Out Of Scope
 
 - No rich text, markdown rendering, image attachments, or link previews for memo.
-- No tag-only filter screen, tag management screen, reminder, streak, linked app, sync, widget, or graph behavior in this slice. Local repeat editing now lives in the item detail sheet.
+- No tag-only filter screen, tag management screen, streak, linked app, sync, widget, or graph behavior in this slice. Local repeat and reminder-time editing now live in the item detail sheet.
 - No native rewrite of confirm modal, drawer, search, item reorder, or category rail surfaces.
 - No v1 drawer, modal, or item component change.
 

@@ -31,6 +31,7 @@ private struct TicklyNativeSheetFormFieldRequest: Decodable {
     let label: String
     let placeholder: String
     let initialValue: String
+    let clearLabel: String?
     let initialTags: [String]?
     let initialRepeatDetail: [Int]?
     let repeatLabels: TicklyNativeSheetRepeatLabels?
@@ -251,6 +252,10 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
     private var formTextViews: [String: UITextView] = [:]
     private var formTagFields: [String: TagFieldView] = [:]
     private var formRepeatFields: [String: RepeatFieldView] = [:]
+    private var formTimeFields: [String: UITextField] = [:]
+    private var formTimeValues: [String: String] = [:]
+    private var timePickerFieldIds: [ObjectIdentifier: String] = [:]
+    private var activeTimeFieldId: String?
     private var formRequiredFieldIds = Set<String>()
     private var textViewFieldIds: [ObjectIdentifier: String] = [:]
     private var textViewPlaceholders: [ObjectIdentifier: String] = [:]
@@ -304,6 +309,16 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
             saveText()
         }
         return true
+    }
+
+    func textFieldDidBeginEditing(_ textField: UITextField) {
+        activeTimeFieldId = formTimeFields.first(where: { $0.value === textField })?.key
+    }
+
+    func textFieldDidEndEditing(_ textField: UITextField) {
+        if formTimeFields[activeTimeFieldId ?? ""] === textField {
+            activeTimeFieldId = nil
+        }
     }
 
     func textViewDidBeginEditing(_ textView: UITextView) {
@@ -528,6 +543,46 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
                 }
                 formTagFields[field.id] = tagField
                 stack.addArrangedSubview(tagField)
+            } else if field.kind == "time" {
+                let fieldInput = UITextField()
+                let normalizedTime = normalizedTimeString(field.initialValue)
+                fieldInput.text = normalizedTime.flatMap(displayTimeString) ?? ""
+                fieldInput.placeholder = field.placeholder
+                fieldInput.font = .preferredFont(forTextStyle: .body)
+                fieldInput.adjustsFontForContentSizeCategory = true
+                fieldInput.textColor = Style.ink
+                fieldInput.tintColor = Style.accentSkyStrong
+                fieldInput.backgroundColor = Style.paper
+                fieldInput.layer.cornerRadius = 14
+                fieldInput.layer.borderColor = Style.ink.cgColor
+                fieldInput.layer.borderWidth = 2
+                fieldInput.accessibilityLabel = field.label
+                fieldInput.clearButtonMode = .whileEditing
+                fieldInput.delegate = self
+                fieldInput.heightAnchor.constraint(greaterThanOrEqualToConstant: 52).isActive = true
+                fieldInput.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 1))
+                fieldInput.leftViewMode = .always
+                fieldInput.rightView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 1))
+                fieldInput.rightViewMode = .always
+
+                let picker = UIDatePicker()
+                picker.datePickerMode = .time
+                picker.preferredDatePickerStyle = .wheels
+                picker.minuteInterval = 1
+                if let date = dateFromTimeString(field.initialValue) {
+                    picker.date = date
+                }
+                picker.addTarget(self, action: #selector(timePickerDidChange(_:)), for: .valueChanged)
+                fieldInput.inputView = picker
+                fieldInput.inputAccessoryView = makeTimeInputAccessoryView(
+                    clearLabel: field.clearLabel ?? "Clear"
+                )
+                timePickerFieldIds[ObjectIdentifier(picker)] = field.id
+                formTimeFields[field.id] = fieldInput
+                if let normalizedTime {
+                    formTimeValues[field.id] = normalizedTime
+                }
+                stack.addArrangedSubview(fieldInput)
             } else if field.kind == "textarea" {
                 let textView = UITextView()
                 textView.font = .preferredFont(forTextStyle: .body)
@@ -702,6 +757,35 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
         updateSaveButtonState()
     }
 
+    @objc private func timePickerDidChange(_ sender: UIDatePicker) {
+        guard let fieldId = timePickerFieldIds[ObjectIdentifier(sender)],
+              let fieldInput = formTimeFields[fieldId]
+        else {
+            return
+        }
+
+        let normalizedTime = timeString(from: sender.date)
+        formTimeValues[fieldId] = normalizedTime
+        fieldInput.text = displayTimeString(normalizedTime)
+        updateSaveButtonState()
+    }
+
+    @objc private func clearActiveTimeField() {
+        guard let activeTimeFieldId,
+              let fieldInput = formTimeFields[activeTimeFieldId]
+        else {
+            return
+        }
+
+        fieldInput.text = ""
+        formTimeValues[activeTimeFieldId] = nil
+        updateSaveButtonState()
+    }
+
+    @objc private func finishTimeEditing() {
+        view.endEditing(true)
+    }
+
     @objc private func saveButtonTapped() {
         if request.kind == "form" {
             saveForm()
@@ -720,6 +804,73 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
         }
 
         complete(status: "action", value: nil, values: nil, actionId: actionId, shouldDismiss: true)
+    }
+
+    private func makeTimeInputAccessoryView(clearLabel: String) -> UIView {
+        let toolbar = UIToolbar()
+        toolbar.sizeToFit()
+        toolbar.items = [
+            UIBarButtonItem(
+                title: clearLabel,
+                style: .plain,
+                target: self,
+                action: #selector(clearActiveTimeField)
+            ),
+            UIBarButtonItem(systemItem: .flexibleSpace),
+            UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(finishTimeEditing))
+        ]
+        return toolbar
+    }
+
+    private func normalizedTimeString(_ value: String) -> String? {
+        let parts = value.split(separator: ":")
+        guard parts.count == 2,
+              let rawHour = Int(parts[0]),
+              let rawMinute = Int(parts[1]),
+              rawHour >= 0,
+              rawHour <= 23,
+              rawMinute >= 0,
+              rawMinute <= 59
+        else {
+            return nil
+        }
+
+        return String(format: "%02d:%02d", rawHour, rawMinute)
+    }
+
+    private func dateFromTimeString(_ value: String) -> Date? {
+        guard let normalized = normalizedTimeString(value) else {
+            return nil
+        }
+
+        let parts = normalized.split(separator: ":")
+        guard let hour = Int(parts[0]),
+              let minute = Int(parts[1])
+        else {
+            return nil
+        }
+
+        var components = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        components.hour = hour
+        components.minute = minute
+        components.second = 0
+        return Calendar.current.date(from: components)
+    }
+
+    private func timeString(from date: Date) -> String {
+        let components = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return String(format: "%02d:%02d", components.hour ?? 0, components.minute ?? 0)
+    }
+
+    private func displayTimeString(_ value: String) -> String? {
+        guard let date = dateFromTimeString(value) else {
+            return nil
+        }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "hh:mm a"
+        return formatter.string(from: date)
     }
 
     private func saveText() {
@@ -746,6 +897,10 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
 
         for (fieldId, textView) in formTextViews {
             values[fieldId] = .string(normalizedTextViewValue(textView))
+        }
+
+        for fieldId in formTimeFields.keys {
+            values[fieldId] = .string(formTimeValues[fieldId] ?? "")
         }
 
         for (fieldId, tagField) in formTagFields {
@@ -798,6 +953,13 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
 
             if let tagField = formTagFields[fieldId] {
                 if tagField.tags.isEmpty {
+                    return false
+                }
+                continue
+            }
+
+            if let fieldInput = formTimeFields[fieldId] {
+                if (fieldInput.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     return false
                 }
                 continue
@@ -859,12 +1021,17 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
         private let labels: TicklyNativeSheetRepeatLabels
         private let rootStack = UIStackView()
         private let typeStack = UIStackView()
+        private let detailContainerView = UIView()
+        private let detailContentStack = UIStackView()
         private let detailLabel = UILabel()
         private let detailStack = UIStackView()
         private var typeButtons: [String: UIButton] = [:]
         private var detailButtons: [Int: UIButton] = [:]
         private var selectedType: String
         private var selectedDetail: [Int]
+        private var visibleDetailKind: String?
+        private var detailHeightConstraint: NSLayoutConstraint?
+        private var detailTransitionToken = 0
 
         var repeatType: String {
             selectedType
@@ -904,7 +1071,7 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
             self.selectedDetail = initialDetail
             super.init(frame: .zero)
             buildLayout()
-            reloadDetail()
+            reloadDetail(animated: false)
             updateButtonStates()
         }
 
@@ -954,6 +1121,7 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
                 button.accessibilityIdentifier = type
                 button.addTarget(self, action: #selector(typeButtonTapped(_:)), for: .touchUpInside)
                 button.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+                configureSingleLineButton(button, minimumScaleFactor: 0.72)
                 typeButtons[type] = button
                 typeStack.addArrangedSubview(button)
             }
@@ -965,16 +1133,34 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
             detailStack.axis = .vertical
             detailStack.spacing = 7
 
+            detailContainerView.translatesAutoresizingMaskIntoConstraints = false
+            detailContainerView.clipsToBounds = true
+            detailContainerView.isHidden = true
+
+            detailContentStack.translatesAutoresizingMaskIntoConstraints = false
+            detailContentStack.axis = .vertical
+            detailContentStack.spacing = 7
+            detailContainerView.addSubview(detailContentStack)
+            detailContentStack.addArrangedSubview(detailLabel)
+            detailContentStack.addArrangedSubview(detailStack)
+
             rootStack.addArrangedSubview(titleStack)
             rootStack.addArrangedSubview(typeStack)
-            rootStack.addArrangedSubview(detailLabel)
-            rootStack.addArrangedSubview(detailStack)
+            rootStack.addArrangedSubview(detailContainerView)
+
+            let heightConstraint = detailContainerView.heightAnchor.constraint(equalToConstant: 0)
+            heightConstraint.isActive = true
+            detailHeightConstraint = heightConstraint
 
             NSLayoutConstraint.activate([
                 rootStack.topAnchor.constraint(equalTo: topAnchor, constant: 12),
                 rootStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
                 rootStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-                rootStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12)
+                rootStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12),
+                detailContentStack.topAnchor.constraint(equalTo: detailContainerView.topAnchor),
+                detailContentStack.leadingAnchor.constraint(equalTo: detailContainerView.leadingAnchor),
+                detailContentStack.trailingAnchor.constraint(equalTo: detailContainerView.trailingAnchor),
+                detailContentStack.bottomAnchor.constraint(lessThanOrEqualTo: detailContainerView.bottomAnchor)
             ])
         }
 
@@ -1004,8 +1190,8 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
             return Array(Set(detail.filter { allowedRange.contains($0) })).sorted()
         }
 
-        private func detailTitle(for value: Int) -> String {
-            if selectedType == "weekly",
+        private func detailTitle(for value: Int, kind: String?) -> String {
+            if kind == "weekly",
                value >= 0,
                value < labels.weekdays.count
             {
@@ -1026,16 +1212,82 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
             return []
         }
 
-        private func reloadDetail() {
+        private func detailKind(for type: String) -> String? {
+            if type == "weekly" || type == "monthly" {
+                return type
+            }
+
+            return nil
+        }
+
+        private func reloadDetail(animated: Bool = false) {
+            let targetKind = detailKind(for: selectedType)
+            let shouldAnimate = animated && !UIAccessibility.isReduceMotionEnabled
+
+            guard shouldAnimate else {
+                clearDetail()
+                if let targetKind {
+                    populateDetail(kind: targetKind)
+                    detailContainerView.isHidden = false
+                    detailContentStack.alpha = 1
+                    detailContentStack.transform = .identity
+                    detailHeightConstraint?.constant = measuredDetailHeight()
+                } else {
+                    detailHeightConstraint?.constant = 0
+                    detailContainerView.isHidden = true
+                }
+                visibleDetailKind = targetKind
+                return
+            }
+
+            detailTransitionToken += 1
+            let token = detailTransitionToken
+
+            if visibleDetailKind == targetKind {
+                if let targetKind {
+                    clearDetail()
+                    populateDetail(kind: targetKind)
+                    updateButtonStates()
+                    detailHeightConstraint?.constant = measuredDetailHeight()
+                    layoutAnimationRoot()
+                }
+                return
+            }
+
+            let showTarget: () -> Void = { [weak self] in
+                guard let self, token == self.detailTransitionToken else {
+                    return
+                }
+
+                self.clearDetail()
+                guard let targetKind else {
+                    self.visibleDetailKind = nil
+                    return
+                }
+
+                self.populateDetail(kind: targetKind)
+                self.visibleDetailKind = targetKind
+                self.updateButtonStates()
+                self.animateDetailIn(token: token)
+            }
+
+            if visibleDetailKind != nil {
+                animateDetailOut(token: token, completion: showTarget)
+            } else {
+                showTarget()
+            }
+        }
+
+        private func clearDetail() {
             for view in detailStack.arrangedSubviews {
                 detailStack.removeArrangedSubview(view)
                 view.removeFromSuperview()
             }
             detailButtons = [:]
+        }
 
-            if selectedType == "weekly" {
-                detailLabel.isHidden = false
-                detailStack.isHidden = false
+        private func populateDetail(kind: String) {
+            if kind == "weekly" {
                 detailLabel.text = labels.weeklyDetail
                 addDetailButtons(values: Array(0...6), columns: 7) { [weak self] value in
                     guard let self else { return "\(value)" }
@@ -1044,17 +1296,115 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
                     }
                     return "\(value)"
                 }
-            } else if selectedType == "monthly" {
-                detailLabel.isHidden = false
-                detailStack.isHidden = false
+            } else if kind == "monthly" {
                 detailLabel.text = labels.monthlyDetail
                 addDetailButtons(values: Array(1...31), columns: 7) { value in
                     "\(value)"
                 }
-            } else {
-                detailLabel.isHidden = true
-                detailStack.isHidden = true
             }
+        }
+
+        private func measuredDetailHeight() -> CGFloat {
+            layoutAnimationRoot()
+
+            let availableWidth = max(detailContainerView.bounds.width, rootStack.bounds.width, 320)
+            let fittingSize = CGSize(
+                width: availableWidth,
+                height: UIView.layoutFittingCompressedSize.height
+            )
+            let measuredSize = detailContentStack.systemLayoutSizeFitting(
+                fittingSize,
+                withHorizontalFittingPriority: .required,
+                verticalFittingPriority: .fittingSizeLevel
+            )
+            return ceil(measuredSize.height)
+        }
+
+        private func animateDetailIn(token: Int) {
+            detailContainerView.layer.removeAllAnimations()
+            detailContentStack.layer.removeAllAnimations()
+            detailContainerView.isHidden = false
+            detailContentStack.alpha = 0
+            detailContentStack.transform = CGAffineTransform(translationX: 0, y: 8)
+            detailHeightConstraint?.constant = 0
+            layoutAnimationRoot()
+
+            guard token == detailTransitionToken else {
+                return
+            }
+
+            let targetHeight = measuredDetailHeight()
+            detailHeightConstraint?.constant = targetHeight
+
+            UIView.animate(
+                withDuration: 0.32,
+                delay: 0,
+                options: [.curveEaseOut, .beginFromCurrentState]
+            ) { [weak self] in
+                self?.layoutAnimationRoot()
+            }
+
+            UIView.animate(
+                withDuration: 0.19,
+                delay: 0.12,
+                options: [.curveEaseOut, .beginFromCurrentState]
+            ) { [weak self] in
+                guard let self, token == self.detailTransitionToken else {
+                    return
+                }
+                self.detailContentStack.alpha = 1
+                self.detailContentStack.transform = .identity
+            }
+        }
+
+        private func animateDetailOut(token: Int, completion: @escaping () -> Void) {
+            detailContainerView.layer.removeAllAnimations()
+            detailContentStack.layer.removeAllAnimations()
+            detailContainerView.isHidden = false
+            detailHeightConstraint?.constant = detailContainerView.bounds.height
+            layoutAnimationRoot()
+
+            UIView.animate(
+                withDuration: 0.15,
+                delay: 0,
+                options: [.curveEaseOut, .beginFromCurrentState]
+            ) { [weak self] in
+                guard let self, token == self.detailTransitionToken else {
+                    return
+                }
+                self.detailContentStack.alpha = 0
+                self.detailContentStack.transform = CGAffineTransform(translationX: 0, y: -4)
+            }
+
+            UIView.animate(
+                withDuration: 0.24,
+                delay: 0.12,
+                options: [.curveEaseOut, .beginFromCurrentState]
+            ) { [weak self] in
+                guard let self, token == self.detailTransitionToken else {
+                    return
+                }
+                self.detailHeightConstraint?.constant = 0
+                self.layoutAnimationRoot()
+            } completion: { [weak self] _ in
+                guard let self, token == self.detailTransitionToken else {
+                    return
+                }
+                self.clearDetail()
+                self.detailContainerView.isHidden = true
+                self.detailContentStack.alpha = 1
+                self.detailContentStack.transform = .identity
+                self.visibleDetailKind = nil
+                completion()
+            }
+        }
+
+        private func layoutAnimationRoot() {
+            var root: UIView = self
+            while let superview = root.superview {
+                root = superview
+            }
+            root.layoutIfNeeded()
         }
 
         private func addDetailButtons(
@@ -1080,6 +1430,7 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
                 button.titleLabel?.font = .preferredFont(forTextStyle: .caption1)
                 button.addTarget(self, action: #selector(detailButtonTapped(_:)), for: .touchUpInside)
                 button.heightAnchor.constraint(greaterThanOrEqualToConstant: 36).isActive = true
+                configureSingleLineButton(button, minimumScaleFactor: 0.76)
                 detailButtons[value] = button
                 currentRow?.addArrangedSubview(button)
             }
@@ -1103,27 +1454,38 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
                 configuration.baseBackgroundColor = isSelected ? style.accentSky : UIColor.white
                 configuration.baseForegroundColor = isSelected ? style.ink : style.inkMuted
                 configuration.cornerStyle = .medium
-                configuration.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8)
+                configuration.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 6, bottom: 8, trailing: 6)
                 button.configuration = configuration
+                configureSingleLineButton(button, minimumScaleFactor: 0.72)
                 button.layer.borderColor = (isSelected ? style.ink : style.inkMuted.withAlphaComponent(0.25)).cgColor
                 button.layer.borderWidth = isSelected ? 2 : 1
                 button.layer.cornerRadius = 12
             }
 
-            let selectedValues = Set(repeatDetail)
+            let renderedDetailKind = visibleDetailKind ?? detailKind(for: selectedType)
+            let selectedValues = Set(normalizedDetail(for: renderedDetailKind ?? selectedType, detail: selectedDetail))
             for (value, button) in detailButtons {
                 let isSelected = selectedValues.contains(value)
                 var configuration = UIButton.Configuration.filled()
-                configuration.title = detailTitle(for: value)
+                configuration.title = detailTitle(for: value, kind: renderedDetailKind)
                 configuration.baseBackgroundColor = isSelected ? style.accentSky : UIColor.white
                 configuration.baseForegroundColor = isSelected ? style.ink : style.inkMuted
                 configuration.cornerStyle = .medium
                 configuration.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 4, bottom: 6, trailing: 4)
                 button.configuration = configuration
+                configureSingleLineButton(button, minimumScaleFactor: 0.76)
                 button.layer.borderColor = (isSelected ? style.ink : style.inkMuted.withAlphaComponent(0.25)).cgColor
                 button.layer.borderWidth = isSelected ? 2 : 1
                 button.layer.cornerRadius = 10
             }
+        }
+
+        private func configureSingleLineButton(_ button: UIButton, minimumScaleFactor: CGFloat) {
+            button.titleLabel?.numberOfLines = 1
+            button.titleLabel?.lineBreakMode = .byClipping
+            button.titleLabel?.adjustsFontSizeToFitWidth = true
+            button.titleLabel?.minimumScaleFactor = minimumScaleFactor
+            button.contentHorizontalAlignment = .center
         }
 
         @objc private func typeButtonTapped(_ sender: UIButton) {
@@ -1134,7 +1496,7 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
             selectedType = type
             let normalized = normalizedDetail(for: selectedType, detail: selectedDetail)
             selectedDetail = normalized.isEmpty ? defaultDetail(for: selectedType) : normalized
-            reloadDetail()
+            reloadDetail(animated: true)
             updateButtonStates()
             onChange?()
         }

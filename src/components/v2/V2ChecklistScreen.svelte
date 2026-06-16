@@ -63,7 +63,8 @@
       memo: string | null,
       tagNames?: string[],
       repeatType?: V2RepeatType,
-      repeatDetail?: string | null
+      repeatDetail?: string | null,
+      reminderAt?: string | null
     ) => MaybePromise;
     onDeleteItem: (id: number) => MaybePromise;
     onReorderItems: (itemIds: number[]) => MaybePromise;
@@ -1350,6 +1351,14 @@
               i18n.t('sat')
             ]
           }
+        },
+        {
+          id: 'reminderAt',
+          kind: 'time',
+          label: i18n.t('v2ItemReminderLabel'),
+          placeholder: i18n.t('v2ItemReminderPlaceholder'),
+          initialValue: item.reminder_at ?? '',
+          clearLabel: i18n.t('reminderClear')
         }
       ],
       confirmLabel: i18n.t('v2SaveItem'),
@@ -1372,6 +1381,7 @@
         const tagValues = nativeResult.values.tags;
         const repeatTypeValue = nativeResult.values.repeat;
         const repeatDetailValue = nativeResult.values.repeatDetail;
+        const reminderAtValue = nativeResult.values.reminderAt;
         const repeatType = asV2RepeatType(repeatTypeValue);
         await saveItemDetails(
           item.id,
@@ -1379,7 +1389,8 @@
           typeof memoValue === 'string' ? memoValue : '',
           Array.isArray(tagValues) ? tagValues : [],
           repeatType,
-          stringifyV2RepeatDetail(repeatType, parseNativeRepeatDetailValue(repeatDetailValue))
+          stringifyV2RepeatDetail(repeatType, parseNativeRepeatDetailValue(repeatDetailValue)),
+          typeof reminderAtValue === 'string' && reminderAtValue ? reminderAtValue : null
         );
       } catch {
         // The v2 store owns the visible error banner.
@@ -1393,13 +1404,14 @@
     memo: string | null,
     tagNames: string[] = [],
     repeatType: V2RepeatType = 'none',
-    repeatDetail: string | null = null
+    repeatDetail: string | null = null,
+    reminderAt: string | null = null
   ): Promise<void> {
     if (isSavingItemEdit) return;
 
     isSavingItemEdit = true;
     try {
-      await onUpdateItemDetails(id, text, memo, tagNames, repeatType, repeatDetail);
+      await onUpdateItemDetails(id, text, memo, tagNames, repeatType, repeatDetail, reminderAt);
     } finally {
       isSavingItemEdit = false;
     }

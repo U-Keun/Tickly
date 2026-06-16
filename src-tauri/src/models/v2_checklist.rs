@@ -58,6 +58,7 @@ pub struct V2TodoItem {
     pub repeat_detail: Option<String>,
     pub next_due_at: Option<String>,
     pub last_completed_at: Option<String>,
+    pub reminder_at: Option<String>,
     pub done: bool,
     pub display_order: i64,
     pub created_at: String,

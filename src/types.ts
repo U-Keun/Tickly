@@ -175,6 +175,7 @@ export interface V2TodoItem {
   repeat_detail: string | null;
   next_due_at: string | null;
   last_completed_at: string | null;
+  reminder_at: string | null;
   done: boolean;
   display_order: number;
   created_at: string;

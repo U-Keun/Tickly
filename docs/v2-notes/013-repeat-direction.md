@@ -30,7 +30,7 @@ flowchart LR
 
 ## Out Of Scope
 
-Notifications, Supabase sync, widgets, Streak screen, Graph screen, Archive screen, and data migration remain out of this slice.
+Supabase sync, widgets, Streak screen, Graph screen, Archive screen, and data migration remain out of this slice. Local reminder times are handled as item metadata in the reminder slice and are rescheduled when repeats reactivate.
 
 ## Verification
 

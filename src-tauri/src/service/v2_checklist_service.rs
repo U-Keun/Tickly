@@ -44,6 +44,10 @@ impl V2ChecklistService {
         V2ChecklistRepository::get_items(conn, category_id).map_err(|error| error.to_string())
     }
 
+    pub fn get_active_reminder_items(conn: &Connection) -> Result<Vec<V2TodoItem>, String> {
+        V2ChecklistRepository::get_active_reminder_items(conn).map_err(|error| error.to_string())
+    }
+
     pub fn get_tags(conn: &Connection) -> Result<Vec<V2Tag>, String> {
         V2ChecklistRepository::get_tags(conn).map_err(|error| error.to_string())
     }
@@ -90,6 +94,7 @@ impl V2ChecklistService {
         tag_names: &[String],
         repeat_type: &V2RepeatType,
         repeat_detail: Option<&str>,
+        reminder_at: Option<&str>,
     ) -> Result<V2TodoItem, String> {
         let trimmed_text = Self::trim_required(text, "Item text")?;
         let normalized_memo = memo.and_then(|value| {
@@ -102,6 +107,7 @@ impl V2ChecklistService {
         });
         let normalized_tags = Self::normalize_tag_names(tag_names)?;
         let normalized_repeat_detail = Self::normalize_repeat_detail(repeat_type, repeat_detail)?;
+        let normalized_reminder_at = Self::normalize_reminder_at(reminder_at)?;
         let Some(existing_item) =
             V2ChecklistRepository::get_item_by_id(conn, id).map_err(|error| error.to_string())?
         else {
@@ -127,6 +133,7 @@ impl V2ChecklistService {
             repeat_type,
             normalized_repeat_detail.as_deref(),
             next_due_at.as_deref(),
+            normalized_reminder_at.as_deref(),
         )
         .map_err(|error| error.to_string())
     }
@@ -314,6 +321,34 @@ impl V2ChecklistService {
         }
     }
 
+    fn normalize_reminder_at(reminder_at: Option<&str>) -> Result<Option<String>, String> {
+        let Some(value) = reminder_at else {
+            return Ok(None);
+        };
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            return Ok(None);
+        }
+
+        let parts: Vec<&str> = trimmed.split(':').collect();
+        if parts.len() != 2 || parts[0].len() != 2 || parts[1].len() != 2 {
+            return Err("Reminder time must use HH:MM format.".to_string());
+        }
+
+        let hour = parts[0]
+            .parse::<u32>()
+            .map_err(|_| "Reminder time must use HH:MM format.".to_string())?;
+        let minute = parts[1]
+            .parse::<u32>()
+            .map_err(|_| "Reminder time must use HH:MM format.".to_string())?;
+
+        if hour > 23 || minute > 59 {
+            return Err("Reminder time must use HH:MM format.".to_string());
+        }
+
+        Ok(Some(format!("{hour:02}:{minute:02}")))
+    }
+
     fn parse_repeat_values(repeat_detail: Option<&str>) -> Option<Vec<u32>> {
         repeat_detail.and_then(|value| serde_json::from_str::<Vec<u32>>(value).ok())
     }
@@ -487,6 +522,7 @@ mod tests {
             &[],
             &V2RepeatType::Weekly,
             Some("[]"),
+            None,
         )
         .unwrap_err();
 
@@ -507,6 +543,7 @@ mod tests {
             None,
             &[],
             &V2RepeatType::Daily,
+            None,
             None,
         )
         .unwrap();
@@ -551,6 +588,7 @@ mod tests {
             &[],
             &V2RepeatType::Daily,
             None,
+            Some("08:15"),
         )
         .unwrap();
         V2ChecklistService::toggle_item(&conn, item.id).unwrap();
@@ -569,6 +607,7 @@ mod tests {
         assert!(!next_item.done);
         assert_eq!(next_item.next_due_at, None);
         assert!(next_item.last_completed_at.is_some());
+        assert_eq!(next_item.reminder_at.as_deref(), Some("08:15"));
     }
 
     #[test]
@@ -620,6 +659,7 @@ mod tests {
             &[],
             &V2RepeatType::None,
             None,
+            Some("09:30"),
         )
         .unwrap();
         let updated = V2ChecklistRepository::get_item_by_id(&conn, item.id)
@@ -628,6 +668,7 @@ mod tests {
 
         assert_eq!(updated.text, "Wallet and keys");
         assert_eq!(updated.memo.as_deref(), Some("front pocket"));
+        assert_eq!(updated.reminder_at.as_deref(), Some("09:30"));
 
         V2ChecklistService::update_item_details(
             &conn,
@@ -637,6 +678,7 @@ mod tests {
             &[],
             &V2RepeatType::None,
             None,
+            Some("  "),
         )
         .unwrap();
         let cleared = V2ChecklistRepository::get_item_by_id(&conn, item.id)
@@ -644,6 +686,29 @@ mod tests {
             .unwrap();
 
         assert_eq!(cleared.memo, None);
+        assert_eq!(cleared.reminder_at, None);
+    }
+
+    #[test]
+    fn rejects_invalid_reminder_time() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        let item =
+            V2ChecklistService::create_item_with_tags(&conn, category_id, "Medicine", &[]).unwrap();
+
+        let error = V2ChecklistService::update_item_details(
+            &conn,
+            item.id,
+            "Medicine",
+            None,
+            &[],
+            &V2RepeatType::None,
+            None,
+            Some("25:99"),
+        )
+        .unwrap_err();
+
+        assert!(error.contains("Reminder time"));
     }
 
     #[test]
@@ -659,6 +724,7 @@ mod tests {
             Some("Keep it in the blue wallet pouch."),
             &[],
             &V2RepeatType::None,
+            None,
             None,
         )
         .unwrap();
