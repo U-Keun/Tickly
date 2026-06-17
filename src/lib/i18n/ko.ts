@@ -60,6 +60,7 @@ export const ko = {
   reorderItemsTitle: '항목 순서 정렬',
   reorderItemsSubtitle: '드래그해서 현재 카테고리의 순서를 바꿔보세요.',
   close: '닫기',
+  retry: '다시 시도',
   noItemsToReorder: '정렬할 항목이 없습니다.',
   done: '완료',
 
@@ -154,6 +155,18 @@ export const ko = {
   trackingStreak: '스트릭 추적 중',
   noTrackedItems: '추적 중인 항목이 없습니다',
   addStreakHint: '항목의 메모에서 스트릭 추적을 켜보세요!',
+  v2TrackStreak: '스트릭 활성화',
+  v2StreakOverlayTitle: '스트릭',
+  v2StreakOverlaySubtitle: '활성화한 항목의 완료 흐름을 확인하세요.',
+  v2StreakOverlayEmptyTitle: '아직 활성화한 스트릭이 없습니다.',
+  v2StreakOverlayEmptyMessage: '항목 상세 수정에서 스트릭을 켜면 여기에 히트맵이 표시됩니다.',
+  v2StreakLoadErrorTitle: '스트릭을 불러오지 못했습니다.',
+  v2StreakLoadErrorMessage: '스트릭 정보를 불러오는 중 문제가 생겼습니다.',
+  v2StreakTotalDays: '총 완료',
+  v2StreakCurrent: '현재',
+  v2StreakLongest: '최장',
+  v2StreakHeatmapLabel: '스트릭 히트맵',
+  v2StreakDailyCadence: '매일 기준',
 
   // Reset time settings
   resetTimeChange: '초기화 시간',

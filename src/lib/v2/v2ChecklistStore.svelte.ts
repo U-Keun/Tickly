@@ -2,6 +2,7 @@ import type {
   V2Category,
   V2ItemSearchResult,
   V2RepeatType,
+  V2StreakHeatmap,
   V2Tag,
   V2TodoItem
 } from '../../types';
@@ -295,11 +296,14 @@ async function updateItemDetails(
   tagNames: string[] = [],
   repeatType: V2RepeatType = 'none',
   repeatDetail: string | null = null,
-  reminderAt: string | null = null
+  reminderAt: string | null = null,
+  trackStreak?: boolean
 ): Promise<void> {
   errorMessage = null;
 
   try {
+    const nextTrackStreak =
+      trackStreak ?? items.find((item) => item.id === id)?.track_streak ?? false;
     const updatedItem = await v2ChecklistApi.v2UpdateItemDetails(
       id,
       text,
@@ -307,13 +311,24 @@ async function updateItemDetails(
       tagNames,
       repeatType,
       repeatDetail,
-      reminderAt
+      reminderAt,
+      nextTrackStreak
     );
     items = sortItems(items.map((item) => (item.id === id ? updatedItem : item)));
     await refreshTags();
     await v2ReminderNotificationApi.syncReminderForItem(updatedItem);
   } catch (error) {
     throw setError(error, 'Failed to update v2 item details.');
+  }
+}
+
+async function getStreakHeatmaps(): Promise<V2StreakHeatmap[]> {
+  errorMessage = null;
+
+  try {
+    return await v2ChecklistApi.v2GetStreakHeatmaps();
+  } catch (error) {
+    throw setError(error, 'Failed to load v2 streak heatmaps.');
   }
 }
 
@@ -465,6 +480,7 @@ export const v2ChecklistStore = {
   searchItems,
   updateItemText,
   updateItemDetails,
+  getStreakHeatmaps,
   toggleItem,
   processRepeatsAndReload,
   archiveCompletedItems,

@@ -62,6 +62,7 @@ export const ja: Translations = {
   reorderItemsTitle: '項目の並べ替え',
   reorderItemsSubtitle: 'ドラッグして現在のカテゴリの順序を変更できます。',
   close: '閉じる',
+  retry: '再試行',
   noItemsToReorder: '並べ替える項目がありません。',
   done: '完了',
 
@@ -156,6 +157,18 @@ export const ja: Translations = {
   trackingStreak: 'ストリーク追跡中',
   noTrackedItems: '追跡中の項目がありません',
   addStreakHint: '項目の詳細でストリーク追跡を有効にしましょう！',
+  v2TrackStreak: 'ストリークを有効化',
+  v2StreakOverlayTitle: 'ストリーク',
+  v2StreakOverlaySubtitle: '有効にした項目の達成リズムを確認できます。',
+  v2StreakOverlayEmptyTitle: '有効なストリークはまだありません。',
+  v2StreakOverlayEmptyMessage: '項目の詳細でストリークを有効にすると、ここにヒートマップが表示されます。',
+  v2StreakLoadErrorTitle: 'ストリークを読み込めませんでした。',
+  v2StreakLoadErrorMessage: 'ストリーク情報の読み込み中に問題が発生しました。',
+  v2StreakTotalDays: '合計',
+  v2StreakCurrent: '現在',
+  v2StreakLongest: '最長',
+  v2StreakHeatmapLabel: 'ストリークヒートマップ',
+  v2StreakDailyCadence: '毎日基準',
 
   // Reset time settings
   resetTimeChange: 'リセット時間',

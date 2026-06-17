@@ -2,7 +2,8 @@ use tauri::State;
 
 use super::with_db;
 use crate::models::{
-    V2ArchivedItem, V2Category, V2ItemSearchResult, V2RepeatType, V2Tag, V2TodoItem,
+    V2ArchivedItem, V2Category, V2ItemSearchResult, V2RepeatType, V2StreakHeatmap, V2Tag,
+    V2TodoItem,
 };
 use crate::service::V2ChecklistService;
 use crate::AppState;
@@ -95,6 +96,7 @@ pub fn v2_update_item_details(
     repeat_type: Option<String>,
     repeat_detail: Option<String>,
     reminder_at: Option<String>,
+    track_streak: Option<bool>,
     state: State<AppState>,
 ) -> Result<V2TodoItem, String> {
     let repeat = repeat_type
@@ -112,6 +114,7 @@ pub fn v2_update_item_details(
             &repeat,
             repeat_detail.as_deref(),
             reminder_at.as_deref(),
+            track_streak,
         )
     })
 }
@@ -150,6 +153,11 @@ pub fn v2_delete_archived_item(id: i64, state: State<AppState>) -> Result<(), St
     with_db(&state, |db| {
         V2ChecklistService::delete_archived_item(db, id)
     })
+}
+
+#[tauri::command]
+pub fn v2_get_streak_heatmaps(state: State<AppState>) -> Result<Vec<V2StreakHeatmap>, String> {
+    with_db(&state, V2ChecklistService::get_streak_heatmaps)
 }
 
 #[tauri::command]

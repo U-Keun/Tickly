@@ -10,7 +10,9 @@ const repeatDefaults = {
   next_due_at: null,
   last_completed_at: null,
   reminder_at: null,
-  archived_at: null
+  archived_at: null,
+  track_streak: false,
+  streak_started_on: null
 };
 
 const tags: V2Tag[] = [
@@ -275,6 +277,8 @@ export const RepeatItems: Story = {
         last_completed_at: null,
         reminder_at: null,
         archived_at: null,
+        track_streak: false,
+        streak_started_on: null,
         done: false,
         display_order: 3000,
         created_at: now,

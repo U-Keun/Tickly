@@ -15,6 +15,8 @@ const item: V2TodoItem = {
   last_completed_at: null,
   reminder_at: null,
   archived_at: null,
+  track_streak: false,
+  streak_started_on: null,
   done: false,
   display_order: 1000,
   created_at: '2026-06-08T00:00:00Z',
@@ -86,6 +88,16 @@ export const WithReminder: Story = {
   }
 };
 
+export const WithStreakEnabled: Story = {
+  args: {
+    item: {
+      ...item,
+      track_streak: true,
+      streak_started_on: '2026-06-08'
+    }
+  }
+};
+
 export const FullEditingSurface: Story = {
   args: {
     item: {
@@ -98,7 +110,9 @@ export const FullEditingSurface: Story = {
       ],
       repeat_type: 'weekly',
       repeat_detail: '[1,3,5]',
-      reminder_at: '18:30'
+      reminder_at: '18:30',
+      track_streak: true,
+      streak_started_on: '2026-06-08'
     },
     availableTags: [
       { id: 1, name: 'design', created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-08T00:00:00Z' },

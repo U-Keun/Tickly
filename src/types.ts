@@ -177,6 +177,8 @@ export interface V2TodoItem {
   last_completed_at: string | null;
   reminder_at: string | null;
   archived_at: string | null;
+  track_streak: boolean;
+  streak_started_on: string | null;
   done: boolean;
   display_order: number;
   created_at: string;
@@ -198,6 +200,24 @@ export interface V2ItemSearchResult {
 export interface V2ArchivedItem {
   item: V2TodoItem;
   category: V2Category;
+}
+
+export interface V2StreakLog {
+  completed_on: string;
+  completed_count: number;
+  combo_intensity: number;
+}
+
+export interface V2StreakHeatmap {
+  item: V2TodoItem;
+  category: V2Category;
+  logs: V2StreakLog[];
+  combo_intensity: number;
+  total_days: number;
+  current_streak: number;
+  longest_streak: number;
+  current_streak_dates: string[];
+  longest_streak_dates: string[];
 }
 
 // Auth types

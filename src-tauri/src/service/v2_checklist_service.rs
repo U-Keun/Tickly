@@ -2,11 +2,90 @@ use chrono::{Datelike, Local, NaiveDate, NaiveTime};
 use rusqlite::Connection;
 
 use crate::models::{
-    V2ArchivedItem, V2Category, V2ItemSearchResult, V2RepeatType, V2Tag, V2TodoItem,
+    V2ArchivedItem, V2Category, V2ItemSearchResult, V2RepeatType, V2StreakHeatmap, V2StreakLog,
+    V2Tag, V2TodoItem,
 };
 use crate::repository::{SettingsRepository, V2ChecklistRepository};
 
 pub struct V2ChecklistService;
+
+enum V2StreakCadence {
+    Daily,
+    Weekly([bool; 7]),
+    Monthly([bool; 32]),
+}
+
+#[derive(Default)]
+struct V2StreakStats {
+    current_streak: i64,
+    longest_streak: i64,
+    current_streak_dates: Vec<NaiveDate>,
+    longest_streak_dates: Vec<NaiveDate>,
+}
+
+impl V2StreakCadence {
+    fn from_repeat(repeat_type: &V2RepeatType, repeat_detail: Option<&str>) -> Self {
+        match repeat_type {
+            V2RepeatType::None | V2RepeatType::Daily => Self::Daily,
+            V2RepeatType::Weekly => {
+                let mut weekdays = [false; 7];
+                for value in
+                    V2ChecklistService::parse_repeat_values(repeat_detail).unwrap_or_default()
+                {
+                    if value <= 6 {
+                        weekdays[value as usize] = true;
+                    }
+                }
+
+                if weekdays.iter().any(|enabled| *enabled) {
+                    Self::Weekly(weekdays)
+                } else {
+                    Self::Daily
+                }
+            }
+            V2RepeatType::Monthly => {
+                let mut month_days = [false; 32];
+                for value in
+                    V2ChecklistService::parse_repeat_values(repeat_detail).unwrap_or_default()
+                {
+                    if (1..=31).contains(&value) {
+                        month_days[value as usize] = true;
+                    }
+                }
+
+                if month_days.iter().skip(1).any(|enabled| *enabled) {
+                    Self::Monthly(month_days)
+                } else {
+                    Self::Daily
+                }
+            }
+        }
+    }
+
+    fn is_scheduled_on(&self, date: NaiveDate) -> bool {
+        match self {
+            Self::Daily => true,
+            Self::Weekly(weekdays) => weekdays[date.weekday().num_days_from_sunday() as usize],
+            Self::Monthly(month_days) => month_days[date.day() as usize],
+        }
+    }
+
+    fn next_scheduled_after(&self, date: NaiveDate) -> NaiveDate {
+        if let Self::Daily = self {
+            return date + chrono::Duration::days(1);
+        }
+
+        let mut candidate = date + chrono::Duration::days(1);
+        for _ in 0..400 {
+            if self.is_scheduled_on(candidate) {
+                return candidate;
+            }
+            candidate += chrono::Duration::days(1);
+        }
+
+        date + chrono::Duration::days(1)
+    }
+}
 
 impl V2ChecklistService {
     pub fn get_categories(conn: &Connection) -> Result<Vec<V2Category>, String> {
@@ -97,6 +176,7 @@ impl V2ChecklistService {
         repeat_type: &V2RepeatType,
         repeat_detail: Option<&str>,
         reminder_at: Option<&str>,
+        track_streak: Option<bool>,
     ) -> Result<V2TodoItem, String> {
         let trimmed_text = Self::trim_required(text, "Item text")?;
         let normalized_memo = memo.and_then(|value| {
@@ -115,8 +195,17 @@ impl V2ChecklistService {
         else {
             return Err("Item not found.".to_string());
         };
+        let logical_date = Self::logical_date(conn)?;
+        let next_track_streak = track_streak.unwrap_or(existing_item.track_streak);
+        let next_streak_started_on = if next_track_streak {
+            existing_item
+                .streak_started_on
+                .clone()
+                .or_else(|| Some(logical_date.format("%Y-%m-%d").to_string()))
+        } else {
+            None
+        };
         let next_due_at = if existing_item.done && *repeat_type != V2RepeatType::None {
-            let logical_date = Self::logical_date(conn)?;
             Self::calculate_next_due(
                 repeat_type,
                 normalized_repeat_detail.as_deref(),
@@ -136,6 +225,8 @@ impl V2ChecklistService {
             normalized_repeat_detail.as_deref(),
             next_due_at.as_deref(),
             normalized_reminder_at.as_deref(),
+            next_track_streak,
+            next_streak_started_on.as_deref(),
         )
         .map_err(|error| error.to_string())
     }
@@ -191,6 +282,60 @@ impl V2ChecklistService {
 
     pub fn delete_archived_item(conn: &Connection, id: i64) -> Result<(), String> {
         V2ChecklistRepository::delete_archived_item(conn, id).map_err(|error| error.to_string())
+    }
+
+    pub fn get_streak_heatmaps(conn: &Connection) -> Result<Vec<V2StreakHeatmap>, String> {
+        let logical_date = Self::logical_date(conn)?;
+        let oldest_heatmap_date = logical_date - chrono::Duration::days(364);
+        let tracked_items =
+            V2ChecklistRepository::get_streak_items(conn).map_err(|error| error.to_string())?;
+
+        let mut heatmaps = Vec::new();
+        for tracked in tracked_items {
+            let started_on = tracked
+                .item
+                .streak_started_on
+                .as_deref()
+                .and_then(|value| NaiveDate::parse_from_str(value, "%Y-%m-%d").ok())
+                .unwrap_or(logical_date);
+            let all_logs = V2ChecklistRepository::get_completion_logs_for_item(
+                conn,
+                tracked.item.id,
+                &started_on.format("%Y-%m-%d").to_string(),
+            )
+            .map_err(|error| error.to_string())?;
+            let cadence = V2StreakCadence::from_repeat(
+                &tracked.item.repeat_type,
+                tracked.item.repeat_detail.as_deref(),
+            );
+            let completion_dates = Self::scheduled_completion_dates(&all_logs, &cadence);
+            let streak_segments = Self::build_streak_segments(&completion_dates, &cadence);
+            let streak_stats = Self::calculate_streaks(&streak_segments, &cadence, logical_date);
+            let combo_intensity = Self::build_combo_intensity(&streak_segments);
+            let logs = Self::heatmap_logs_for_recent_days(
+                &all_logs,
+                &combo_intensity,
+                oldest_heatmap_date.max(started_on),
+            );
+
+            heatmaps.push(V2StreakHeatmap {
+                item: tracked.item,
+                category: tracked.category,
+                combo_intensity: logs
+                    .iter()
+                    .map(|log| log.combo_intensity)
+                    .max()
+                    .unwrap_or_default(),
+                total_days: completion_dates.len() as i64,
+                current_streak: streak_stats.current_streak,
+                longest_streak: streak_stats.longest_streak,
+                current_streak_dates: Self::format_dates(&streak_stats.current_streak_dates),
+                longest_streak_dates: Self::format_dates(&streak_stats.longest_streak_dates),
+                logs,
+            });
+        }
+
+        Ok(heatmaps)
     }
 
     pub fn delete_item(conn: &Connection, id: i64) -> Result<(), String> {
@@ -373,6 +518,140 @@ impl V2ChecklistService {
         repeat_detail.and_then(|value| serde_json::from_str::<Vec<u32>>(value).ok())
     }
 
+    fn scheduled_completion_dates(
+        logs: &[V2StreakLog],
+        cadence: &V2StreakCadence,
+    ) -> Vec<NaiveDate> {
+        logs.iter()
+            .filter_map(|log| NaiveDate::parse_from_str(&log.completed_on, "%Y-%m-%d").ok())
+            .filter(|date| cadence.is_scheduled_on(*date))
+            .collect()
+    }
+
+    fn build_streak_segments(
+        completion_dates: &[NaiveDate],
+        cadence: &V2StreakCadence,
+    ) -> Vec<Vec<NaiveDate>> {
+        if completion_dates.is_empty() {
+            return Vec::new();
+        }
+
+        let mut segments = Vec::new();
+        let mut current_segment = vec![completion_dates[0]];
+        let mut previous_date = completion_dates[0];
+
+        for date in completion_dates.iter().copied().skip(1) {
+            let expected_next = cadence.next_scheduled_after(previous_date);
+            if date == expected_next {
+                current_segment.push(date);
+            } else {
+                segments.push(current_segment);
+                current_segment = vec![date];
+            }
+            previous_date = date;
+        }
+
+        segments.push(current_segment);
+        segments
+    }
+
+    fn calculate_streaks(
+        streak_segments: &[Vec<NaiveDate>],
+        cadence: &V2StreakCadence,
+        today: NaiveDate,
+    ) -> V2StreakStats {
+        if streak_segments.is_empty() {
+            return V2StreakStats::default();
+        }
+
+        let mut longest_segment = &streak_segments[0];
+        for segment in streak_segments.iter().skip(1) {
+            if segment.len() >= longest_segment.len() {
+                longest_segment = segment;
+            }
+        }
+
+        let current_segment = streak_segments.last().unwrap_or(longest_segment);
+        let last_completion = *current_segment.last().unwrap_or(&today);
+        let next_expected = cadence.next_scheduled_after(last_completion);
+        let current_streak_dates = if next_expected >= today {
+            current_segment.clone()
+        } else {
+            Vec::new()
+        };
+
+        V2StreakStats {
+            current_streak: current_streak_dates.len() as i64,
+            longest_streak: longest_segment.len() as i64,
+            current_streak_dates,
+            longest_streak_dates: longest_segment.clone(),
+        }
+    }
+
+    fn build_combo_intensity(streak_segments: &[Vec<NaiveDate>]) -> Vec<(String, i64)> {
+        let mut intensities = Vec::new();
+
+        for segment in streak_segments {
+            for (index, date) in segment.iter().enumerate() {
+                intensities.push((
+                    date.format("%Y-%m-%d").to_string(),
+                    Self::combo_level_for_length(index + 1),
+                ));
+            }
+        }
+
+        intensities
+    }
+
+    fn combo_level_for_length(length: usize) -> i64 {
+        match length {
+            0 => 0,
+            1 => 1,
+            2 => 2,
+            3 => 3,
+            4 => 4,
+            5..=6 => 5,
+            7..=9 => 6,
+            10..=13 => 7,
+            14..=18 => 8,
+            19..=25 => 9,
+            _ => 10,
+        }
+    }
+
+    fn heatmap_logs_for_recent_days(
+        logs: &[V2StreakLog],
+        combo_intensity: &[(String, i64)],
+        oldest_date: NaiveDate,
+    ) -> Vec<V2StreakLog> {
+        logs.iter()
+            .filter(|log| {
+                NaiveDate::parse_from_str(&log.completed_on, "%Y-%m-%d")
+                    .map(|date| date >= oldest_date)
+                    .unwrap_or(false)
+            })
+            .map(|log| {
+                let level = combo_intensity
+                    .iter()
+                    .find(|(completed_on, _)| completed_on == &log.completed_on)
+                    .map(|(_, level)| *level)
+                    .unwrap_or_default();
+                V2StreakLog {
+                    completed_on: log.completed_on.clone(),
+                    completed_count: log.completed_count,
+                    combo_intensity: level,
+                }
+            })
+            .collect()
+    }
+
+    fn format_dates(dates: &[NaiveDate]) -> Vec<String> {
+        dates
+            .iter()
+            .map(|date| date.format("%Y-%m-%d").to_string())
+            .collect()
+    }
+
     fn parse_and_validate_repeat_values(
         repeat_detail: Option<&str>,
         min: u32,
@@ -462,6 +741,16 @@ mod tests {
         .unwrap_or(0)
     }
 
+    fn insert_completion_log(conn: &Connection, item_id: i64, completed_on: &str) {
+        conn.execute(
+            "INSERT INTO v2_completion_logs
+                (item_id, completed_on, completed_count, created_at, updated_at)
+             VALUES (?1, ?2, 1, '2026-06-17T00:00:00Z', '2026-06-17T00:00:00Z')",
+            rusqlite::params![item_id, completed_on],
+        )
+        .unwrap();
+    }
+
     #[test]
     fn rejects_empty_category_names() {
         let conn = setup_conn();
@@ -488,10 +777,109 @@ mod tests {
 
         assert_eq!(item.text, "Wallet");
         assert_eq!(item.memo, None);
+        assert!(!item.track_streak);
+        assert_eq!(item.streak_started_on, None);
         assert!(!item.done);
 
         let toggled = V2ChecklistService::toggle_item(&conn, item.id).unwrap();
         assert!(toggled.done);
+    }
+
+    #[test]
+    fn enables_and_disables_v2_streak_from_logical_date() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        let item =
+            V2ChecklistService::create_item_with_tags(&conn, category_id, "Walk", &[]).unwrap();
+        let logical_date = V2ChecklistService::logical_date(&conn)
+            .unwrap()
+            .format("%Y-%m-%d")
+            .to_string();
+
+        let enabled = V2ChecklistService::update_item_details(
+            &conn,
+            item.id,
+            "Walk",
+            None,
+            &[],
+            &V2RepeatType::None,
+            None,
+            None,
+            Some(true),
+        )
+        .unwrap();
+
+        assert!(enabled.track_streak);
+        assert_eq!(
+            enabled.streak_started_on.as_deref(),
+            Some(logical_date.as_str())
+        );
+
+        let disabled = V2ChecklistService::update_item_details(
+            &conn,
+            item.id,
+            "Walk",
+            None,
+            &[],
+            &V2RepeatType::None,
+            None,
+            None,
+            Some(false),
+        )
+        .unwrap();
+
+        assert!(!disabled.track_streak);
+        assert_eq!(disabled.streak_started_on, None);
+    }
+
+    #[test]
+    fn streak_heatmap_ignores_logs_before_streak_started_on() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        let item =
+            V2ChecklistService::create_item_with_tags(&conn, category_id, "Read", &[]).unwrap();
+        conn.execute(
+            "UPDATE v2_todos
+             SET track_streak = 1, streak_started_on = '2026-06-01'
+             WHERE id = ?1",
+            rusqlite::params![item.id],
+        )
+        .unwrap();
+        insert_completion_log(&conn, item.id, "2026-05-31");
+        insert_completion_log(&conn, item.id, "2026-06-01");
+        insert_completion_log(&conn, item.id, "2026-06-02");
+
+        let heatmaps = V2ChecklistService::get_streak_heatmaps(&conn).unwrap();
+
+        assert_eq!(heatmaps.len(), 1);
+        assert_eq!(heatmaps[0].logs.len(), 2);
+        assert_eq!(heatmaps[0].logs[0].completed_on, "2026-06-01");
+        assert_eq!(heatmaps[0].total_days, 2);
+        assert!(heatmaps[0].longest_streak >= 2);
+    }
+
+    #[test]
+    fn weekly_streak_counts_scheduled_slots_only() {
+        let logs = vec![
+            V2StreakLog {
+                completed_on: "2026-03-02".to_string(),
+                completed_count: 1,
+                combo_intensity: 0,
+            },
+            V2StreakLog {
+                completed_on: "2026-03-04".to_string(),
+                completed_count: 1,
+                combo_intensity: 0,
+            },
+        ];
+        let cadence = V2StreakCadence::from_repeat(&V2RepeatType::Weekly, Some("[1,3,5]"));
+        let completion_dates = V2ChecklistService::scheduled_completion_dates(&logs, &cadence);
+        let streak_segments =
+            V2ChecklistService::build_streak_segments(&completion_dates, &cadence);
+        let stats =
+            V2ChecklistService::calculate_streaks(&streak_segments, &cadence, date(2026, 3, 6));
+
+        assert_eq!((stats.current_streak, stats.longest_streak), (2, 2));
     }
 
     #[test]
@@ -543,6 +931,7 @@ mod tests {
             &V2RepeatType::Weekly,
             Some("[]"),
             None,
+            None,
         )
         .unwrap_err();
 
@@ -563,6 +952,7 @@ mod tests {
             None,
             &[],
             &V2RepeatType::Daily,
+            None,
             None,
             None,
         )
@@ -609,6 +999,7 @@ mod tests {
             &V2RepeatType::Daily,
             None,
             Some("08:15"),
+            None,
         )
         .unwrap();
         V2ChecklistService::toggle_item(&conn, item.id).unwrap();
@@ -680,6 +1071,7 @@ mod tests {
             &V2RepeatType::None,
             None,
             Some("09:30"),
+            None,
         )
         .unwrap();
         let updated = V2ChecklistRepository::get_item_by_id(&conn, item.id)
@@ -699,6 +1091,7 @@ mod tests {
             &V2RepeatType::None,
             None,
             Some("  "),
+            None,
         )
         .unwrap();
         let cleared = V2ChecklistRepository::get_item_by_id(&conn, item.id)
@@ -725,6 +1118,7 @@ mod tests {
             &V2RepeatType::None,
             None,
             Some("25:99"),
+            None,
         )
         .unwrap_err();
 
@@ -744,6 +1138,7 @@ mod tests {
             Some("Keep it in the blue wallet pouch."),
             &[],
             &V2RepeatType::None,
+            None,
             None,
             None,
         )

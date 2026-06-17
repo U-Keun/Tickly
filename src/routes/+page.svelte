@@ -3,20 +3,39 @@
   import { onMount } from 'svelte';
 
   import V2ChecklistScreen from '../components/v2/V2ChecklistScreen.svelte';
+  import V2StreakOverlay from '../components/v2/V2StreakOverlay.svelte';
   import * as v2NativeDockApi from '../lib/api/v2NativeDockApi';
   import { initializeFonts } from '../lib/fonts';
   import { i18n } from '../lib/i18n';
   import { initializeTheme } from '../lib/themes';
   import { v2ChecklistStore } from '../lib/v2/v2ChecklistStore.svelte';
+  import type { V2StreakHeatmap } from '../types';
 
   let nativeDockSupported = $state(false);
   let nativeDockRequestedVisible = $state(true);
   let nativeSheetOpen = $state(false);
+  let webEditableFocused = $state(false);
   let archiveRequestToken = $state(0);
-  let nativeDockVisible = $derived(nativeDockSupported && nativeDockRequestedVisible && !nativeSheetOpen);
+  let showStreakOverlay = $state(false);
+  let isLoadingStreakHeatmaps = $state(false);
+  let streakHeatmapError = $state<string | null>(null);
+  let streakHeatmaps = $state<V2StreakHeatmap[]>([]);
+  let nativeDockVisible = $derived(
+    nativeDockSupported &&
+      nativeDockRequestedVisible &&
+      !nativeSheetOpen &&
+      !webEditableFocused &&
+      !showStreakOverlay
+  );
 
   function shouldShowNativeDock(): boolean {
-    return nativeDockSupported && nativeDockRequestedVisible && !nativeSheetOpen;
+    return (
+      nativeDockSupported &&
+      nativeDockRequestedVisible &&
+      !nativeSheetOpen &&
+      !webEditableFocused &&
+      !showStreakOverlay
+    );
   }
 
   function buildNativeDockRequest(visible: boolean): v2NativeDockApi.V2NativeDockRequest {
@@ -55,7 +74,53 @@
       return;
     }
 
+    if (actionId === 'streak') {
+      void openStreakOverlay();
+      return;
+    }
+
     console.info(`Tickly native ${actionId} dock action requested`);
+  }
+
+  async function loadStreakHeatmaps(): Promise<void> {
+    isLoadingStreakHeatmaps = true;
+    streakHeatmapError = null;
+    try {
+      streakHeatmaps = await v2ChecklistStore.getStreakHeatmaps();
+    } catch (error) {
+      streakHeatmapError =
+        error instanceof Error ? error.message : i18n.t('v2StreakLoadErrorMessage');
+    } finally {
+      isLoadingStreakHeatmaps = false;
+    }
+  }
+
+  async function openStreakOverlay(): Promise<void> {
+    showStreakOverlay = true;
+    syncNativeDock();
+    await loadStreakHeatmaps();
+  }
+
+  function closeStreakOverlay(): void {
+    showStreakOverlay = false;
+    syncNativeDock();
+  }
+
+  function isEditableElement(target: EventTarget | Element | null): boolean {
+    if (!(target instanceof HTMLElement)) return false;
+
+    return (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target.isContentEditable
+    );
+  }
+
+  function setWebEditableFocused(focused: boolean): void {
+    if (webEditableFocused === focused) return;
+
+    webEditableFocused = focused;
+    syncNativeDock();
   }
 
   onMount(() => {
@@ -78,6 +143,16 @@
       nativeSheetOpen = detail?.isOpen === true;
       syncNativeDock();
     };
+    const handleFocusIn = (event: FocusEvent): void => {
+      if (isEditableElement(event.target)) {
+        setWebEditableFocused(true);
+      }
+    };
+    const handleFocusOut = (): void => {
+      window.setTimeout(() => {
+        setWebEditableFocused(isEditableElement(document.activeElement));
+      }, 0);
+    };
     const handleVisibilityChange = (): void => {
       if (document.visibilityState !== 'visible') {
         v2ChecklistStore.disposeRepeatProcessingTimer();
@@ -93,6 +168,8 @@
     };
 
     window.addEventListener('tickly:nativeSheetState', handleNativeSheetState);
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     void i18n.loadLocale().finally(() => {
@@ -102,6 +179,8 @@
     return () => {
       removeNativeDockActionListener();
       window.removeEventListener('tickly:nativeSheetState', handleNativeSheetState);
+      document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('focusout', handleFocusOut);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       v2ChecklistStore.disposeRepeatProcessingTimer();
       if (nativeDockSupported) {
@@ -132,4 +211,13 @@
   onArchiveCompletedItems={v2ChecklistStore.archiveCompletedItems}
   {nativeDockVisible}
   onNativeDockVisibilityChange={setNativeDockRequestedVisible}
+/>
+
+<V2StreakOverlay
+  show={showStreakOverlay}
+  heatmaps={streakHeatmaps}
+  isLoading={isLoadingStreakHeatmaps}
+  errorMessage={streakHeatmapError}
+  onRefresh={loadStreakHeatmaps}
+  onClose={closeStreakOverlay}
 />

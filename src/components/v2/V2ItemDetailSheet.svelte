@@ -1,11 +1,13 @@
 <script lang="ts">
+  import { Flame } from '@lucide/svelte';
+
+  import type { V2RepeatType, V2Tag, V2TodoItem } from '../../types';
   import { iosFocusFix } from '$lib/iosFocusFix';
   import { i18n } from '$lib/i18n';
   import {
     parseV2RepeatDetail,
     stringifyV2RepeatDetail
   } from '$lib/v2/v2Repeat';
-  import type { V2RepeatType, V2Tag, V2TodoItem } from '../../types';
   import V2BottomSheet from './V2BottomSheet.svelte';
   import V2RepeatEditor from './V2RepeatEditor.svelte';
   import V2TagEditor from './V2TagEditor.svelte';
@@ -24,7 +26,8 @@
       tagNames?: string[],
       repeatType?: V2RepeatType,
       repeatDetail?: string | null,
-      reminderAt?: string | null
+      reminderAt?: string | null,
+      trackStreak?: boolean
     ) => MaybePromise;
     onClose: () => void;
   }
@@ -44,6 +47,7 @@
   let draftRepeatType = $state<V2RepeatType>('none');
   let draftRepeatDetail = $state<number[]>([]);
   let draftReminderAt = $state('');
+  let draftTrackStreak = $state(false);
   let preparedItemId = $state<number | null>(null);
 
   let trimmedText = $derived(draftText.trim());
@@ -59,6 +63,7 @@
       draftRepeatType = 'none';
       draftRepeatDetail = [];
       draftReminderAt = '';
+      draftTrackStreak = false;
       preparedItemId = null;
       return;
     }
@@ -70,6 +75,7 @@
       draftRepeatType = item.repeat_type;
       draftRepeatDetail = parseV2RepeatDetail(item.repeat_detail);
       draftReminderAt = item.reminder_at ?? '';
+      draftTrackStreak = item.track_streak;
       preparedItemId = item.id;
     }
   });
@@ -91,7 +97,8 @@
         draftTagNames,
         draftRepeatType,
         stringifyV2RepeatDetail(draftRepeatType, draftRepeatDetail),
-        draftReminderAt || null
+        draftReminderAt || null,
+        draftTrackStreak
       );
       onClose();
     } catch {
@@ -202,6 +209,36 @@
             {i18n.t('v2ItemReminderPlaceholder')}
           </span>
         {/if}
+      </label>
+
+      <label class="flex min-h-[52px] items-center gap-3 rounded-[14px] border-2 border-[var(--color-ink)] bg-[var(--color-paper)] px-[14px] py-2">
+        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--color-white)] text-[var(--color-ink-muted)]">
+          <Flame size={18} strokeWidth={2.4} aria-hidden="true" />
+        </span>
+        <span class="min-w-0 flex-1 text-base font-semibold text-[var(--color-ink)]">
+          {i18n.t('v2TrackStreak')}
+        </span>
+        <input
+          type="checkbox"
+          class="sr-only"
+          bind:checked={draftTrackStreak}
+          disabled={isSaving}
+          aria-label={i18n.t('v2TrackStreak')}
+        />
+        <span
+          class={`relative h-8 w-[52px] shrink-0 rounded-full border-2 transition-colors ${
+            draftTrackStreak
+              ? 'border-[var(--color-ink)] bg-[var(--color-accent-sky)]'
+              : 'border-[var(--color-stroke)] bg-[var(--color-white)]'
+          }`}
+          aria-hidden="true"
+        >
+          <span
+            class={`absolute top-1/2 h-6 w-6 -translate-y-1/2 rounded-full border-2 border-[var(--color-ink)] bg-[var(--color-paper)] transition-transform ${
+              draftTrackStreak ? 'translate-x-[22px]' : 'translate-x-1'
+            }`}
+          ></span>
+        </span>
       </label>
 
     </form>

@@ -60,6 +60,8 @@ pub struct V2TodoItem {
     pub last_completed_at: Option<String>,
     pub reminder_at: Option<String>,
     pub archived_at: Option<String>,
+    pub track_streak: bool,
+    pub streak_started_on: Option<String>,
     pub done: bool,
     pub display_order: i64,
     pub created_at: String,
@@ -84,4 +86,24 @@ pub struct V2ItemSearchResult {
 pub struct V2ArchivedItem {
     pub item: V2TodoItem,
     pub category: V2Category,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct V2StreakLog {
+    pub completed_on: String,
+    pub completed_count: i64,
+    pub combo_intensity: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct V2StreakHeatmap {
+    pub item: V2TodoItem,
+    pub category: V2Category,
+    pub logs: Vec<V2StreakLog>,
+    pub combo_intensity: i64,
+    pub total_days: i64,
+    pub current_streak: i64,
+    pub longest_streak: i64,
+    pub current_streak_dates: Vec<String>,
+    pub longest_streak_dates: Vec<String>,
 }

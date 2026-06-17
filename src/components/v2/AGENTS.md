@@ -10,7 +10,8 @@ Apply parent component rules first.
 - v2 local repeat rules are now in scope as item metadata. Keep repeat UI local to v2 data and commands.
 - v2 local reminders are now in scope as item metadata. Keep reminder UI local to v2 data and v2 notification APIs, not v1 notification stores.
 - v2 local archive is now in scope as a cleanup surface for completed non-repeating items. Keep archive UI local to v2 props/API/store data.
-- Do not add sync, widget, graph, or streak behavior here until v2 scope expands.
+- v2 local streak is now in scope for opt-in item tracking and the v2 Streak overlay. Keep it backed by v2 completion logs and v2 props/API/store data.
+- Do not add sync, widget, or graph behavior here until v2 scope expands.
 
 ## Storybook
 

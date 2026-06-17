@@ -17,6 +17,8 @@ const item: V2TodoItem = {
   last_completed_at: null,
   reminder_at: null,
   archived_at: null,
+  track_streak: false,
+  streak_started_on: null,
   done: false,
   display_order: 1000,
   created_at: '2026-06-08T00:00:00Z',

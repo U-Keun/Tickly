@@ -23,6 +23,8 @@
     last_completed_at: null,
     reminder_at: null,
     archived_at: null,
+    track_streak: false,
+    streak_started_on: null,
     done,
     display_order: 1000,
     created_at: now,

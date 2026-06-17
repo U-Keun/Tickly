@@ -66,7 +66,8 @@
       tagNames?: string[],
       repeatType?: V2RepeatType,
       repeatDetail?: string | null,
-      reminderAt?: string | null
+      reminderAt?: string | null,
+      trackStreak?: boolean
     ) => MaybePromise;
     onDeleteItem: (id: number) => MaybePromise;
     onReorderItems: (itemIds: number[]) => MaybePromise;
@@ -1423,6 +1424,13 @@
           placeholder: i18n.t('v2ItemReminderPlaceholder'),
           initialValue: item.reminder_at ?? '',
           clearLabel: i18n.t('reminderClear')
+        },
+        {
+          id: 'trackStreak',
+          kind: 'toggle',
+          label: i18n.t('v2TrackStreak'),
+          placeholder: '',
+          initialValue: item.track_streak ? 'true' : 'false'
         }
       ],
       confirmLabel: i18n.t('v2SaveItem'),
@@ -1446,7 +1454,10 @@
         const repeatTypeValue = nativeResult.values.repeat;
         const repeatDetailValue = nativeResult.values.repeatDetail;
         const reminderAtValue = nativeResult.values.reminderAt;
+        const trackStreakValue = nativeResult.values.trackStreak;
         const repeatType = asV2RepeatType(repeatTypeValue);
+        const trackStreak =
+          typeof trackStreakValue === 'string' ? trackStreakValue === 'true' : item.track_streak;
         await saveItemDetails(
           item.id,
           typeof textValue === 'string' ? textValue : '',
@@ -1454,7 +1465,8 @@
           Array.isArray(tagValues) ? tagValues : [],
           repeatType,
           stringifyV2RepeatDetail(repeatType, parseNativeRepeatDetailValue(repeatDetailValue)),
-          typeof reminderAtValue === 'string' && reminderAtValue ? reminderAtValue : null
+          typeof reminderAtValue === 'string' && reminderAtValue ? reminderAtValue : null,
+          trackStreak
         );
       } catch {
         // The v2 store owns the visible error banner.
@@ -1469,13 +1481,23 @@
     tagNames: string[] = [],
     repeatType: V2RepeatType = 'none',
     repeatDetail: string | null = null,
-    reminderAt: string | null = null
+    reminderAt: string | null = null,
+    trackStreak = false
   ): Promise<void> {
     if (isSavingItemEdit) return;
 
     isSavingItemEdit = true;
     try {
-      await onUpdateItemDetails(id, text, memo, tagNames, repeatType, repeatDetail, reminderAt);
+      await onUpdateItemDetails(
+        id,
+        text,
+        memo,
+        tagNames,
+        repeatType,
+        repeatDetail,
+        reminderAt,
+        trackStreak
+      );
     } finally {
       isSavingItemEdit = false;
     }
@@ -1550,7 +1572,7 @@
         nativeDockVisible ? 'pb-0' : 'pb-[max(0.75rem,var(--safe-area-bottom))]'
       }`}
     >
-      <div class="relative z-30 mb-4">
+      <div class="relative z-50 mb-4">
         <V2LeafCommandBar
           mode={searchMode ? 'search' : 'add'}
           searchQuery={searchQuery}

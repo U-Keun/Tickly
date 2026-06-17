@@ -35,7 +35,7 @@ export interface V2NativeRepeatLabels {
 
 export interface V2NativeFormSheetField {
   id: string;
-  kind: 'text' | 'textarea' | 'tags' | 'repeat' | 'time';
+  kind: 'text' | 'textarea' | 'tags' | 'repeat' | 'time' | 'toggle';
   label: string;
   placeholder: string;
   initialValue: string;

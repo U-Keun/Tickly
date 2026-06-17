@@ -10,7 +10,9 @@ const repeatDefaults = {
   next_due_at: null,
   last_completed_at: null,
   reminder_at: null,
-  archived_at: null
+  archived_at: null,
+  track_streak: false,
+  streak_started_on: null
 };
 
 const results: V2ItemSearchResult[] = [

@@ -1,7 +1,7 @@
 use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::models::{
-    V2ArchivedItem, V2Category, V2ItemSearchResult, V2RepeatType, V2Tag, V2TodoItem,
+    V2ArchivedItem, V2Category, V2ItemSearchResult, V2RepeatType, V2StreakLog, V2Tag, V2TodoItem,
 };
 
 pub struct V2ChecklistRepository;
@@ -10,7 +10,7 @@ impl V2ChecklistRepository {
     const ORDER_STEP: i64 = 1000;
     const CATEGORY_COLUMNS: &'static str = "id, name, display_order, created_at, updated_at";
     const TAG_COLUMNS: &'static str = "id, name, created_at, updated_at";
-    const ITEM_COLUMNS: &'static str = "id, category_id, text, memo, repeat_type, repeat_detail, next_due_at, last_completed_at, reminder_at, archived_at, done, display_order, created_at, updated_at";
+    const ITEM_COLUMNS: &'static str = "id, category_id, text, memo, repeat_type, repeat_detail, next_due_at, last_completed_at, reminder_at, archived_at, track_streak, streak_started_on, done, display_order, created_at, updated_at";
 
     pub fn create_tables(conn: &Connection) -> Result<(), rusqlite::Error> {
         conn.execute_batch(
@@ -33,6 +33,8 @@ impl V2ChecklistRepository {
                 last_completed_at TEXT,
                 reminder_at TEXT,
                 archived_at TEXT,
+                track_streak BOOLEAN NOT NULL DEFAULT 0,
+                streak_started_on TEXT,
                 done BOOLEAN NOT NULL DEFAULT 0,
                 display_order INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
@@ -107,6 +109,15 @@ impl V2ChecklistRepository {
         if !Self::v2_todos_has_column(conn, "archived_at")? {
             conn.execute("ALTER TABLE v2_todos ADD COLUMN archived_at TEXT", [])?;
         }
+        if !Self::v2_todos_has_column(conn, "track_streak")? {
+            conn.execute(
+                "ALTER TABLE v2_todos ADD COLUMN track_streak BOOLEAN NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
+        if !Self::v2_todos_has_column(conn, "streak_started_on")? {
+            conn.execute("ALTER TABLE v2_todos ADD COLUMN streak_started_on TEXT", [])?;
+        }
         Ok(())
     }
 
@@ -167,10 +178,12 @@ impl V2ChecklistRepository {
             last_completed_at: row.get(7)?,
             reminder_at: row.get(8)?,
             archived_at: row.get(9)?,
-            done: row.get(10)?,
-            display_order: row.get(11)?,
-            created_at: row.get(12)?,
-            updated_at: row.get(13)?,
+            track_streak: row.get(10)?,
+            streak_started_on: row.get(11)?,
+            done: row.get(12)?,
+            display_order: row.get(13)?,
+            created_at: row.get(14)?,
+            updated_at: row.get(15)?,
         })
     }
 
@@ -198,17 +211,19 @@ impl V2ChecklistRepository {
                 last_completed_at: row.get(7)?,
                 reminder_at: row.get(8)?,
                 archived_at: row.get(9)?,
-                done: row.get(10)?,
-                display_order: row.get(11)?,
-                created_at: row.get(12)?,
-                updated_at: row.get(13)?,
+                track_streak: row.get(10)?,
+                streak_started_on: row.get(11)?,
+                done: row.get(12)?,
+                display_order: row.get(13)?,
+                created_at: row.get(14)?,
+                updated_at: row.get(15)?,
             },
             category: V2Category {
-                id: row.get(14)?,
-                name: row.get(15)?,
-                display_order: row.get(16)?,
-                created_at: row.get(17)?,
-                updated_at: row.get(18)?,
+                id: row.get(16)?,
+                name: row.get(17)?,
+                display_order: row.get(18)?,
+                created_at: row.get(19)?,
+                updated_at: row.get(20)?,
             },
         })
     }
@@ -529,6 +544,8 @@ impl V2ChecklistRepository {
                 t.last_completed_at,
                 t.reminder_at,
                 t.archived_at,
+                t.track_streak,
+                t.streak_started_on,
                 t.done,
                 t.display_order,
                 t.created_at,
@@ -605,6 +622,69 @@ impl V2ChecklistRepository {
         Self::attach_tags_to_items(conn, items)
     }
 
+    pub fn get_streak_items(conn: &Connection) -> Result<Vec<V2ItemSearchResult>, rusqlite::Error> {
+        let sql = "\
+            SELECT
+                t.id,
+                t.category_id,
+                t.text,
+                t.memo,
+                t.repeat_type,
+                t.repeat_detail,
+                t.next_due_at,
+                t.last_completed_at,
+                t.reminder_at,
+                t.archived_at,
+                t.track_streak,
+                t.streak_started_on,
+                t.done,
+                t.display_order,
+                t.created_at,
+                t.updated_at,
+                c.id,
+                c.name,
+                c.display_order,
+                c.created_at,
+                c.updated_at
+             FROM v2_todos t
+             INNER JOIN v2_categories c ON c.id = t.category_id
+             WHERE t.track_streak = 1
+               AND t.archived_at IS NULL
+             ORDER BY c.display_order ASC, t.display_order ASC";
+        let mut stmt = conn.prepare(sql)?;
+        let results = stmt
+            .query_map([], Self::row_to_search_result)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Self::attach_tags_to_search_results(conn, results)
+    }
+
+    pub fn get_completion_logs_for_item(
+        conn: &Connection,
+        item_id: i64,
+        start_date: &str,
+    ) -> Result<Vec<V2StreakLog>, rusqlite::Error> {
+        let mut stmt = conn.prepare(
+            "SELECT completed_on, completed_count
+             FROM v2_completion_logs
+             WHERE item_id = ?1
+               AND completed_on >= ?2
+               AND completed_count > 0
+             ORDER BY completed_on ASC",
+        )?;
+
+        let logs = stmt
+            .query_map(params![item_id, start_date], |row| {
+                Ok(V2StreakLog {
+                    completed_on: row.get(0)?,
+                    completed_count: row.get(1)?,
+                    combo_intensity: 0,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(logs)
+    }
+
     pub fn create_item(
         conn: &Connection,
         category_id: i64,
@@ -627,8 +707,8 @@ impl V2ChecklistRepository {
 
         if let Err(error) = conn.execute(
             "INSERT INTO v2_todos
-                (category_id, text, memo, repeat_type, repeat_detail, next_due_at, last_completed_at, reminder_at, done, display_order, created_at, updated_at)
-             VALUES (?1, ?2, NULL, 'none', NULL, NULL, NULL, NULL, 0, ?3, ?4, ?5)",
+                (category_id, text, memo, repeat_type, repeat_detail, next_due_at, last_completed_at, reminder_at, track_streak, streak_started_on, done, display_order, created_at, updated_at)
+             VALUES (?1, ?2, NULL, 'none', NULL, NULL, NULL, NULL, 0, NULL, 0, ?3, ?4, ?5)",
             params![category_id, text, display_order, &now, &now],
         ) {
             let _ = conn.execute("ROLLBACK", []);
@@ -655,6 +735,8 @@ impl V2ChecklistRepository {
             last_completed_at: None,
             reminder_at: None,
             archived_at: None,
+            track_streak: false,
+            streak_started_on: None,
             done: false,
             display_order,
             created_at: now.clone(),
@@ -689,6 +771,8 @@ impl V2ChecklistRepository {
         repeat_detail: Option<&str>,
         next_due_at: Option<&str>,
         reminder_at: Option<&str>,
+        track_streak: bool,
+        streak_started_on: Option<&str>,
     ) -> Result<V2TodoItem, rusqlite::Error> {
         conn.execute("BEGIN TRANSACTION", [])?;
         let now = Self::now_iso();
@@ -701,8 +785,10 @@ impl V2ChecklistRepository {
                  repeat_detail = ?4,
                  next_due_at = ?5,
                  reminder_at = ?6,
-                 updated_at = ?7
-             WHERE id = ?8",
+                 track_streak = ?7,
+                 streak_started_on = ?8,
+                 updated_at = ?9
+             WHERE id = ?10",
             params![
                 text,
                 memo,
@@ -710,6 +796,8 @@ impl V2ChecklistRepository {
                 repeat_detail,
                 next_due_at,
                 reminder_at,
+                track_streak,
+                streak_started_on,
                 now,
                 id
             ],
@@ -863,6 +951,8 @@ impl V2ChecklistRepository {
                 t.last_completed_at,
                 t.reminder_at,
                 t.archived_at,
+                t.track_streak,
+                t.streak_started_on,
                 t.done,
                 t.display_order,
                 t.created_at,
@@ -1205,6 +1295,8 @@ mod tests {
             None,
             None,
             None,
+            false,
+            None,
         )
         .unwrap();
 
@@ -1240,6 +1332,8 @@ mod tests {
             &V2RepeatType::Daily,
             None,
             Some("2026-06-17"),
+            None,
+            false,
             None,
         )
         .unwrap();

@@ -16,7 +16,9 @@
     next_due_at: null,
     last_completed_at: null,
     reminder_at: null,
-    archived_at: null
+    archived_at: null,
+    track_streak: false,
+    streak_started_on: null
   };
   const initialTags: V2Tag[] = [
     { id: 1, name: 'home', created_at: now, updated_at: now },
@@ -263,7 +265,8 @@
     tagNames: string[] = [],
     repeatType: V2RepeatType = 'none',
     repeatDetail: string | null = null,
-    reminderAt: string | null = null
+    reminderAt: string | null = null,
+    trackStreak = false
   ): Promise<void> {
     if (selectedCategoryId === null) return;
 
@@ -279,6 +282,8 @@
               repeat_type: repeatType,
               repeat_detail: repeatDetail,
               reminder_at: reminderAt,
+              track_streak: trackStreak,
+              streak_started_on: trackStreak ? item.streak_started_on ?? '2026-06-08' : null,
               next_due_at: null,
               updated_at: now
             }

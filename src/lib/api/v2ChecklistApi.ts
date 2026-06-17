@@ -4,6 +4,7 @@ import type {
   V2Category,
   V2ItemSearchResult,
   V2RepeatType,
+  V2StreakHeatmap,
   V2Tag,
   V2TodoItem
 } from '../../types';
@@ -66,7 +67,8 @@ export async function v2UpdateItemDetails(
   tagNames: string[] = [],
   repeatType: V2RepeatType = 'none',
   repeatDetail: string | null = null,
-  reminderAt: string | null = null
+  reminderAt: string | null = null,
+  trackStreak = false
 ): Promise<V2TodoItem> {
   return invoke<V2TodoItem>('v2_update_item_details', {
     id,
@@ -75,7 +77,8 @@ export async function v2UpdateItemDetails(
     tagNames,
     repeatType,
     repeatDetail,
-    reminderAt
+    reminderAt,
+    trackStreak
   });
 }
 
@@ -101,6 +104,10 @@ export async function v2RestoreArchivedItem(id: number): Promise<V2TodoItem> {
 
 export async function v2DeleteArchivedItem(id: number): Promise<void> {
   return invoke<void>('v2_delete_archived_item', { id });
+}
+
+export async function v2GetStreakHeatmaps(): Promise<V2StreakHeatmap[]> {
+  return invoke<V2StreakHeatmap[]>('v2_get_streak_heatmaps');
 }
 
 export async function v2DeleteItem(id: number): Promise<void> {

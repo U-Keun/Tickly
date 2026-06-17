@@ -62,6 +62,7 @@ export const en: Translations = {
   reorderItemsTitle: 'Reorder Items',
   reorderItemsSubtitle: 'Drag to reorder items in this category.',
   close: 'Close',
+  retry: 'Retry',
   noItemsToReorder: 'No items to reorder.',
   done: 'Done',
 
@@ -156,6 +157,18 @@ export const en: Translations = {
   trackingStreak: 'Tracking streak',
   noTrackedItems: 'No tracked items yet',
   addStreakHint: 'Enable streak tracking in item details!',
+  v2TrackStreak: 'Track streak',
+  v2StreakOverlayTitle: 'Streak',
+  v2StreakOverlaySubtitle: 'See completion rhythm for items you choose to track.',
+  v2StreakOverlayEmptyTitle: 'No tracked streaks yet.',
+  v2StreakOverlayEmptyMessage: 'Turn on streak tracking in item details to see heatmaps here.',
+  v2StreakLoadErrorTitle: 'Could not load streaks.',
+  v2StreakLoadErrorMessage: 'Something went wrong while loading streaks.',
+  v2StreakTotalDays: 'Total',
+  v2StreakCurrent: 'Current',
+  v2StreakLongest: 'Best',
+  v2StreakHeatmapLabel: 'Streak heatmap',
+  v2StreakDailyCadence: 'Daily cadence',
 
   // Reset time settings
   resetTimeChange: 'Reset Time',

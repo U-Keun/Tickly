@@ -254,6 +254,7 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
     private var formTagFields: [String: TagFieldView] = [:]
     private var formRepeatFields: [String: RepeatFieldView] = [:]
     private var formTimeFields: [String: UITextField] = [:]
+    private var formToggleSwitches: [String: UISwitch] = [:]
     private var formTimeValues: [String: String] = [:]
     private var timePickerFieldIds: [ObjectIdentifier: String] = [:]
     private var activeTimeFieldId: String?
@@ -543,7 +544,41 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
                 formRequiredFieldIds.insert(field.id)
             }
 
-            if field.kind == "repeat" {
+            if field.kind == "toggle" {
+                let toggleRow = UIStackView()
+                toggleRow.axis = .horizontal
+                toggleRow.alignment = .center
+                toggleRow.spacing = 12
+                toggleRow.backgroundColor = Style.paper
+                toggleRow.layer.cornerRadius = 14
+                toggleRow.layer.borderColor = Style.ink.cgColor
+                toggleRow.layer.borderWidth = 2
+                toggleRow.isLayoutMarginsRelativeArrangement = true
+                toggleRow.directionalLayoutMargins = NSDirectionalEdgeInsets(
+                    top: 9,
+                    leading: 14,
+                    bottom: 9,
+                    trailing: 14
+                )
+                toggleRow.heightAnchor.constraint(greaterThanOrEqualToConstant: 52).isActive = true
+
+                let titleLabel = UILabel()
+                titleLabel.text = field.label
+                titleLabel.font = .preferredFont(forTextStyle: .body)
+                titleLabel.adjustsFontForContentSizeCategory = true
+                titleLabel.textColor = Style.ink
+
+                let switchControl = UISwitch()
+                switchControl.isOn = field.initialValue == "true"
+                switchControl.onTintColor = Style.accentSkyStrong
+                switchControl.accessibilityLabel = field.label
+                switchControl.addTarget(self, action: #selector(toggleDidChange), for: .valueChanged)
+                formToggleSwitches[field.id] = switchControl
+
+                toggleRow.addArrangedSubview(titleLabel)
+                toggleRow.addArrangedSubview(switchControl)
+                stack.addArrangedSubview(toggleRow)
+            } else if field.kind == "repeat" {
                 let repeatField = RepeatFieldView(
                     label: field.label,
                     initialType: field.initialValue,
@@ -777,6 +812,10 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
         updateSaveButtonState()
     }
 
+    @objc private func toggleDidChange() {
+        updateSaveButtonState()
+    }
+
     @objc private func timePickerDidChange(_ sender: UIDatePicker) {
         guard let fieldId = timePickerFieldIds[ObjectIdentifier(sender)],
               let fieldInput = formTimeFields[fieldId]
@@ -923,6 +962,10 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
             values[fieldId] = .string(formTimeValues[fieldId] ?? "")
         }
 
+        for (fieldId, switchControl) in formToggleSwitches {
+            values[fieldId] = .string(switchControl.isOn ? "true" : "false")
+        }
+
         for (fieldId, tagField) in formTagFields {
             values[fieldId] = .strings(tagField.tags)
         }
@@ -985,6 +1028,10 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
                 continue
             }
 
+            if formToggleSwitches[fieldId] != nil {
+                continue
+            }
+
             if let repeatField = formRepeatFields[fieldId] {
                 if !repeatField.isValid {
                     return false
@@ -1024,6 +1071,8 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
         didComplete = true
 
         if shouldDismiss {
+            (presentationController as? TicklyLeafSheetPresentationController)?.prepareForActionDismissal()
+            view.endEditing(false)
             dismiss(animated: true) { [weak self] in
                 self?.emitResult(status: status, value: value, values: values, actionId: actionId)
             }
@@ -1878,6 +1927,7 @@ private final class TicklyLeafSheetPresentationController: UIPresentationControl
     private let dimmingView = UIView()
     private var keyboardOverlap: CGFloat = 0
     private var panGestureRecognizer: UIPanGestureRecognizer?
+    private var isDismissingSheet = false
 
     override init(presentedViewController: UIViewController, presenting presentingViewController: UIViewController?) {
         super.init(
@@ -1953,6 +2003,7 @@ private final class TicklyLeafSheetPresentationController: UIPresentationControl
     }
 
     override func dismissalTransitionWillBegin() {
+        isDismissingSheet = true
         presentedViewController.transitionCoordinator?.animate { [weak self] _ in
             self?.dimmingView.alpha = 0
         }
@@ -1962,7 +2013,13 @@ private final class TicklyLeafSheetPresentationController: UIPresentationControl
         if completed {
             dimmingView.removeFromSuperview()
             NotificationCenter.default.removeObserver(self)
+        } else {
+            isDismissingSheet = false
         }
+    }
+
+    func prepareForActionDismissal() {
+        isDismissingSheet = true
     }
 
     override func containerViewWillLayoutSubviews() {
@@ -2027,6 +2084,10 @@ private final class TicklyLeafSheetPresentationController: UIPresentationControl
     }
 
     @objc private func keyboardWillChangeFrame(_ notification: Notification) {
+        if isDismissingSheet {
+            return
+        }
+
         guard let containerView,
               let endFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
         else {
@@ -2039,6 +2100,10 @@ private final class TicklyLeafSheetPresentationController: UIPresentationControl
     }
 
     @objc private func keyboardWillHide(_ notification: Notification) {
+        if isDismissingSheet {
+            return
+        }
+
         keyboardOverlap = 0
         animateFrameChange(with: notification)
     }
