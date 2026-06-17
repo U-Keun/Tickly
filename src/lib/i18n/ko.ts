@@ -156,6 +156,7 @@ export const ko = {
   noTrackedItems: '추적 중인 항목이 없습니다',
   addStreakHint: '항목의 메모에서 스트릭 추적을 켜보세요!',
   v2TrackStreak: '스트릭 활성화',
+  v2TrackStreakRequiresRepeat: '반복을 켜야 스트릭을 사용할 수 있어요.',
   v2StreakOverlayTitle: '스트릭',
   v2StreakOverlaySubtitle: '활성화한 항목의 완료 흐름을 확인하세요.',
   v2StreakOverlayEmptyTitle: '아직 활성화한 스트릭이 없습니다.',

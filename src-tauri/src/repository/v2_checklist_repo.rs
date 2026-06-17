@@ -649,6 +649,7 @@ impl V2ChecklistRepository {
              FROM v2_todos t
              INNER JOIN v2_categories c ON c.id = t.category_id
              WHERE t.track_streak = 1
+               AND t.repeat_type != 'none'
                AND t.archived_at IS NULL
              ORDER BY c.display_order ASC, t.display_order ASC";
         let mut stmt = conn.prepare(sql)?;

@@ -44,6 +44,8 @@ pub struct V2NativeSheetFormFieldRequest {
     pub repeat_labels: Option<V2NativeSheetRepeatLabels>,
     pub suggestions: Option<Vec<String>>,
     pub required: Option<bool>,
+    pub requires_repeat: Option<bool>,
+    pub disabled_message: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

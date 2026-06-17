@@ -92,8 +92,19 @@ export const WithStreakEnabled: Story = {
   args: {
     item: {
       ...item,
+      repeat_type: 'daily',
       track_streak: true,
       streak_started_on: '2026-06-08'
+    }
+  }
+};
+
+export const StreakRequiresRepeat: Story = {
+  args: {
+    item: {
+      ...item,
+      repeat_type: 'none',
+      track_streak: false
     }
   }
 };

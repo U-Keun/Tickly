@@ -158,6 +158,7 @@ export const en: Translations = {
   noTrackedItems: 'No tracked items yet',
   addStreakHint: 'Enable streak tracking in item details!',
   v2TrackStreak: 'Track streak',
+  v2TrackStreakRequiresRepeat: 'Turn on repeat to track a streak.',
   v2StreakOverlayTitle: 'Streak',
   v2StreakOverlaySubtitle: 'See completion rhythm for items you choose to track.',
   v2StreakOverlayEmptyTitle: 'No tracked streaks yet.',

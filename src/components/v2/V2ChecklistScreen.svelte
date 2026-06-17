@@ -1430,7 +1430,9 @@
           kind: 'toggle',
           label: i18n.t('v2TrackStreak'),
           placeholder: '',
-          initialValue: item.track_streak ? 'true' : 'false'
+          initialValue: item.repeat_type !== 'none' && item.track_streak ? 'true' : 'false',
+          requiresRepeat: true,
+          disabledMessage: i18n.t('v2TrackStreakRequiresRepeat')
         }
       ],
       confirmLabel: i18n.t('v2SaveItem'),
@@ -1456,8 +1458,9 @@
         const reminderAtValue = nativeResult.values.reminderAt;
         const trackStreakValue = nativeResult.values.trackStreak;
         const repeatType = asV2RepeatType(repeatTypeValue);
-        const trackStreak =
+        const requestedTrackStreak =
           typeof trackStreakValue === 'string' ? trackStreakValue === 'true' : item.track_streak;
+        const trackStreak = repeatType !== 'none' && requestedTrackStreak;
         await saveItemDetails(
           item.id,
           typeof textValue === 'string' ? textValue : '',
@@ -1496,7 +1499,7 @@
         repeatType,
         repeatDetail,
         reminderAt,
-        trackStreak
+        repeatType !== 'none' && trackStreak
       );
     } finally {
       isSavingItemEdit = false;

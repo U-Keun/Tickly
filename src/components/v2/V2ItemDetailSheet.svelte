@@ -1,5 +1,7 @@
 <script lang="ts">
   import { Flame } from '@lucide/svelte';
+  import { cubicOut } from 'svelte/easing';
+  import { fade, slide } from 'svelte/transition';
 
   import type { V2RepeatType, V2Tag, V2TodoItem } from '../../types';
   import { iosFocusFix } from '$lib/iosFocusFix';
@@ -53,6 +55,7 @@
   let trimmedText = $derived(draftText.trim());
   let trimmedMemo = $derived(draftMemo.trim());
   let isVisible = $derived(show && item !== null);
+  let canTrackStreak = $derived(draftRepeatType !== 'none');
   let isReminderFocused = $state(false);
 
   $effect(() => {
@@ -80,9 +83,20 @@
     }
   });
 
+  $effect(() => {
+    if (!canTrackStreak && draftTrackStreak) {
+      draftTrackStreak = false;
+    }
+  });
+
   function handleClose(): void {
     if (isSaving) return;
     onClose();
+  }
+
+  function toggleDraftTrackStreak(): void {
+    if (!canTrackStreak || isSaving) return;
+    draftTrackStreak = !draftTrackStreak;
   }
 
   async function submitEdit(event: SubmitEvent): Promise<void> {
@@ -98,7 +112,7 @@
         draftRepeatType,
         stringifyV2RepeatDetail(draftRepeatType, draftRepeatDetail),
         draftReminderAt || null,
-        draftTrackStreak
+        canTrackStreak && draftTrackStreak
       );
       onClose();
     } catch {
@@ -211,35 +225,57 @@
         {/if}
       </label>
 
-      <label class="flex min-h-[52px] items-center gap-3 rounded-[14px] border-2 border-[var(--color-ink)] bg-[var(--color-paper)] px-[14px] py-2">
-        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--color-white)] text-[var(--color-ink-muted)]">
-          <Flame size={18} strokeWidth={2.4} aria-hidden="true" />
-        </span>
-        <span class="min-w-0 flex-1 text-base font-semibold text-[var(--color-ink)]">
-          {i18n.t('v2TrackStreak')}
-        </span>
-        <input
-          type="checkbox"
-          class="sr-only"
-          bind:checked={draftTrackStreak}
-          disabled={isSaving}
-          aria-label={i18n.t('v2TrackStreak')}
-        />
-        <span
-          class={`relative h-8 w-[52px] shrink-0 rounded-full border-2 transition-colors ${
-            draftTrackStreak
-              ? 'border-[var(--color-ink)] bg-[var(--color-accent-sky)]'
-              : 'border-[var(--color-stroke)] bg-[var(--color-white)]'
-          }`}
-          aria-hidden="true"
+      <div
+        class={`flex min-h-[52px] flex-col gap-2 overflow-hidden rounded-[14px] border-2 border-[var(--color-ink)] bg-[var(--color-paper)] px-[14px] py-2 transition-opacity ${
+          canTrackStreak ? '' : 'opacity-75'
+        }`}
+      >
+        <button
+          type="button"
+          class="flex w-full items-center gap-3 text-left disabled:cursor-not-allowed"
+          role="switch"
+          aria-checked={draftTrackStreak}
+          aria-describedby={!canTrackStreak ? 'v2-track-streak-requires-repeat' : undefined}
+          disabled={!canTrackStreak || isSaving}
+          onclick={toggleDraftTrackStreak}
         >
+          <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--color-white)] text-[var(--color-ink-muted)]">
+            <Flame size={18} strokeWidth={2.4} aria-hidden="true" />
+          </span>
+          <span class="min-w-0 flex-1 text-base font-semibold text-[var(--color-ink)]">
+            {i18n.t('v2TrackStreak')}
+          </span>
           <span
-            class={`absolute top-1/2 h-6 w-6 -translate-y-1/2 rounded-full border-2 border-[var(--color-ink)] bg-[var(--color-paper)] transition-transform ${
-              draftTrackStreak ? 'translate-x-[22px]' : 'translate-x-1'
+            class={`relative h-8 w-[52px] shrink-0 rounded-full border-2 transition-colors ${
+              draftTrackStreak
+                ? 'border-[var(--color-ink)] bg-[var(--color-accent-sky)]'
+                : 'border-[var(--color-stroke)] bg-[var(--color-white)]'
             }`}
-          ></span>
-        </span>
-      </label>
+            aria-hidden="true"
+          >
+            <span
+              class={`absolute top-1/2 h-6 w-6 -translate-y-1/2 rounded-full border-2 border-[var(--color-ink)] bg-[var(--color-paper)] transition-transform ${
+                draftTrackStreak ? 'translate-x-[22px]' : 'translate-x-1'
+              }`}
+            ></span>
+          </span>
+        </button>
+        {#if !canTrackStreak}
+          <div
+            in:slide={{ duration: 230, easing: cubicOut }}
+            out:slide={{ duration: 210, delay: 90, easing: cubicOut }}
+          >
+            <span
+              id="v2-track-streak-requires-repeat"
+              class="block pl-12 text-xs leading-5 text-[var(--color-ink-muted)]"
+              in:fade={{ duration: 140, delay: 105, easing: cubicOut }}
+              out:fade={{ duration: 90, easing: cubicOut }}
+            >
+              {i18n.t('v2TrackStreakRequiresRepeat')}
+            </span>
+          </div>
+        {/if}
+      </div>
 
     </form>
   {/if}

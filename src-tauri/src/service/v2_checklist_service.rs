@@ -196,7 +196,8 @@ impl V2ChecklistService {
             return Err("Item not found.".to_string());
         };
         let logical_date = Self::logical_date(conn)?;
-        let next_track_streak = track_streak.unwrap_or(existing_item.track_streak);
+        let requested_track_streak = track_streak.unwrap_or(existing_item.track_streak);
+        let next_track_streak = *repeat_type != V2RepeatType::None && requested_track_streak;
         let next_streak_started_on = if next_track_streak {
             existing_item
                 .streak_started_on
@@ -802,7 +803,7 @@ mod tests {
             "Walk",
             None,
             &[],
-            &V2RepeatType::None,
+            &V2RepeatType::Daily,
             None,
             None,
             Some(true),
@@ -821,10 +822,72 @@ mod tests {
             "Walk",
             None,
             &[],
-            &V2RepeatType::None,
+            &V2RepeatType::Daily,
             None,
             None,
             Some(false),
+        )
+        .unwrap();
+
+        assert!(!disabled.track_streak);
+        assert_eq!(disabled.streak_started_on, None);
+    }
+
+    #[test]
+    fn prevents_v2_streak_without_repeat() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        let item =
+            V2ChecklistService::create_item_with_tags(&conn, category_id, "Walk", &[]).unwrap();
+
+        let updated = V2ChecklistService::update_item_details(
+            &conn,
+            item.id,
+            "Walk",
+            None,
+            &[],
+            &V2RepeatType::None,
+            None,
+            None,
+            Some(true),
+        )
+        .unwrap();
+
+        assert!(!updated.track_streak);
+        assert_eq!(updated.streak_started_on, None);
+    }
+
+    #[test]
+    fn clears_v2_streak_when_repeat_is_removed() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        let item =
+            V2ChecklistService::create_item_with_tags(&conn, category_id, "Walk", &[]).unwrap();
+
+        let enabled = V2ChecklistService::update_item_details(
+            &conn,
+            item.id,
+            "Walk",
+            None,
+            &[],
+            &V2RepeatType::Daily,
+            None,
+            None,
+            Some(true),
+        )
+        .unwrap();
+        assert!(enabled.track_streak);
+
+        let disabled = V2ChecklistService::update_item_details(
+            &conn,
+            item.id,
+            "Walk",
+            None,
+            &[],
+            &V2RepeatType::None,
+            None,
+            None,
+            None,
         )
         .unwrap();
 
@@ -840,7 +903,7 @@ mod tests {
             V2ChecklistService::create_item_with_tags(&conn, category_id, "Read", &[]).unwrap();
         conn.execute(
             "UPDATE v2_todos
-             SET track_streak = 1, streak_started_on = '2026-06-01'
+             SET repeat_type = 'daily', track_streak = 1, streak_started_on = '2026-06-01'
              WHERE id = ?1",
             rusqlite::params![item.id],
         )
@@ -856,6 +919,26 @@ mod tests {
         assert_eq!(heatmaps[0].logs[0].completed_on, "2026-06-01");
         assert_eq!(heatmaps[0].total_days, 2);
         assert!(heatmaps[0].longest_streak >= 2);
+    }
+
+    #[test]
+    fn streak_heatmap_excludes_non_repeating_tracked_items() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistService::get_categories(&conn).unwrap()[0].id;
+        let item =
+            V2ChecklistService::create_item_with_tags(&conn, category_id, "Read", &[]).unwrap();
+        conn.execute(
+            "UPDATE v2_todos
+             SET repeat_type = 'none', track_streak = 1, streak_started_on = '2026-06-01'
+             WHERE id = ?1",
+            rusqlite::params![item.id],
+        )
+        .unwrap();
+        insert_completion_log(&conn, item.id, "2026-06-01");
+
+        let heatmaps = V2ChecklistService::get_streak_heatmaps(&conn).unwrap();
+
+        assert!(heatmaps.is_empty());
     }
 
     #[test]

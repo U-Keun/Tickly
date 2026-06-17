@@ -2,7 +2,7 @@
 
 ## Decision
 
-v2 streak tracking is opt-in per item. Every item can enable streak tracking from item details, including non-repeating items. Non-repeating items use a daily cadence.
+v2 streak tracking is opt-in per repeating item. The item detail sheet only allows streak tracking when repeat is set to daily, weekly, or monthly. If repeat is turned back to none, streak tracking is cleared.
 
 Tracking starts on the logical date when the user turns the toggle on. Existing completion logs remain in SQLite, but streak heatmaps and statistics ignore dates before `streak_started_on`.
 
@@ -23,7 +23,7 @@ flowchart LR
 
 - v2 streak uses only `v2_todos` and `v2_completion_logs`.
 - v1 streak commands, stores, modals, and heatmap components are reference material only.
-- The item detail sheet owns the `track_streak` toggle. The Dock only opens the read-only overlay.
+- The item detail sheet owns the `track_streak` toggle, and that toggle depends on repeat being enabled. The Dock only opens the read-only overlay.
 - Current and longest streaks are calculated from the item’s current repeat rule. Repeat rule history is not stored.
 - `streak_started_on` is a local logical date, based on the existing reset-time setting.
 - Archived items are excluded from the Streak overlay.

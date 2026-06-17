@@ -37,6 +37,8 @@ private struct TicklyNativeSheetFormFieldRequest: Decodable {
     let repeatLabels: TicklyNativeSheetRepeatLabels?
     let suggestions: [String]?
     let required: Bool?
+    let requiresRepeat: Bool?
+    let disabledMessage: String?
 }
 
 private struct TicklyNativeSheetRepeatLabels: Decodable {
@@ -255,6 +257,10 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
     private var formRepeatFields: [String: RepeatFieldView] = [:]
     private var formTimeFields: [String: UITextField] = [:]
     private var formToggleSwitches: [String: UISwitch] = [:]
+    private var formToggleRows: [String: UIStackView] = [:]
+    private var formRepeatDependentToggleIds = Set<String>()
+    private var formToggleDisabledLabels: [String: UILabel] = [:]
+    private var formToggleDisabledLabelVisible: [String: Bool] = [:]
     private var formTimeValues: [String: String] = [:]
     private var timePickerFieldIds: [ObjectIdentifier: String] = [:]
     private var activeTimeFieldId: String?
@@ -545,22 +551,26 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
             }
 
             if field.kind == "toggle" {
-                let toggleRow = UIStackView()
-                toggleRow.axis = .horizontal
-                toggleRow.alignment = .center
-                toggleRow.spacing = 12
-                toggleRow.backgroundColor = Style.paper
-                toggleRow.layer.cornerRadius = 14
-                toggleRow.layer.borderColor = Style.ink.cgColor
-                toggleRow.layer.borderWidth = 2
-                toggleRow.isLayoutMarginsRelativeArrangement = true
-                toggleRow.directionalLayoutMargins = NSDirectionalEdgeInsets(
+                let toggleContainer = UIStackView()
+                toggleContainer.axis = .vertical
+                toggleContainer.spacing = 6
+                toggleContainer.backgroundColor = Style.paper
+                toggleContainer.layer.cornerRadius = 14
+                toggleContainer.layer.borderColor = Style.ink.cgColor
+                toggleContainer.layer.borderWidth = 2
+                toggleContainer.isLayoutMarginsRelativeArrangement = true
+                toggleContainer.directionalLayoutMargins = NSDirectionalEdgeInsets(
                     top: 9,
                     leading: 14,
                     bottom: 9,
                     trailing: 14
                 )
-                toggleRow.heightAnchor.constraint(greaterThanOrEqualToConstant: 52).isActive = true
+                toggleContainer.heightAnchor.constraint(greaterThanOrEqualToConstant: 52).isActive = true
+
+                let toggleRow = UIStackView()
+                toggleRow.axis = .horizontal
+                toggleRow.alignment = .center
+                toggleRow.spacing = 12
 
                 let titleLabel = UILabel()
                 titleLabel.text = field.label
@@ -574,10 +584,32 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
                 switchControl.accessibilityLabel = field.label
                 switchControl.addTarget(self, action: #selector(toggleDidChange), for: .valueChanged)
                 formToggleSwitches[field.id] = switchControl
+                formToggleRows[field.id] = toggleRow
+                if field.requiresRepeat ?? false {
+                    formRepeatDependentToggleIds.insert(field.id)
+                }
 
                 toggleRow.addArrangedSubview(titleLabel)
                 toggleRow.addArrangedSubview(switchControl)
-                stack.addArrangedSubview(toggleRow)
+                toggleContainer.addArrangedSubview(toggleRow)
+
+                if let disabledMessage = field.disabledMessage,
+                   !disabledMessage.isEmpty
+                {
+                    let helperLabel = UILabel()
+                    helperLabel.text = disabledMessage
+                    helperLabel.font = .preferredFont(forTextStyle: .caption1)
+                    helperLabel.adjustsFontForContentSizeCategory = true
+                    helperLabel.textColor = Style.inkMuted
+                    helperLabel.numberOfLines = 0
+                    helperLabel.alpha = 0
+                    helperLabel.isHidden = true
+                    formToggleDisabledLabels[field.id] = helperLabel
+                    formToggleDisabledLabelVisible[field.id] = false
+                    toggleContainer.addArrangedSubview(helperLabel)
+                }
+
+                stack.addArrangedSubview(toggleContainer)
             } else if field.kind == "repeat" {
                 let repeatField = RepeatFieldView(
                     label: field.label,
@@ -587,6 +619,7 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
                     style: Style.self
                 )
                 repeatField.onChange = { [weak self] in
+                    self?.updateRepeatDependentToggles()
                     self?.updateSaveButtonState()
                 }
                 formRepeatFields[field.id] = repeatField
@@ -698,6 +731,8 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
                 stack.addArrangedSubview(fieldInput)
             }
         }
+
+        updateRepeatDependentToggles()
 
         saveButton.configuration = buttonConfiguration(
             title: formRequest.confirmLabel,
@@ -814,6 +849,106 @@ private final class TicklyNativeSheetViewController: UIViewController, UIAdaptiv
 
     @objc private func toggleDidChange() {
         updateSaveButtonState()
+    }
+
+    private func updateRepeatDependentToggles() {
+        guard !formRepeatDependentToggleIds.isEmpty else {
+            return
+        }
+
+        let repeatType = formRepeatFields["repeat"]?.repeatType ?? "none"
+        let canTrack = repeatType != "none"
+
+        for fieldId in formRepeatDependentToggleIds {
+            guard let switchControl = formToggleSwitches[fieldId] else {
+                continue
+            }
+
+            switchControl.isEnabled = canTrack
+            if !canTrack {
+                switchControl.isOn = false
+            }
+            updateRepeatDependentToggleMessage(
+                fieldId: fieldId,
+                visible: !canTrack,
+                animated: isViewLoaded && view.window != nil
+            )
+        }
+    }
+
+    private func updateRepeatDependentToggleMessage(
+        fieldId: String,
+        visible: Bool,
+        animated: Bool
+    ) {
+        let targetAlpha: CGFloat = visible ? 0.56 : 1
+        guard let helperLabel = formToggleDisabledLabels[fieldId] else {
+            formToggleRows[fieldId]?.alpha = targetAlpha
+            return
+        }
+
+        let isVisible = formToggleDisabledLabelVisible[fieldId] ?? !helperLabel.isHidden
+        guard isVisible != visible else {
+            formToggleRows[fieldId]?.alpha = targetAlpha
+            return
+        }
+
+        formToggleDisabledLabelVisible[fieldId] = visible
+
+        guard animated, !UIAccessibility.isReduceMotionEnabled else {
+            helperLabel.layer.removeAllAnimations()
+            helperLabel.isHidden = !visible
+            helperLabel.alpha = visible ? 1 : 0
+            formToggleRows[fieldId]?.alpha = targetAlpha
+            view.layoutIfNeeded()
+            return
+        }
+
+        view.layoutIfNeeded()
+
+        if visible {
+            helperLabel.alpha = 0
+            helperLabel.isHidden = false
+
+            UIView.animate(
+                withDuration: 0.23,
+                delay: 0,
+                options: [.curveEaseOut, .beginFromCurrentState]
+            ) { [weak self] in
+                self?.formToggleRows[fieldId]?.alpha = targetAlpha
+                self?.view.layoutIfNeeded()
+            } completion: { [weak self] _ in
+                UIView.animate(
+                    withDuration: 0.14,
+                    delay: 0.04,
+                    options: [.curveEaseOut, .beginFromCurrentState]
+                ) {
+                    self?.formToggleDisabledLabels[fieldId]?.alpha = 1
+                }
+            }
+        } else {
+            UIView.animate(
+                withDuration: 0.09,
+                delay: 0,
+                options: [.curveEaseOut, .beginFromCurrentState]
+            ) { [weak self] in
+                self?.formToggleDisabledLabels[fieldId]?.alpha = 0
+                self?.formToggleRows[fieldId]?.alpha = targetAlpha
+            } completion: { [weak self] _ in
+                guard let self else {
+                    return
+                }
+
+                UIView.animate(
+                    withDuration: 0.21,
+                    delay: 0,
+                    options: [.curveEaseOut, .beginFromCurrentState]
+                ) {
+                    self.formToggleDisabledLabels[fieldId]?.isHidden = true
+                    self.view.layoutIfNeeded()
+                }
+            }
+        }
     }
 
     @objc private func timePickerDidChange(_ sender: UIDatePicker) {

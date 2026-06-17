@@ -304,6 +304,7 @@ async function updateItemDetails(
   try {
     const nextTrackStreak =
       trackStreak ?? items.find((item) => item.id === id)?.track_streak ?? false;
+    const normalizedTrackStreak = repeatType !== 'none' && nextTrackStreak;
     const updatedItem = await v2ChecklistApi.v2UpdateItemDetails(
       id,
       text,
@@ -312,7 +313,7 @@ async function updateItemDetails(
       repeatType,
       repeatDetail,
       reminderAt,
-      nextTrackStreak
+      normalizedTrackStreak
     );
     items = sortItems(items.map((item) => (item.id === id ? updatedItem : item)));
     await refreshTags();

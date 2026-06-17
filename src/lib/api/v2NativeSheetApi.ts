@@ -45,6 +45,8 @@ export interface V2NativeFormSheetField {
   repeatLabels?: V2NativeRepeatLabels;
   suggestions?: string[];
   required?: boolean;
+  requiresRepeat?: boolean;
+  disabledMessage?: string;
 }
 
 export interface V2NativeFormSheetOptions {

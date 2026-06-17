@@ -158,6 +158,7 @@ export const ja: Translations = {
   noTrackedItems: '追跡中の項目がありません',
   addStreakHint: '項目の詳細でストリーク追跡を有効にしましょう！',
   v2TrackStreak: 'ストリークを有効化',
+  v2TrackStreakRequiresRepeat: 'ストリークを使うには繰り返しを有効にしてください。',
   v2StreakOverlayTitle: 'ストリーク',
   v2StreakOverlaySubtitle: '有効にした項目の達成リズムを確認できます。',
   v2StreakOverlayEmptyTitle: '有効なストリークはまだありません。',
