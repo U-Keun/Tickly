@@ -12,7 +12,7 @@ The v2 settings entry screen uses its own v2 shell while preserving the rebuilt 
 - Cloud/account/sync settings are no longer linked from the v2 settings entry.
 - Appearance sub-routes (`theme`, `font`, `language`) now share the v2 settings shell and Soft Leaf choice surfaces.
 - Reset time also uses the v2 settings shell, but keeps the existing `reset_time` setting contract so repeat logic reads the same daily boundary.
-- `/settings/account` and `/settings/icloud` redirect back to settings until a future sync plan explicitly reintroduces them.
+- `/settings/account` and `/settings/icloud` were removed after cloud/account settings were retired from the route surface.
 
 ```mermaid
 flowchart TD
@@ -28,7 +28,7 @@ flowchart TD
 ## Verification
 
 - Confirm `/settings?returnTo=%2F` opens the v2 settings entry and back returns to `/`.
-- Confirm retired `/v1` and legacy settings routes redirect into the v2 runtime.
+- Confirm retired cloud/account settings routes are absent from the SvelteKit route tree.
 - Confirm each row routes to the existing sub-route without changing its behavior.
 - Confirm theme and font preview selections are temporary until Save, and Back restores the previous setting.
 - Confirm language selection still saves immediately and returns to the settings entry.

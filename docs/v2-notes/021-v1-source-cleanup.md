@@ -15,9 +15,12 @@ Tickly is now a v2-only runtime. Because there are no existing users or migratio
 ## Kept Surface
 
 - v2 route shell at `/`.
-- `/v2`, `/v1`, and `/graph` redirect compatibility routes.
 - v2 local checklist, tags, repeat, reminders, archive, streak, graph, settings, notifications, and widget behavior.
 - Existing v2 SQLite tables and settings.
+
+## Follow-up Route Cleanup
+
+After the source cleanup, Tickly was simplified further as a new app surface. The `/v1`, `/v2`, legacy `/graph`, `/settings/account`, and `/settings/icloud` redirect routes were removed instead of kept as compatibility aliases.
 
 ## Database Boundary
 

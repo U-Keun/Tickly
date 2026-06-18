@@ -20,8 +20,7 @@ This file guides AI agents working on the Tickly codebase.
 ## v2 Rebuild Boundary
 
 - v2 is the canonical main UI at `/`.
-- `/v2` is a compatibility alias for old v2 QA links and should redirect/replace to `/`.
-- `/v1` is no longer a runtime fallback and should redirect/replace to `/`.
+- Removed compatibility routes such as `/v1`, `/v2`, and legacy `/graph` should not be reintroduced unless a task explicitly asks for migration or legacy compatibility.
 - v1 source and v1 command/store surfaces should not be reintroduced unless a task explicitly starts a legacy recovery or migration slice.
 - v2 backend commands use the `v2_` prefix.
 - v2 local persistence uses `v2_` SQLite tables.

@@ -23,12 +23,12 @@ v2 uses parallel names and tables:
 ```mermaid
 flowchart TB
   V1["removed v1 runtime"] -. "not used" .-> V1Tables["old categories / todos / sync tables"]
-  V2["/ main v2 route"] --> V2Api["v2ChecklistApi"]
+  V2["/ app route"] --> V2Api["v2ChecklistApi"]
   V2Api --> V2Commands["v2_* commands"]
   V2Commands --> V2Tables["v2_categories / v2_todos"]
 ```
 
-v1 was initially kept as a legacy runtime, then retired, and now its active source surfaces have been removed. v2 owns the app surface and the supported local data path.
+v1 was initially kept as a legacy runtime, then retired, and now its active source and compatibility route surfaces have been removed. v2 owns the app surface and the supported local data path.
 
 ## Data Model
 
@@ -70,7 +70,7 @@ The first v2 slice now adds:
 
 - v2 local SQLite tables through app startup migration.
 - v2 Rust model, repository, service, and command layers.
-- v2 frontend API wrapper, independent store, main `/` route, compatibility `/v2` alias, and a reusable v2 screen component.
+- v2 frontend API wrapper, independent store, main `/` route, and a reusable v2 screen component.
 - Storybook coverage for empty, normal, completed, multiple-category, and reorder-mode screen states.
 - Directory-level `AGENTS.md` rules and project development principles.
 

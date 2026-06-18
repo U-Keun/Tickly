@@ -4,8 +4,8 @@ Tickly is a local-first checklist app rebuilt around the v2 runtime.
 
 ## Current Direction
 
-- `/` is the canonical v2 app.
-- `/v1`, `/v2`, and legacy graph routes redirect back to `/`.
+- `/` is the app.
+- Old compatibility routes such as `/v1`, `/v2`, and legacy `/graph` have been removed.
 - Data is stored locally in SQLite through `v2_` tables.
 - Cloud sync is currently out of scope.
 - v1 runtime code has been removed; legacy planning notes live in `docs/legacy/`.

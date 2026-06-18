@@ -13,11 +13,11 @@ Tickly development now follows a small-slice rebuild model: understand the curre
 
 ## v2 Rebuild Rules
 
-- v2 is the main route at `/`; `/v2` remains only as a compatibility alias.
+- v2 is the only app route at `/`; old compatibility routes are removed.
 - v2 uses `v2_` Tauri commands and `v2_` SQLite tables.
 - v2 starts empty except for a default `Home` category.
 - v2 does not use v1 stores or v1 data tables.
-- `/v1` is retired from runtime and redirects to `/`.
+- `/v1`, `/v2`, and legacy `/graph` are removed from the route surface.
 - v2 now owns the rebuilt local features: checklist, tags, repeat, reminders, archive, streak, graph, settings, and widget behavior.
 - Cloud sync is deferred and should not run in the v2 runtime.
 - v1 data migration is intentionally skipped because there are no existing users for this rebuild.
