@@ -1,128 +1,255 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
+  import { onMount } from 'svelte';
+  import { fade, slide } from 'svelte/transition';
+  import { Hash, Pencil, Trash2 } from '@lucide/svelte';
+
+  import type { V2TagSummary } from '../../../types';
+  import V2SettingsGroup from '../../../components/settings/V2SettingsGroup.svelte';
+  import V2SettingsShell from '../../../components/settings/V2SettingsShell.svelte';
+  import V2BottomSheet from '../../../components/v2/V2BottomSheet.svelte';
+  import V2ConfirmModal from '../../../components/v2/V2ConfirmModal.svelte';
   import { i18n } from '$lib/i18n';
   import { getSettingsReturnTo, settingsPathWithReturnTo } from '$lib/settings/returnTo';
-  import SettingsLayout from '../../../components/SettingsLayout.svelte';
-  import ConfirmModal from '../../../components/ConfirmModal.svelte';
-  import type { Tag } from '../../../types';
-  import { appStore } from '$lib/stores';
+  import * as v2ChecklistApi from '$lib/api/v2ChecklistApi';
 
-  let tags = $state<Tag[]>([]);
-  let deleteTarget = $state<Tag | null>(null);
-  let showDeleteConfirm = $state(false);
   let returnTo = $derived(getSettingsReturnTo($page.url.searchParams));
+  let tagSummaries = $state<V2TagSummary[]>([]);
+  let isLoading = $state(true);
+  let errorMessage = $state<string | null>(null);
+  let tagPendingRename = $state<V2TagSummary | null>(null);
+  let renameDraft = $state('');
+  let isRenaming = $state(false);
+  let tagPendingDeletion = $state<V2TagSummary | null>(null);
+  let deletingTagId = $state<number | null>(null);
+  let trimmedRenameDraft = $derived(renameDraft.trim());
+  let canSaveRename = $derived(
+    Boolean(tagPendingRename) &&
+      trimmedRenameDraft.length > 0 &&
+      trimmedRenameDraft !== tagPendingRename?.tag.name &&
+      !isRenaming
+  );
 
-  onMount(async () => {
-    await appStore.loadAllTags();
-    tags = appStore.allTags;
+  async function loadTagSummaries(): Promise<void> {
+    isLoading = true;
+    errorMessage = null;
+
+    try {
+      tagSummaries = await v2ChecklistApi.v2GetTagSummaries();
+    } catch (error) {
+      const nextError = error instanceof Error ? error : new Error(String(error));
+      errorMessage = nextError.message;
+      console.error('Failed to load v2 tag summaries.', error);
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  function openRenameSheet(summary: V2TagSummary): void {
+    if (isRenaming || deletingTagId !== null) return;
+
+    tagPendingRename = summary;
+    renameDraft = summary.tag.name;
+  }
+
+  function closeRenameSheet(): void {
+    if (isRenaming) return;
+
+    tagPendingRename = null;
+    renameDraft = '';
+  }
+
+  async function submitRename(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    if (!tagPendingRename || !canSaveRename) return;
+
+    isRenaming = true;
+    errorMessage = null;
+
+    try {
+      await v2ChecklistApi.v2RenameTag(tagPendingRename.tag.id, trimmedRenameDraft);
+      await loadTagSummaries();
+      tagPendingRename = null;
+      renameDraft = '';
+    } catch (error) {
+      const nextError = error instanceof Error ? error : new Error(String(error));
+      errorMessage = nextError.message;
+      console.error('Failed to rename v2 tag.', error);
+    } finally {
+      isRenaming = false;
+    }
+  }
+
+  function requestDeleteTag(summary: V2TagSummary): void {
+    if (isRenaming || deletingTagId !== null) return;
+
+    tagPendingDeletion = summary;
+  }
+
+  function cancelDeleteTag(): void {
+    if (deletingTagId !== null) return;
+
+    tagPendingDeletion = null;
+  }
+
+  async function confirmDeleteTag(): Promise<void> {
+    if (!tagPendingDeletion || deletingTagId !== null) return;
+
+    const tagId = tagPendingDeletion.tag.id;
+    deletingTagId = tagId;
+    errorMessage = null;
+
+    try {
+      await v2ChecklistApi.v2DeleteTag(tagId);
+      tagSummaries = tagSummaries.filter((summary) => summary.tag.id !== tagId);
+      tagPendingDeletion = null;
+    } catch (error) {
+      const nextError = error instanceof Error ? error : new Error(String(error));
+      errorMessage = nextError.message;
+      console.error('Failed to delete v2 tag.', error);
+    } finally {
+      deletingTagId = null;
+    }
+  }
+
+  onMount(() => {
+    void loadTagSummaries();
   });
-
-  function requestDelete(tag: Tag) {
-    deleteTarget = tag;
-    showDeleteConfirm = true;
-  }
-
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    await appStore.deleteTag(deleteTarget.id);
-    tags = appStore.allTags;
-    showDeleteConfirm = false;
-    deleteTarget = null;
-  }
-
-  function cancelDelete() {
-    showDeleteConfirm = false;
-    deleteTarget = null;
-  }
 </script>
 
-<SettingsLayout title={i18n.t('tagManage')} onBack={() => goto(settingsPathWithReturnTo('/settings', returnTo))}>
-  {#if tags.length === 0}
-    <div class="empty-state">
-      <p>{i18n.t('tagEmpty')}</p>
-    </div>
-  {:else}
-    <div class="tag-list">
-      {#each tags as tag (tag.id)}
-        <div class="tag-row">
-          <span class="tag-name">{tag.name}</span>
-          <button
-            type="button"
-            class="delete-btn"
-            onclick={() => requestDelete(tag)}
-            aria-label="Delete"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
-            </svg>
-          </button>
+<V2SettingsShell
+  title={i18n.t('v2TagManageTitle')}
+  onBack={() => void goto(settingsPathWithReturnTo('/settings', returnTo))}
+>
+  <div class="flex flex-col gap-5">
+    {#if errorMessage}
+      <div class="rounded-md border border-accent-peach-strong bg-accent-peach px-3 py-2 text-sm text-ink">
+        {errorMessage}
+      </div>
+    {/if}
+
+    <V2SettingsGroup
+      title={i18n.t('v2TagManageGroupTitle')}
+      description={i18n.t('v2TagManageDescription')}
+    >
+      {#if isLoading}
+        <div class="flex min-h-24 items-center px-4 py-4 text-sm font-medium text-ink-muted">
+          {i18n.t('v2Loading')}
         </div>
-      {/each}
+      {:else if tagSummaries.length === 0}
+        <div class="px-4 py-6 text-sm leading-6 text-ink-muted">
+          <p class="font-semibold text-ink">{i18n.t('v2TagManageEmptyTitle')}</p>
+          <p class="mt-1">{i18n.t('v2TagManageEmptyDescription')}</p>
+        </div>
+      {:else}
+        <div class="divide-y divide-stroke">
+          {#each tagSummaries as summary (summary.tag.id)}
+            <div class="overflow-hidden" out:slide|local={{ duration: 210 }}>
+              <article class="min-w-0 px-3 py-3" out:fade|local={{ duration: 120 }}>
+                <div class="flex min-w-0 items-center gap-3">
+                  <div
+                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[6px_14px_6px_14px] bg-accent-mint text-ink"
+                    aria-hidden="true"
+                  >
+                    <Hash size={20} strokeWidth={2.4} />
+                  </div>
+
+                  <div class="min-w-0 flex-1">
+                    <div class="flex min-w-0 items-center gap-2">
+                      <h2 class="min-w-0 flex-1 truncate text-[16px] font-semibold leading-6 text-ink">
+                        #{summary.tag.name}
+                      </h2>
+                      <span
+                        class="shrink-0 rounded-full bg-canvas px-2.5 py-1 text-[11px] font-semibold leading-4 text-ink-muted"
+                      >
+                        {i18n.t('v2TagItemCountTemplate')(summary.item_count)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      class="flex h-11 w-11 items-center justify-center rounded-[12px] text-ink-muted transition-colors hover:bg-accent-sky hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={i18n.t('v2RenameTag')}
+                      disabled={isRenaming || deletingTagId !== null}
+                      onclick={() => openRenameSheet(summary)}
+                    >
+                      <Pencil size={19} strokeWidth={2.2} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      class="flex h-11 w-11 items-center justify-center rounded-[12px] text-ink-muted transition-colors hover:bg-accent-peach hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={i18n.t('v2DeleteTag')}
+                      disabled={isRenaming || deletingTagId !== null}
+                      onclick={() => requestDeleteTag(summary)}
+                    >
+                      <Trash2 size={19} strokeWidth={2.2} aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+              </article>
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </V2SettingsGroup>
+  </div>
+</V2SettingsShell>
+
+<V2BottomSheet
+  show={tagPendingRename !== null}
+  title={i18n.t('v2RenameTagTitle')}
+  onClose={closeRenameSheet}
+>
+  {#snippet footer()}
+    <div class="flex gap-[10px]">
+      <button
+        type="submit"
+        form="v2-tag-rename-form"
+        class="min-h-12 flex-1 rounded-[14px] bg-accent-sky-strong px-4 text-sm font-semibold text-ink transition-colors hover:bg-accent-sky disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={!canSaveRename}
+      >
+        {isRenaming ? i18n.t('v2RenamingTag') : i18n.t('v2SaveTag')}
+      </button>
+      <button
+        type="button"
+        class="min-h-12 flex-1 rounded-[14px] bg-canvas px-4 text-sm font-semibold text-ink-muted transition-colors hover:bg-mist disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={isRenaming}
+        onclick={closeRenameSheet}
+      >
+        {i18n.t('cancel')}
+      </button>
     </div>
-  {/if}
+  {/snippet}
 
-  <ConfirmModal
-    show={showDeleteConfirm}
-    title={i18n.t('delete')}
-    message={deleteTarget ? i18n.t('tagDeleteConfirmTemplate')(deleteTarget.name) : ''}
-    confirmLabel={i18n.t('delete')}
-    cancelLabel={i18n.t('cancel')}
-    confirmStyle="danger"
-    onConfirm={confirmDelete}
-    onCancel={cancelDelete}
-  />
-</SettingsLayout>
+  <form id="v2-tag-rename-form" class="flex flex-col gap-3" onsubmit={submitRename}>
+    <label class="flex flex-col gap-2">
+      <span class="text-sm font-semibold leading-5 text-ink">{i18n.t('v2TagNameLabel')}</span>
+      <input
+        bind:value={renameDraft}
+        class="min-h-[52px] rounded-[14px] border-2 border-ink bg-paper px-[14px] text-base text-ink outline-none transition-colors focus:bg-canvas"
+        placeholder={i18n.t('v2TagNamePlaceholder')}
+        aria-label={i18n.t('v2TagNameLabel')}
+        disabled={isRenaming}
+      />
+    </label>
+  </form>
+</V2BottomSheet>
 
-<style>
-  .empty-state {
-    text-align: center;
-    padding: 32px 16px;
-    color: var(--color-ink-muted);
-    font-size: 14px;
-  }
-
-  .tag-list {
-    background: var(--color-canvas);
-    border-radius: 12px;
-    overflow: hidden;
-  }
-
-  .tag-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-  }
-
-  .tag-row:not(:last-child) {
-    border-bottom: 1px solid var(--color-stroke);
-  }
-
-  .tag-name {
-    font-size: 15px;
-    color: var(--color-ink);
-  }
-
-  .delete-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--color-ink-muted);
-    border-radius: 8px;
-    transition: background 0.15s;
-  }
-
-  .delete-btn:hover {
-    background: var(--color-accent-peach);
-    color: var(--color-ink);
-  }
-</style>
+<V2ConfirmModal
+  show={tagPendingDeletion !== null}
+  title={i18n.t('v2DeleteTagConfirmTitle')}
+  message={tagPendingDeletion
+    ? i18n.t('v2DeleteTagConfirmMessageTemplate')(
+        tagPendingDeletion.tag.name,
+        tagPendingDeletion.item_count
+      )
+    : ''}
+  confirmLabel={deletingTagId === null ? i18n.t('v2DeleteTag') : i18n.t('v2DeletingTag')}
+  tone="danger"
+  isBusy={deletingTagId !== null}
+  onConfirm={confirmDeleteTag}
+  onCancel={cancelDeleteTag}
+/>

@@ -3,7 +3,7 @@ use rusqlite::Connection;
 
 use crate::models::{
     V2ArchivedItem, V2Category, V2GraphData, V2ItemSearchResult, V2RepeatType, V2StreakHeatmap,
-    V2StreakLog, V2Tag, V2TodoItem,
+    V2StreakLog, V2Tag, V2TagSummary, V2TodoItem,
 };
 use crate::repository::{SettingsRepository, V2ChecklistRepository};
 
@@ -131,6 +131,24 @@ impl V2ChecklistService {
 
     pub fn get_tags(conn: &Connection) -> Result<Vec<V2Tag>, String> {
         V2ChecklistRepository::get_tags(conn).map_err(|error| error.to_string())
+    }
+
+    pub fn get_tag_summaries(conn: &Connection) -> Result<Vec<V2TagSummary>, String> {
+        V2ChecklistRepository::get_tag_summaries(conn).map_err(|error| error.to_string())
+    }
+
+    pub fn rename_tag(conn: &Connection, id: i64, name: &str) -> Result<V2Tag, String> {
+        let normalized_tags = Self::normalize_tag_names(&[name.to_string()])?;
+        let normalized_name = normalized_tags
+            .first()
+            .ok_or_else(|| "Tag name cannot be empty.".to_string())?;
+
+        V2ChecklistRepository::rename_tag(conn, id, normalized_name)
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn delete_tag(conn: &Connection, id: i64) -> Result<(), String> {
+        V2ChecklistRepository::delete_tag(conn, id).map_err(|error| error.to_string())
     }
 
     pub fn search_items(

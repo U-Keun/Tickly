@@ -192,6 +192,11 @@ export interface V2Tag {
   updated_at: string;
 }
 
+export interface V2TagSummary {
+  tag: V2Tag;
+  item_count: number;
+}
+
 export interface V2ItemSearchResult {
   item: V2TodoItem;
   category: V2Category;

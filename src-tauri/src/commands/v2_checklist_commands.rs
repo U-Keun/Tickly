@@ -3,7 +3,7 @@ use tauri::State;
 use super::with_db;
 use crate::models::{
     V2ArchivedItem, V2Category, V2GraphData, V2ItemSearchResult, V2RepeatType, V2StreakHeatmap,
-    V2Tag, V2TodoItem,
+    V2Tag, V2TagSummary, V2TodoItem,
 };
 use crate::service::V2ChecklistService;
 use crate::AppState;
@@ -50,6 +50,21 @@ pub fn v2_get_active_reminder_items(state: State<AppState>) -> Result<Vec<V2Todo
 #[tauri::command]
 pub fn v2_get_tags(state: State<AppState>) -> Result<Vec<V2Tag>, String> {
     with_db(&state, V2ChecklistService::get_tags)
+}
+
+#[tauri::command]
+pub fn v2_get_tag_summaries(state: State<AppState>) -> Result<Vec<V2TagSummary>, String> {
+    with_db(&state, V2ChecklistService::get_tag_summaries)
+}
+
+#[tauri::command]
+pub fn v2_rename_tag(id: i64, name: String, state: State<AppState>) -> Result<V2Tag, String> {
+    with_db(&state, |db| V2ChecklistService::rename_tag(db, id, &name))
+}
+
+#[tauri::command]
+pub fn v2_delete_tag(id: i64, state: State<AppState>) -> Result<(), String> {
+    with_db(&state, |db| V2ChecklistService::delete_tag(db, id))
 }
 
 #[tauri::command]

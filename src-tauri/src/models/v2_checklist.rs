@@ -77,6 +77,12 @@ pub struct V2Tag {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct V2TagSummary {
+    pub tag: V2Tag,
+    pub item_count: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct V2ItemSearchResult {
     pub item: V2TodoItem,
     pub category: V2Category,

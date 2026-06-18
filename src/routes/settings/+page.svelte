@@ -49,6 +49,12 @@
 
     <V2SettingsGroup title={i18n.t('settingsGroupData')}>
       <V2SettingsRow
+        icon="tags"
+        tone="mint"
+        label={i18n.t('v2TagManageTitle')}
+        onSelect={() => goToSetting('/settings/tags')}
+      />
+      <V2SettingsRow
         icon="archive"
         tone="sky"
         label={i18n.t('v2ArchiveManageTitle')}
@@ -57,13 +63,6 @@
     </V2SettingsGroup>
 
     <V2SettingsGroup title={i18n.t('settingsGroupLegacy')}>
-      <V2SettingsRow
-        icon="tags"
-        tone="mint"
-        label={i18n.t('tagManage')}
-        badge={i18n.t('settingsLegacyBadge')}
-        onSelect={() => goToSetting('/settings/tags')}
-      />
       <V2SettingsRow
         icon="cloud"
         tone="sky"

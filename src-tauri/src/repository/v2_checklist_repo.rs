@@ -2,7 +2,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::models::{
     V2ArchivedItem, V2Category, V2GraphData, V2GraphTagEdge, V2ItemSearchResult, V2RepeatType,
-    V2StreakLog, V2Tag, V2TodoItem,
+    V2StreakLog, V2Tag, V2TagSummary, V2TodoItem,
 };
 
 pub struct V2ChecklistRepository;
@@ -197,6 +197,18 @@ impl V2ChecklistRepository {
         })
     }
 
+    fn row_to_tag_summary(row: &rusqlite::Row) -> Result<V2TagSummary, rusqlite::Error> {
+        Ok(V2TagSummary {
+            tag: V2Tag {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                created_at: row.get(2)?,
+                updated_at: row.get(3)?,
+            },
+            item_count: row.get(4)?,
+        })
+    }
+
     fn row_to_search_result(row: &rusqlite::Row) -> Result<V2ItemSearchResult, rusqlite::Error> {
         let repeat_type: String = row.get(4)?;
         Ok(V2ItemSearchResult {
@@ -277,6 +289,12 @@ impl V2ChecklistRepository {
             Self::TAG_COLUMNS
         );
         conn.query_row(&sql, params![name], Self::row_to_tag)
+            .optional()
+    }
+
+    fn get_tag_by_id(conn: &Connection, id: i64) -> Result<Option<V2Tag>, rusqlite::Error> {
+        let sql = format!("SELECT {} FROM v2_tags WHERE id = ?1", Self::TAG_COLUMNS);
+        conn.query_row(&sql, params![id], Self::row_to_tag)
             .optional()
     }
 
@@ -490,6 +508,116 @@ impl V2ChecklistRepository {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(tags)
+    }
+
+    pub fn get_tag_summaries(conn: &Connection) -> Result<Vec<V2TagSummary>, rusqlite::Error> {
+        let sql = "\
+            SELECT
+                tg.id,
+                tg.name,
+                tg.created_at,
+                tg.updated_at,
+                COUNT(DISTINCT CASE
+                    WHEN t.archived_at IS NULL THEN tt.todo_id
+                    ELSE NULL
+                END) AS item_count
+            FROM v2_tags tg
+            LEFT JOIN v2_todo_tags tt ON tt.tag_id = tg.id
+            LEFT JOIN v2_todos t ON t.id = tt.todo_id
+            GROUP BY tg.id, tg.name, tg.created_at, tg.updated_at
+            ORDER BY tg.name COLLATE NOCASE ASC";
+        let mut stmt = conn.prepare(sql)?;
+        let tags = stmt
+            .query_map([], Self::row_to_tag_summary)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(tags)
+    }
+
+    pub fn rename_tag(conn: &Connection, id: i64, name: &str) -> Result<V2Tag, rusqlite::Error> {
+        let source_tag =
+            Self::get_tag_by_id(conn, id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        let existing_tag = Self::get_tag_by_name(conn, name)?;
+        let now = Self::now_iso();
+
+        conn.execute("BEGIN TRANSACTION", [])?;
+
+        let operation = (|| -> Result<Option<V2Tag>, rusqlite::Error> {
+            if let Some(target_tag) = existing_tag {
+                if target_tag.id != source_tag.id {
+                    conn.execute(
+                        "INSERT OR IGNORE INTO v2_todo_tags (todo_id, tag_id, created_at)
+                         SELECT todo_id, ?1, ?2
+                         FROM v2_todo_tags
+                         WHERE tag_id = ?3",
+                        params![target_tag.id, &now, source_tag.id],
+                    )?;
+                    conn.execute(
+                        "DELETE FROM v2_todo_tags WHERE tag_id = ?1",
+                        params![source_tag.id],
+                    )?;
+                    conn.execute("DELETE FROM v2_tags WHERE id = ?1", params![source_tag.id])?;
+                    conn.execute(
+                        "UPDATE v2_tags SET updated_at = ?1 WHERE id = ?2",
+                        params![&now, target_tag.id],
+                    )?;
+                    return Self::get_tag_by_id(conn, target_tag.id);
+                }
+
+                conn.execute(
+                    "UPDATE v2_tags SET name = ?1, updated_at = ?2 WHERE id = ?3",
+                    params![name, &now, source_tag.id],
+                )?;
+                Self::get_tag_by_id(conn, source_tag.id)
+            } else {
+                let updated = conn.execute(
+                    "UPDATE v2_tags SET name = ?1, updated_at = ?2 WHERE id = ?3",
+                    params![name, &now, source_tag.id],
+                )?;
+                if updated == 0 {
+                    return Err(rusqlite::Error::QueryReturnedNoRows);
+                }
+                Self::get_tag_by_id(conn, source_tag.id)
+            }
+        })();
+
+        match operation {
+            Ok(Some(tag)) => {
+                conn.execute("COMMIT", [])?;
+                Ok(tag)
+            }
+            Ok(None) => {
+                let _ = conn.execute("ROLLBACK", []);
+                Err(rusqlite::Error::QueryReturnedNoRows)
+            }
+            Err(error) => {
+                let _ = conn.execute("ROLLBACK", []);
+                Err(error)
+            }
+        }
+    }
+
+    pub fn delete_tag(conn: &Connection, id: i64) -> Result<(), rusqlite::Error> {
+        conn.execute("BEGIN TRANSACTION", [])?;
+        let operation = (|| -> Result<usize, rusqlite::Error> {
+            conn.execute("DELETE FROM v2_todo_tags WHERE tag_id = ?1", params![id])?;
+            conn.execute("DELETE FROM v2_tags WHERE id = ?1", params![id])
+        })();
+
+        match operation {
+            Ok(0) => {
+                let _ = conn.execute("ROLLBACK", []);
+                Err(rusqlite::Error::QueryReturnedNoRows)
+            }
+            Ok(_) => {
+                conn.execute("COMMIT", [])?;
+                Ok(())
+            }
+            Err(error) => {
+                let _ = conn.execute("ROLLBACK", []);
+                Err(error)
+            }
+        }
     }
 
     pub fn get_tags_for_item(
@@ -1368,6 +1496,81 @@ mod tests {
         let tags = V2ChecklistRepository::get_tags(&conn).unwrap();
         assert_eq!(tags.len(), 1);
         assert_eq!(tags[0].name, "home");
+    }
+
+    #[test]
+    fn returns_tag_summaries_with_active_item_counts() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistRepository::get_categories(&conn).unwrap()[0].id;
+        let first =
+            V2ChecklistRepository::create_item(&conn, category_id, "Read", &["study".to_string()])
+                .unwrap();
+        V2ChecklistRepository::create_item(&conn, category_id, "Pray", &["study".to_string()])
+            .unwrap();
+
+        V2ChecklistRepository::complete_item(&conn, first.id, "2026-06-16", None).unwrap();
+        V2ChecklistRepository::archive_completed_items(&conn, category_id).unwrap();
+
+        let summaries = V2ChecklistRepository::get_tag_summaries(&conn).unwrap();
+
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].tag.name, "study");
+        assert_eq!(summaries[0].item_count, 1);
+    }
+
+    #[test]
+    fn renames_tag_and_merges_when_target_exists() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistRepository::get_categories(&conn).unwrap()[0].id;
+        let source_item =
+            V2ChecklistRepository::create_item(&conn, category_id, "Wallet", &["work".to_string()])
+                .unwrap();
+        let target_item = V2ChecklistRepository::create_item(
+            &conn,
+            category_id,
+            "Passport",
+            &["personal".to_string()],
+        )
+        .unwrap();
+        let source_tag = V2ChecklistRepository::get_tags(&conn)
+            .unwrap()
+            .into_iter()
+            .find(|tag| tag.name == "work")
+            .unwrap();
+
+        let renamed = V2ChecklistRepository::rename_tag(&conn, source_tag.id, "personal").unwrap();
+        let tags = V2ChecklistRepository::get_tags(&conn).unwrap();
+        let items = V2ChecklistRepository::get_items(&conn, category_id).unwrap();
+        let source_item = items.iter().find(|item| item.id == source_item.id).unwrap();
+        let target_item = items.iter().find(|item| item.id == target_item.id).unwrap();
+
+        assert_eq!(renamed.name, "personal");
+        assert_eq!(tags.len(), 1);
+        assert_eq!(source_item.tags[0].name, "personal");
+        assert_eq!(target_item.tags[0].name, "personal");
+    }
+
+    #[test]
+    fn deletes_tag_without_deleting_items() {
+        let conn = setup_conn();
+        let category_id = V2ChecklistRepository::get_categories(&conn).unwrap()[0].id;
+        let item = V2ChecklistRepository::create_item(
+            &conn,
+            category_id,
+            "Wallet",
+            &["travel".to_string()],
+        )
+        .unwrap();
+        let tag = V2ChecklistRepository::get_tags(&conn).unwrap()[0].clone();
+
+        V2ChecklistRepository::delete_tag(&conn, tag.id).unwrap();
+        let items = V2ChecklistRepository::get_items(&conn, category_id).unwrap();
+        let tags = V2ChecklistRepository::get_tags(&conn).unwrap();
+
+        assert!(tags.is_empty());
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].id, item.id);
+        assert!(items[0].tags.is_empty());
     }
 
     #[test]

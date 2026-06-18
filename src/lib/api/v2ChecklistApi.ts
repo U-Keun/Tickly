@@ -7,6 +7,7 @@ import type {
   V2RepeatType,
   V2StreakHeatmap,
   V2Tag,
+  V2TagSummary,
   V2TodoItem
 } from '../../types';
 
@@ -40,6 +41,18 @@ export async function v2GetActiveReminderItems(): Promise<V2TodoItem[]> {
 
 export async function v2GetTags(): Promise<V2Tag[]> {
   return invoke<V2Tag[]>('v2_get_tags');
+}
+
+export async function v2GetTagSummaries(): Promise<V2TagSummary[]> {
+  return invoke<V2TagSummary[]>('v2_get_tag_summaries');
+}
+
+export async function v2RenameTag(id: number, name: string): Promise<V2Tag> {
+  return invoke<V2Tag>('v2_rename_tag', { id, name });
+}
+
+export async function v2DeleteTag(id: number): Promise<void> {
+  return invoke<void>('v2_delete_tag', { id });
 }
 
 export async function v2SearchItems(
