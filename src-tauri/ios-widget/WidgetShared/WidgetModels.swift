@@ -1,4 +1,91 @@
 import Foundation
+import SwiftUI
+
+@available(iOS 17.0, iOSApplicationExtension 17.0, *)
+struct WidgetSoftLeafShape: Shape {
+    var smallRadius: CGFloat = 5
+    var largeRadius: CGFloat = 16
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let small = min(smallRadius, min(rect.width, rect.height) / 2)
+        let large = min(largeRadius, min(rect.width, rect.height) / 2)
+
+        path.move(to: CGPoint(x: rect.minX + small, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - large, y: rect.minY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX, y: rect.minY + large),
+            control: CGPoint(x: rect.maxX, y: rect.minY)
+        )
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - small))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX - small, y: rect.maxY),
+            control: CGPoint(x: rect.maxX, y: rect.maxY)
+        )
+        path.addLine(to: CGPoint(x: rect.minX + large, y: rect.maxY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX, y: rect.maxY - large),
+            control: CGPoint(x: rect.minX, y: rect.maxY)
+        )
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + small))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX + small, y: rect.minY),
+            control: CGPoint(x: rect.minX, y: rect.minY)
+        )
+        path.closeSubpath()
+        return path
+    }
+}
+
+enum WidgetCopy {
+    private static var languageCode: String {
+        Locale.current.languageCode ?? String(Locale.current.identifier.prefix(2))
+    }
+
+    static var noCategories: String {
+        switch languageCode {
+        case "ko":
+            return "카테고리 없음"
+        case "ja":
+            return "カテゴリなし"
+        default:
+            return "No categories"
+        }
+    }
+
+    static var allDone: String {
+        switch languageCode {
+        case "ko":
+            return "모두 완료"
+        case "ja":
+            return "すべて完了"
+        default:
+            return "All done"
+        }
+    }
+
+    static func more(_ count: Int) -> String {
+        switch languageCode {
+        case "ko":
+            return "+\(count)개 더"
+        case "ja":
+            return "他\(count)件"
+        default:
+            return "+\(count) more"
+        }
+    }
+
+    static func donePercent(_ percent: Int) -> String {
+        switch languageCode {
+        case "ko":
+            return "\(percent)% 완료"
+        case "ja":
+            return "\(percent)% 完了"
+        default:
+            return "\(percent)% done"
+        }
+    }
+}
 
 struct WidgetTodoItem: Codable, Identifiable {
     let id: Int64

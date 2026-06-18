@@ -13,7 +13,7 @@ Apply parent component rules first.
 - v2 local streak is now in scope for opt-in item tracking and the v2 Streak overlay. Keep it backed by v2 completion logs and v2 props/API/store data.
 - v2 local graph is now in scope as a relationship overlay. Keep graph data backed by v2 category/item/tag props or v2 API/store helpers, not v1 graph flows.
 - v2 iCloud sync is now in scope for settings/status surfaces only. Components should receive sync state through props or v2 stores and must not call native sync commands directly.
-- Do not add widget behavior here until v2 scope expands.
+- v2 iOS widget behavior is now in scope through v2 props/API/store data. Do not import v1 widget, todo, repeat, tag, or app stores for widget behavior.
 
 ## Storybook
 

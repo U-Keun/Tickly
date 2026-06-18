@@ -12,6 +12,7 @@ if [[ ! -d "$APPLE_GEN_DIR" ]]; then
 fi
 
 mkdir -p "$APPLE_GEN_DIR/TicklyWidgetExtension"
+mkdir -p "$APPLE_GEN_DIR/WidgetShared"
 mkdir -p "$APPLE_GEN_DIR/Sources/tickly"
 
 cp "$TEMPLATE_DIR/project.yml" "$APPLE_GEN_DIR/project.yml"
@@ -22,15 +23,22 @@ cp "$TEMPLATE_DIR/Sources/tickly/TicklyLiquidGlassDock.swift" "$APPLE_GEN_DIR/So
 cp "$TEMPLATE_DIR/Sources/tickly/TicklyICloudSync.swift" "$APPLE_GEN_DIR/Sources/tickly/TicklyICloudSync.swift"
 cp "$TEMPLATE_DIR/TicklyWidgetExtension/Info.plist" "$APPLE_GEN_DIR/TicklyWidgetExtension/Info.plist"
 cp "$TEMPLATE_DIR/TicklyWidgetExtension/TicklyWidgetExtension.entitlements" "$APPLE_GEN_DIR/TicklyWidgetExtension/TicklyWidgetExtension.entitlements"
+rm -f "$APPLE_GEN_DIR/TicklyWidgetExtension/CategoryWidgetConfigurationIntent.swift"
+rm -f "$APPLE_GEN_DIR/TicklyWidgetExtension/RefreshWidgetIntent.swift"
+rm -f "$APPLE_GEN_DIR/TicklyWidgetExtension/ToggleTodoIntent.swift"
+rm -f "$APPLE_GEN_DIR/TicklyWidgetExtension/WidgetModels.swift"
+rm -f "$APPLE_GEN_DIR/TicklyWidgetExtension/WidgetActionStore.swift"
+rm -f "$APPLE_GEN_DIR/TicklyWidgetExtension/WidgetSnapshotLoader.swift"
 cp "$TEMPLATE_DIR/TicklyWidgetExtension/TicklyWidgetBundle.swift" "$APPLE_GEN_DIR/TicklyWidgetExtension/TicklyWidgetBundle.swift"
 cp "$TEMPLATE_DIR/TicklyWidgetExtension/TicklyWidget.swift" "$APPLE_GEN_DIR/TicklyWidgetExtension/TicklyWidget.swift"
 cp "$TEMPLATE_DIR/TicklyWidgetExtension/TicklyLockScreenWidget.swift" "$APPLE_GEN_DIR/TicklyWidgetExtension/TicklyLockScreenWidget.swift"
-cp "$TEMPLATE_DIR/TicklyWidgetExtension/CategoryWidgetConfigurationIntent.swift" "$APPLE_GEN_DIR/TicklyWidgetExtension/CategoryWidgetConfigurationIntent.swift"
-cp "$TEMPLATE_DIR/TicklyWidgetExtension/RefreshWidgetIntent.swift" "$APPLE_GEN_DIR/TicklyWidgetExtension/RefreshWidgetIntent.swift"
-cp "$TEMPLATE_DIR/TicklyWidgetExtension/ToggleTodoIntent.swift" "$APPLE_GEN_DIR/TicklyWidgetExtension/ToggleTodoIntent.swift"
-cp "$TEMPLATE_DIR/TicklyWidgetExtension/WidgetModels.swift" "$APPLE_GEN_DIR/TicklyWidgetExtension/WidgetModels.swift"
-cp "$TEMPLATE_DIR/TicklyWidgetExtension/WidgetActionStore.swift" "$APPLE_GEN_DIR/TicklyWidgetExtension/WidgetActionStore.swift"
-cp "$TEMPLATE_DIR/TicklyWidgetExtension/WidgetSnapshotLoader.swift" "$APPLE_GEN_DIR/TicklyWidgetExtension/WidgetSnapshotLoader.swift"
+find "$APPLE_GEN_DIR/WidgetShared" -mindepth 1 -delete
+cp "$TEMPLATE_DIR/WidgetShared/CategoryWidgetConfigurationIntent.swift" "$APPLE_GEN_DIR/WidgetShared/CategoryWidgetConfigurationIntent.swift"
+cp "$TEMPLATE_DIR/WidgetShared/RefreshWidgetIntent.swift" "$APPLE_GEN_DIR/WidgetShared/RefreshWidgetIntent.swift"
+cp "$TEMPLATE_DIR/WidgetShared/ToggleTodoIntent.swift" "$APPLE_GEN_DIR/WidgetShared/ToggleTodoIntent.swift"
+cp "$TEMPLATE_DIR/WidgetShared/WidgetModels.swift" "$APPLE_GEN_DIR/WidgetShared/WidgetModels.swift"
+cp "$TEMPLATE_DIR/WidgetShared/WidgetActionStore.swift" "$APPLE_GEN_DIR/WidgetShared/WidgetActionStore.swift"
+cp "$TEMPLATE_DIR/WidgetShared/WidgetSnapshotLoader.swift" "$APPLE_GEN_DIR/WidgetShared/WidgetSnapshotLoader.swift"
 
 (
   cd "$APPLE_GEN_DIR"

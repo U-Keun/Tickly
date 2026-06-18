@@ -36,6 +36,7 @@ targets:
     sources:
       - path: Sources
       - path: Assets.xcassets
+      - path: WidgetShared
       - path: Externals
         excludes:
           - "**/*.a"
@@ -92,13 +93,16 @@ targets:
       - framework: libapp.a
         embed: false
       - sdk: CloudKit.framework
+      - sdk: AppIntents.framework
       - sdk: CoreGraphics.framework
       - sdk: Metal.framework
       - sdk: MetalKit.framework
       - sdk: QuartzCore.framework
       - sdk: Security.framework
+      - sdk: SwiftUI.framework
       - sdk: UIKit.framework
       - sdk: WebKit.framework
+      - sdk: WidgetKit.framework
       - sdk: UserNotifications.framework
       - target: TicklyWidgetExtension
         embed: true
@@ -122,6 +126,7 @@ targets:
     type: app-extension
     platform: iOS
     sources:
+      - path: WidgetShared
       - path: TicklyWidgetExtension
     info:
       path: TicklyWidgetExtension/Info.plist
@@ -143,5 +148,6 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
       groups: [widget]
     dependencies:
+      - sdk: AppIntents.framework
       - sdk: SwiftUI.framework
       - sdk: WidgetKit.framework

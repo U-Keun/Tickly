@@ -288,7 +288,11 @@
       }
 
       void v2ChecklistStore
-        .processRepeatsAndReload()
+        .processWidgetActions()
+        .then((processedCount) => {
+          if (processedCount > 0) return;
+          return v2ChecklistStore.processRepeatsAndReload();
+        })
         .catch(() => undefined)
         .finally(() => {
           void v2ChecklistStore.scheduleRepeatProcessing();
@@ -315,6 +319,7 @@
       document.removeEventListener('focusout', handleFocusOut);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       v2ChecklistStore.disposeRepeatProcessingTimer();
+      v2ChecklistStore.disposeWidgetRefreshTimer();
       v2ICloudSyncStore.dispose();
       if (nativeDockSupported) {
         void v2NativeDockApi.configureNativeDock(buildNativeDockRequest(false));

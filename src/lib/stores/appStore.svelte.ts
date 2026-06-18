@@ -4,7 +4,6 @@ import { createItemActions } from './appStoreItemActions';
 import { createTagActions } from './appStoreTagActions';
 import { syncStore } from './syncStore.svelte';
 import * as todoApi from '../api/todoApi';
-import * as widgetApi from '../api/widgetApi';
 
 // Core app state
 let items = $state<TodoItem[]>([]);
@@ -18,7 +17,6 @@ let filteredItems = $state<TodoItem[]>([]);
 let itemTagsMap = $state<Record<number, Tag[]>>({});
 
 async function finalizeMutation(): Promise<void> {
-  await refreshWidgetCache();
   syncStore.scheduleSync();
 }
 
@@ -41,30 +39,11 @@ const tagActions = createTagActions({
   finalizeMutation
 });
 
-// Actions
-async function refreshWidgetCache(): Promise<void> {
-  try {
-    await widgetApi.refreshWidgetCache();
-  } catch (error) {
-    console.error('Failed to refresh widget cache:', error);
-  }
-}
-
-async function processWidgetActions(): Promise<number> {
-  try {
-    return await widgetApi.processWidgetActions();
-  } catch (error) {
-    console.error('Failed to process widget actions:', error);
-    return 0;
-  }
-}
-
 async function loadItems(): Promise<void> {
   try {
     // Check and perform auto-reset if needed before loading items
     await todoApi.checkAndAutoReset();
     items = await todoApi.getItems(selectedCategoryId);
-    await refreshWidgetCache();
   } catch (error) {
     console.error('Failed to load items:', error);
   }
@@ -133,7 +112,6 @@ export const appStore = {
   loadCategories: categoryActions.loadCategories,
   loadItems,
   refreshAll,
-  processWidgetActions,
 
   // Category actions
   selectCategory: categoryActions.selectCategory,
@@ -146,7 +124,6 @@ export const appStore = {
   // Item actions
   addItem: itemActions.addItem,
   toggleItem: itemActions.toggleItem,
-  toggleItemFromWidget: itemActions.toggleItemFromWidget,
   deleteItem: itemActions.deleteItem,
   editItem: itemActions.editItem,
   updateMemo: itemActions.updateMemo,

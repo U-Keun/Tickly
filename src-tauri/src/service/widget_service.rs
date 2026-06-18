@@ -9,9 +9,8 @@ use tauri::{AppHandle, Manager};
 use crate::models::{
     WidgetCategoryPendingItem, WidgetCategorySummary, WidgetSnapshot, WidgetTheme, WidgetTodoItem,
 };
-use crate::repository::{
-    CategoryRepository, SettingsRepository, TodoRepository, TodoTagRepository,
-};
+use crate::repository::{SettingsRepository, V2ChecklistRepository};
+use crate::service::V2ChecklistService;
 
 pub struct WidgetService;
 
@@ -59,6 +58,13 @@ impl WidgetService {
         app: &AppHandle,
         max_items: Option<usize>,
     ) -> Result<WidgetSnapshot, String> {
+        let _ = V2ChecklistService::process_repeats(conn).map_err(|error| {
+            log::error!(
+                "Failed to process v2 repeats before widget refresh: {}",
+                error
+            );
+            error
+        });
         let snapshot = Self::get_snapshot(conn, max_items).map_err(|e| e.to_string())?;
         let cache_path = Self::resolve_cache_path(conn, app)?;
 
@@ -102,7 +108,7 @@ impl WidgetService {
         id: i64,
         max_items: Option<usize>,
     ) -> Result<WidgetSnapshot, String> {
-        crate::service::RepeatService::complete_with_repeat(conn, id).map_err(|e| e.to_string())?;
+        Self::toggle_active_v2_item(conn, id)?;
         Self::refresh_cache(conn, app, max_items)
     }
 
@@ -118,6 +124,14 @@ impl WidgetService {
             return Ok(0);
         }
 
+        let processed = Self::process_toggle_actions(conn, actions);
+
+        Self::clear_pending_actions(&actions_path)?;
+        Self::refresh_cache(conn, app, max_items)?;
+        Ok(processed)
+    }
+
+    fn process_toggle_actions(conn: &Connection, actions: Vec<WidgetToggleAction>) -> usize {
         let mut processed = 0usize;
         let mut seen_item_ids = HashSet::new();
         for action in actions {
@@ -125,12 +139,12 @@ impl WidgetService {
                 continue;
             }
 
-            match crate::service::RepeatService::complete_with_repeat(conn, action.item_id) {
-                Ok(Some(_)) => processed += 1,
-                Ok(None) => {}
+            match Self::toggle_active_v2_item(conn, action.item_id) {
+                Ok(true) => processed += 1,
+                Ok(false) => {}
                 Err(error) => {
                     log::error!(
-                        "Failed to process widget action for item {}: {}",
+                        "Failed to process v2 widget action for item {}: {}",
                         action.item_id,
                         error
                     );
@@ -138,8 +152,124 @@ impl WidgetService {
             }
         }
 
-        Self::clear_pending_actions(&actions_path)?;
-        Self::refresh_cache(conn, app, max_items)?;
-        Ok(processed)
+        processed
+    }
+
+    fn toggle_active_v2_item(conn: &Connection, id: i64) -> Result<bool, String> {
+        let Some(item) =
+            V2ChecklistRepository::get_item_by_id(conn, id).map_err(|error| error.to_string())?
+        else {
+            return Ok(false);
+        };
+
+        if item.archived_at.is_some() {
+            return Ok(false);
+        }
+
+        V2ChecklistService::toggle_item(conn, id)?;
+        Ok(true)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn setup_conn() -> Connection {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute(
+            "CREATE TABLE settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )",
+            [],
+        )
+        .expect("settings schema");
+        V2ChecklistRepository::create_tables(&conn).expect("v2 schema");
+        V2ChecklistRepository::ensure_default_category(&conn).expect("default category");
+        conn
+    }
+
+    #[test]
+    fn widget_snapshot_uses_active_v2_categories_items_and_tags() {
+        let conn = setup_conn();
+        let home = V2ChecklistService::get_categories(&conn).unwrap()[0].clone();
+        let work = V2ChecklistService::create_category(&conn, "Work").unwrap();
+        let home_item = V2ChecklistService::create_item_with_tags(
+            &conn,
+            home.id,
+            "Wallet",
+            &["personal".to_string()],
+        )
+        .unwrap();
+        let done_item =
+            V2ChecklistService::create_item_with_tags(&conn, home.id, "Done", &[]).unwrap();
+        let archived_item =
+            V2ChecklistService::create_item_with_tags(&conn, work.id, "Archived", &[]).unwrap();
+
+        V2ChecklistService::toggle_item(&conn, done_item.id).unwrap();
+        V2ChecklistService::toggle_item(&conn, archived_item.id).unwrap();
+        V2ChecklistService::archive_completed_items(&conn, work.id).unwrap();
+
+        let snapshot = WidgetService::get_snapshot(&conn, None).unwrap();
+
+        assert_eq!(snapshot.total_count, 2);
+        assert_eq!(snapshot.pending_count, 1);
+        assert!(snapshot.items.iter().any(|item| item.id == home_item.id));
+        assert!(!snapshot
+            .items
+            .iter()
+            .any(|item| item.id == archived_item.id));
+
+        let home_summary = snapshot
+            .categories
+            .iter()
+            .find(|category| category.category_id == Some(home.id))
+            .expect("home summary");
+        assert_eq!(home_summary.total_count, 2);
+        assert_eq!(home_summary.pending_count, 1);
+        assert_eq!(home_summary.pending_items[0].tags, vec!["personal"]);
+
+        let work_summary = snapshot
+            .categories
+            .iter()
+            .find(|category| category.category_id == Some(work.id))
+            .expect("work summary");
+        assert_eq!(work_summary.total_count, 0);
+        assert_eq!(work_summary.pending_count, 0);
+    }
+
+    #[test]
+    fn widget_actions_toggle_v2_items_once_and_ignore_archived_items() {
+        let conn = setup_conn();
+        let home = V2ChecklistService::get_categories(&conn).unwrap()[0].clone();
+        let active =
+            V2ChecklistService::create_item_with_tags(&conn, home.id, "Active", &[]).unwrap();
+        let archived =
+            V2ChecklistService::create_item_with_tags(&conn, home.id, "Archived", &[]).unwrap();
+
+        V2ChecklistService::toggle_item(&conn, archived.id).unwrap();
+        V2ChecklistService::archive_completed_items(&conn, home.id).unwrap();
+
+        let processed = WidgetService::process_toggle_actions(
+            &conn,
+            vec![
+                WidgetToggleAction { item_id: active.id },
+                WidgetToggleAction { item_id: active.id },
+                WidgetToggleAction {
+                    item_id: archived.id,
+                },
+            ],
+        );
+        let active_after = V2ChecklistRepository::get_item_by_id(&conn, active.id)
+            .unwrap()
+            .unwrap();
+        let archived_after = V2ChecklistRepository::get_item_by_id(&conn, archived.id)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(processed, 1);
+        assert!(active_after.done);
+        assert!(archived_after.archived_at.is_some());
     }
 }

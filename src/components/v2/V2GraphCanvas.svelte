@@ -181,8 +181,8 @@
       fill: hexToNum(theme.ink)
     });
     const itemTextStyle = new TextStyle({
-      fontSize: 9,
-      fontWeight: '600',
+      fontSize: 10,
+      fontWeight: '700',
       fill: hexToNum(theme.inkMuted)
     });
 
@@ -209,10 +209,21 @@
         return;
       }
 
-      const fillColor = node.done ? theme.peach : theme.paper;
+      const fillColor = node.done ? theme.peach : theme.white;
+      const auraColor = node.done ? theme.peach : theme.sky;
+
+      graphics.circle(0, 2, node.radius + 2.5);
+      graphics.fill({ color: hexToNum(theme.ink), alpha: 0.07 });
+
+      graphics.circle(0, 0, node.radius + 4);
+      graphics.fill({ color: hexToNum(auraColor), alpha: node.done ? 0.18 : 0.2 });
+
       graphics.circle(0, 0, node.radius);
-      graphics.fill({ color: hexToNum(fillColor), alpha: node.done ? 0.75 : 0.95 });
-      graphics.stroke({ color: hexToNum(theme.ink), width: 1.6, alpha: 0.55 });
+      graphics.fill({ color: hexToNum(fillColor), alpha: node.done ? 0.82 : 0.98 });
+      graphics.stroke({ color: hexToNum(theme.ink), width: 1.45, alpha: node.done ? 0.42 : 0.5 });
+
+      graphics.circle(-node.radius * 0.28, -node.radius * 0.32, Math.max(2.4, node.radius * 0.22));
+      graphics.fill({ color: hexToNum(theme.white), alpha: node.done ? 0.28 : 0.58 });
     }
 
     const toggleHaloButton = new Graphics();
@@ -671,32 +682,67 @@
       }
     }
 
+    function getNodeEdgeInset(node: V2GraphSimNode, unitX: number, unitY: number): number {
+      if (node.nodeType === 'tag') {
+        const halfWidth = Math.max(42, node.radius * 2) / 2;
+        const halfHeight = 15;
+        const xDistance = halfWidth / Math.max(Math.abs(unitX), 0.001);
+        const yDistance = halfHeight / Math.max(Math.abs(unitY), 0.001);
+        return Math.min(xDistance, yDistance) + 2;
+      }
+
+      return node.radius + 2;
+    }
+
+    function drawTrimmedEdge(graphics: Graphics, link: V2GraphSimLink): void {
+      const sourceX = link.source.x ?? 0;
+      const sourceY = link.source.y ?? 0;
+      const targetX = link.target.x ?? 0;
+      const targetY = link.target.y ?? 0;
+      const deltaX = targetX - sourceX;
+      const deltaY = targetY - sourceY;
+      const distance = Math.hypot(deltaX, deltaY);
+      if (distance < 2) return;
+
+      const unitX = deltaX / distance;
+      const unitY = deltaY / distance;
+      const maxInset = distance * 0.42;
+      const sourceInset = Math.min(maxInset, getNodeEdgeInset(link.source, unitX, unitY));
+      const targetInset = Math.min(maxInset, getNodeEdgeInset(link.target, -unitX, -unitY));
+      const startX = sourceX + unitX * sourceInset;
+      const startY = sourceY + unitY * sourceInset;
+      const endX = targetX - unitX * targetInset;
+      const endY = targetY - unitY * targetInset;
+      const curveDirection = (link.tagId + link.target.rawId) % 2 === 0 ? 1 : -1;
+      const curveOffset = Math.min(18, Math.max(7, distance * 0.07)) * curveDirection;
+      const controlX = (startX + endX) / 2 - unitY * curveOffset;
+      const controlY = (startY + endY) / 2 + unitX * curveOffset;
+
+      graphics.moveTo(startX, startY);
+      graphics.quadraticCurveTo(controlX, controlY, endX, endY);
+    }
+
     function drawEdges(): void {
       edgeGraphics.clear();
       highlightEdgeGraphics.clear();
 
       for (const link of simLinks) {
-        const sourceX = link.source.x ?? 0;
-        const sourceY = link.source.y ?? 0;
-        const targetX = link.target.x ?? 0;
-        const targetY = link.target.y ?? 0;
         const isHighlighted =
           highlightedTagId &&
           (link.source.id === highlightedTagId || link.target.id === highlightedTagId);
         const graphics = isHighlighted ? highlightEdgeGraphics : edgeGraphics;
-        graphics.moveTo(sourceX, sourceY);
-        graphics.lineTo(targetX, targetY);
+        drawTrimmedEdge(graphics, link);
       }
 
       edgeGraphics.stroke({
         color: hexToNum(theme.inkMuted),
-        width: 1.2,
-        alpha: highlightedTagId ? 0.14 : 0.34
+        width: 1.05,
+        alpha: highlightedTagId ? 0.08 : 0.22
       });
       highlightEdgeGraphics.stroke({
         color: hexToNum(theme.skyStrong),
-        width: 2.4,
-        alpha: 0.8
+        width: 1.8,
+        alpha: 0.62
       });
     }
 
@@ -716,7 +762,7 @@
         if (node.textObj) {
           node.textObj.x = node.x ?? 0;
           node.textObj.y =
-            node.nodeType === 'tag' ? node.y ?? 0 : (node.y ?? 0) + node.radius + 4;
+            node.nodeType === 'tag' ? node.y ?? 0 : (node.y ?? 0) + node.radius + 7;
           node.textObj.alpha = connected ? 1 : 0.28;
         }
       }

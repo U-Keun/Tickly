@@ -10,9 +10,11 @@ import type {
 import * as settingsApi from '../api/settingsApi';
 import * as v2ChecklistApi from '../api/v2ChecklistApi';
 import * as v2ReminderNotificationApi from '../api/v2ReminderNotificationApi';
+import * as widgetApi from '../api/widgetApi';
 import { v2ICloudSyncStore } from './v2ICloudSyncStore.svelte';
 
 const MIN_REPEAT_TIMER_DELAY_MS = 1000;
+const WIDGET_REFRESH_DEBOUNCE_MS = 300;
 
 let categories = $state<V2Category[]>([]);
 let items = $state<V2TodoItem[]>([]);
@@ -22,6 +24,7 @@ let isLoading = $state(false);
 let errorMessage = $state<string | null>(null);
 let repeatProcessingTimeout: ReturnType<typeof setTimeout> | null = null;
 let repeatProcessingScheduleToken = 0;
+let widgetRefreshTimeout: ReturnType<typeof setTimeout> | null = null;
 
 function sortCategories(nextCategories: V2Category[]): V2Category[] {
   return [...nextCategories].sort((a, b) => a.display_order - b.display_order);
@@ -103,6 +106,33 @@ function clearRepeatProcessingTimer(): void {
   repeatProcessingTimeout = null;
 }
 
+function clearWidgetRefreshTimer(): void {
+  if (widgetRefreshTimeout === null) return;
+  clearTimeout(widgetRefreshTimeout);
+  widgetRefreshTimeout = null;
+}
+
+async function refreshWidgetCacheQuietly(): Promise<void> {
+  try {
+    await widgetApi.refreshWidgetCache();
+  } catch (error) {
+    console.error('Failed to refresh v2 widget cache.', error);
+  }
+}
+
+function scheduleWidgetRefresh(): void {
+  clearWidgetRefreshTimer();
+  widgetRefreshTimeout = setTimeout(() => {
+    widgetRefreshTimeout = null;
+    void refreshWidgetCacheQuietly();
+  }, WIDGET_REFRESH_DEBOUNCE_MS);
+}
+
+function finalizeLocalMutation(): void {
+  v2ICloudSyncStore.scheduleSync();
+  scheduleWidgetRefresh();
+}
+
 async function loadItemsForSelectedCategory(): Promise<void> {
   if (selectedCategoryId === null) {
     items = [];
@@ -150,6 +180,7 @@ async function load(): Promise<void> {
 
     await loadItemsForSelectedCategory();
     await syncReminderNotifications();
+    scheduleWidgetRefresh();
   } catch (error) {
     throw setError(error, 'Failed to load v2 checklist.');
   } finally {
@@ -177,7 +208,7 @@ async function addCategory(name: string): Promise<void> {
     categories = sortCategories([...categories, category]);
     selectedCategoryId = category.id;
     items = [];
-    v2ICloudSyncStore.scheduleSync();
+    finalizeLocalMutation();
   } catch (error) {
     throw setError(error, 'Failed to add v2 category.');
   }
@@ -192,7 +223,7 @@ async function updateCategory(id: number, name: string): Promise<void> {
     categories = categories.map((category) =>
       category.id === id ? { ...category, name: trimmedName } : category
     );
-    v2ICloudSyncStore.scheduleSync();
+    finalizeLocalMutation();
   } catch (error) {
     throw setError(error, 'Failed to update v2 category.');
   }
@@ -224,7 +255,7 @@ async function deleteCategory(id: number): Promise<void> {
       reminderItemIds.map((itemId) => v2ReminderNotificationApi.cancelReminderForItem(itemId))
     );
     await syncReminderNotifications();
-    v2ICloudSyncStore.scheduleSync();
+    finalizeLocalMutation();
   } catch (error) {
     throw setError(error, 'Failed to delete v2 category.');
   }
@@ -249,7 +280,7 @@ async function reorderCategories(categoryIds: number[]): Promise<void> {
   try {
     await v2ChecklistApi.v2ReorderCategories(moved.map((category) => category.id));
     categories = moved;
-    v2ICloudSyncStore.scheduleSync();
+    finalizeLocalMutation();
   } catch (error) {
     await load();
     throw setError(error, 'Failed to reorder v2 categories.');
@@ -268,7 +299,7 @@ async function addItem(text: string, tagNames: string[] = []): Promise<void> {
     const item = await v2ChecklistApi.v2CreateItem(selectedCategoryId, text, tagNames);
     items = sortItems([...items, item]);
     await refreshTags();
-    v2ICloudSyncStore.scheduleSync();
+    finalizeLocalMutation();
   } catch (error) {
     throw setError(error, 'Failed to add v2 item.');
   }
@@ -291,7 +322,7 @@ async function updateItemText(id: number, text: string): Promise<void> {
     await v2ChecklistApi.v2UpdateItemText(id, text);
     const trimmedText = text.trim();
     items = items.map((item) => (item.id === id ? { ...item, text: trimmedText } : item));
-    v2ICloudSyncStore.scheduleSync();
+    finalizeLocalMutation();
   } catch (error) {
     throw setError(error, 'Failed to update v2 item.');
   }
@@ -326,7 +357,7 @@ async function updateItemDetails(
     items = sortItems(items.map((item) => (item.id === id ? updatedItem : item)));
     await refreshTags();
     await v2ReminderNotificationApi.syncReminderForItem(updatedItem);
-    v2ICloudSyncStore.scheduleSync();
+    finalizeLocalMutation();
   } catch (error) {
     throw setError(error, 'Failed to update v2 item details.');
   }
@@ -359,7 +390,7 @@ async function toggleItem(id: number): Promise<V2TodoItem> {
     const updatedItem = await v2ChecklistApi.v2ToggleItem(id);
     items = sortItems(items.map((item) => (item.id === id ? updatedItem : item)));
     await v2ReminderNotificationApi.syncReminderForItem(updatedItem);
-    v2ICloudSyncStore.scheduleSync();
+    finalizeLocalMutation();
     return updatedItem;
   } catch (error) {
     throw setError(error, 'Failed to toggle v2 item.');
@@ -373,7 +404,7 @@ async function processRepeatsAndReload(): Promise<number> {
     const reactivatedCount = await v2ChecklistApi.v2ProcessRepeats();
     if (reactivatedCount > 0) {
       await loadItemsForSelectedCategory();
-      v2ICloudSyncStore.scheduleSync();
+      finalizeLocalMutation();
     }
     await syncReminderNotifications();
     return reactivatedCount;
@@ -391,7 +422,7 @@ async function archiveCompletedItems(categoryId: number): Promise<number> {
       await loadItemsForSelectedCategory();
     }
     if (archivedCount > 0) {
-      v2ICloudSyncStore.scheduleSync();
+      finalizeLocalMutation();
     }
     return archivedCount;
   } catch (error) {
@@ -431,6 +462,40 @@ function disposeRepeatProcessingTimer(): void {
   clearRepeatProcessingTimer();
 }
 
+function disposeWidgetRefreshTimer(): void {
+  clearWidgetRefreshTimer();
+}
+
+async function processWidgetActionsAndReload(): Promise<number> {
+  errorMessage = null;
+
+  try {
+    const processedCount = await widgetApi.processWidgetActions();
+    if (processedCount > 0) {
+      await load();
+      v2ICloudSyncStore.scheduleSync();
+      scheduleWidgetRefresh();
+    }
+    return processedCount;
+  } catch (error) {
+    console.error('Failed to process v2 widget actions.', error);
+    return 0;
+  }
+}
+
+async function toggleItemFromWidget(id: number): Promise<void> {
+  errorMessage = null;
+
+  try {
+    await widgetApi.toggleItemFromWidget(id);
+    await load();
+    v2ICloudSyncStore.scheduleSync();
+    scheduleWidgetRefresh();
+  } catch (error) {
+    throw setError(error, 'Failed to toggle v2 item from widget.');
+  }
+}
+
 async function deleteItem(id: number): Promise<void> {
   errorMessage = null;
 
@@ -439,7 +504,7 @@ async function deleteItem(id: number): Promise<void> {
     items = items.filter((item) => item.id !== id);
     await refreshTags();
     await v2ReminderNotificationApi.cancelReminderForItem(id);
-    v2ICloudSyncStore.scheduleSync();
+    finalizeLocalMutation();
   } catch (error) {
     throw setError(error, 'Failed to delete v2 item.');
   }
@@ -471,7 +536,7 @@ async function reorderItems(itemIds: number[]): Promise<void> {
       moved.map((item) => item.id)
     );
     items = sortItems(moved);
-    v2ICloudSyncStore.scheduleSync();
+    finalizeLocalMutation();
   } catch (error) {
     await loadItemsForSelectedCategory();
     throw setError(error, 'Failed to reorder v2 items.');
@@ -515,6 +580,10 @@ export const v2ChecklistStore = {
   archiveCompletedItems,
   scheduleRepeatProcessing,
   disposeRepeatProcessingTimer,
+  disposeWidgetRefreshTimer,
+  refreshWidgetCache: refreshWidgetCacheQuietly,
+  processWidgetActions: processWidgetActionsAndReload,
+  toggleItemFromWidget,
   deleteItem,
   moveItem,
   reorderItems

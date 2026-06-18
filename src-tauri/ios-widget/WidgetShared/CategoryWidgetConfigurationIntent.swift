@@ -1,6 +1,6 @@
 import AppIntents
 
-@available(iOSApplicationExtension 17.0, *)
+@available(iOS 17.0, iOSApplicationExtension 17.0, *)
 enum WidgetCategoryIdentifier {
     static let uncategorized = "uncategorized"
 
@@ -12,7 +12,7 @@ enum WidgetCategoryIdentifier {
     }
 }
 
-@available(iOSApplicationExtension 17.0, *)
+@available(iOS 17.0, iOSApplicationExtension 17.0, *)
 struct WidgetCategoryEntity: AppEntity {
     static var typeDisplayRepresentation: TypeDisplayRepresentation = TypeDisplayRepresentation(
         name: "Category"
@@ -34,7 +34,7 @@ struct WidgetCategoryEntity: AppEntity {
     }
 }
 
-@available(iOSApplicationExtension 17.0, *)
+@available(iOS 17.0, iOSApplicationExtension 17.0, *)
 struct WidgetCategoryQuery: EntityQuery {
     func entities(for identifiers: [WidgetCategoryEntity.ID]) async throws -> [WidgetCategoryEntity] {
         let all = categoryEntities()
@@ -54,7 +54,7 @@ struct WidgetCategoryQuery: EntityQuery {
     }
 }
 
-@available(iOSApplicationExtension 17.0, *)
+@available(iOS 17.0, iOSApplicationExtension 17.0, *)
 struct CategoryWidgetConfigurationIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Tickly Category"
     static var description = IntentDescription("Show and check tasks for one category.")

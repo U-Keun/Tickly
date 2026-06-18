@@ -7,8 +7,8 @@ impl WidgetService {
         conn: &Connection,
         max_items: Option<usize>,
     ) -> Result<WidgetSnapshot, rusqlite::Error> {
-        let mut todos = TodoRepository::get_all(conn)?;
-        let categories = CategoryRepository::get_all(conn)?;
+        V2ChecklistRepository::ensure_default_category(conn)?;
+        let categories = V2ChecklistRepository::get_categories(conn)?;
         let category_name_map: HashMap<i64, String> = categories
             .iter()
             .map(|cat| (cat.id, cat.name.clone()))
@@ -17,32 +17,33 @@ impl WidgetService {
             .iter()
             .map(|cat| (cat.id, cat.display_order))
             .collect();
-        let mut category_counts: HashMap<Option<i64>, (usize, usize)> = HashMap::new();
+        let mut todos = Vec::new();
+        let mut category_counts: HashMap<i64, (usize, usize)> = HashMap::new();
 
-        for todo in &todos {
-            let entry = category_counts.entry(todo.category_id).or_insert((0, 0));
-            entry.0 += 1;
-            if !todo.done {
-                entry.1 += 1;
-            }
+        for category in &categories {
+            let category_items = V2ChecklistRepository::get_items(conn, category.id)?;
+            let entry = category_counts.entry(category.id).or_insert((0, 0));
+            entry.0 = category_items.len();
+            entry.1 = category_items.iter().filter(|item| !item.done).count();
+            todos.extend(category_items);
         }
 
         todos.sort_by(|a, b| {
-            a.done
-                .cmp(&b.done)
+            Self::category_sort_order(Some(a.category_id), &category_order_map)
+                .cmp(&Self::category_sort_order(
+                    Some(b.category_id),
+                    &category_order_map,
+                ))
+                .then(a.done.cmp(&b.done))
                 .then(a.display_order.cmp(&b.display_order))
                 .then(a.id.cmp(&b.id))
         });
 
-        let mut pending_item_ids_map: HashMap<Option<i64>, Vec<i64>> = HashMap::new();
-        let mut pending_items_map: HashMap<Option<i64>, Vec<WidgetCategoryPendingItem>> =
-            HashMap::new();
+        let mut pending_item_ids_map: HashMap<i64, Vec<i64>> = HashMap::new();
+        let mut pending_items_map: HashMap<i64, Vec<WidgetCategoryPendingItem>> = HashMap::new();
         for todo in &todos {
             if !todo.done {
-                let tags = TodoTagRepository::get_tags_for_item(conn, todo.id)?
-                    .into_iter()
-                    .map(|tag| tag.name)
-                    .collect();
+                let tags = todo.tags.iter().map(|tag| tag.name.clone()).collect();
                 pending_item_ids_map
                     .entry(todo.category_id)
                     .or_default()
@@ -68,33 +69,30 @@ impl WidgetService {
                 id: item.id,
                 text: item.text,
                 done: item.done,
-                category_id: item.category_id,
-                category_name: item
-                    .category_id
-                    .and_then(|category_id| category_name_map.get(&category_id).cloned()),
+                category_id: Some(item.category_id),
+                category_name: category_name_map.get(&item.category_id).cloned(),
                 display_order: item.display_order,
                 reminder_at: item.reminder_at,
-                updated_at: item.updated_at,
+                updated_at: Some(item.updated_at),
             })
             .collect();
-        let mut categories: Vec<WidgetCategorySummary> = category_counts
-            .into_iter()
-            .map(|(category_id, (total_count, pending_count))| {
-                let category_name = category_id
-                    .and_then(|id| category_name_map.get(&id).cloned())
-                    .unwrap_or_else(|| "Uncategorized".to_string());
+        let mut widget_categories: Vec<WidgetCategorySummary> = categories
+            .iter()
+            .map(|category| {
+                let (total_count, pending_count) =
+                    category_counts.get(&category.id).copied().unwrap_or((0, 0));
                 let pending_item_ids = pending_item_ids_map
-                    .get(&category_id)
+                    .get(&category.id)
                     .cloned()
                     .unwrap_or_default();
                 let pending_items = pending_items_map
-                    .get(&category_id)
+                    .get(&category.id)
                     .cloned()
                     .unwrap_or_default();
 
                 WidgetCategorySummary {
-                    category_id,
-                    category_name,
+                    category_id: Some(category.id),
+                    category_name: category.name.clone(),
                     total_count,
                     pending_count,
                     first_pending_item_id: pending_item_ids.first().copied(),
@@ -104,7 +102,7 @@ impl WidgetService {
             })
             .collect();
 
-        categories.sort_by(|a, b| {
+        widget_categories.sort_by(|a, b| {
             Self::category_sort_order(a.category_id, &category_order_map)
                 .cmp(&Self::category_sort_order(
                     b.category_id,
@@ -120,7 +118,7 @@ impl WidgetService {
             total_count,
             pending_count,
             items,
-            categories,
+            categories: widget_categories,
             theme,
         })
     }

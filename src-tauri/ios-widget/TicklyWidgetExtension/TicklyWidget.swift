@@ -280,7 +280,7 @@ struct TicklyWidgetEntryView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
             } else {
-                Text("No categories")
+                Text(WidgetCopy.noCategories)
                     .font(.subheadline)
                     .foregroundColor(secondaryTextColor)
                 Spacer(minLength: 0)
@@ -320,7 +320,7 @@ struct TicklyWidgetEntryView: View {
             if showSummary {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     if showCompletionRate {
-                        Text("\(completionRate)% done")
+                        Text(WidgetCopy.donePercent(completionRate))
                             .font(.caption)
                             .foregroundColor(secondaryTextColor)
                     }
@@ -343,7 +343,7 @@ struct TicklyWidgetEntryView: View {
                 .frame(maxWidth: .infinity, alignment: .topLeading)
 
             if category.pendingItems.isEmpty {
-                statusRow(text: "All done")
+                statusRow(text: WidgetCopy.allDone)
 
                 if maxVisibleItems > 1 {
                     ForEach(0..<(maxVisibleItems - 1), id: \.self) { _ in
@@ -379,7 +379,7 @@ struct TicklyWidgetEntryView: View {
 
         VStack(alignment: .leading, spacing: 6) {
             if category.pendingItems.isEmpty {
-                statusRow(text: "All done")
+                statusRow(text: WidgetCopy.allDone)
 
                 if maxVisibleItems > 1 {
                     ForEach(0..<(maxVisibleItems - 1), id: \.self) { _ in
@@ -421,7 +421,7 @@ struct TicklyWidgetEntryView: View {
     private func overflowRow(overflowCount: Int) -> some View {
         HStack {
             Spacer(minLength: 0)
-            Text(overflowCount > 0 ? "+\(overflowCount) more" : " ")
+            Text(overflowCount > 0 ? WidgetCopy.more(overflowCount) : " ")
                 .font(.caption2)
                 .foregroundColor(secondaryTextColor)
                 .opacity(overflowCount > 0 ? 1 : 0)
@@ -496,6 +496,18 @@ struct TicklyWidgetEntryView: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(tagBackgroundColor, in: Capsule())
+            }
+        }
+        .padding(.horizontal, family == .systemSmall ? 0 : 7)
+        .padding(.vertical, family == .systemSmall ? 0 : 4)
+        .background {
+            if family != .systemSmall {
+                WidgetSoftLeafShape(smallRadius: 4, largeRadius: 14)
+                    .fill(backgroundTopColor.opacity(0.58))
+                    .overlay(
+                        WidgetSoftLeafShape(smallRadius: 4, largeRadius: 14)
+                            .stroke(checkboxBorderColor.opacity(0.52), lineWidth: 1)
+                    )
             }
         }
     }

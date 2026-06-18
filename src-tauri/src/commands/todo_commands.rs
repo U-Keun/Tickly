@@ -1,8 +1,8 @@
-use tauri::{AppHandle, State};
+use tauri::State;
 
 use super::with_db;
 use crate::models::{RepeatType, TodoItem};
-use crate::service::{RepeatService, ResetService, TodoService, WidgetService};
+use crate::service::{RepeatService, ResetService, TodoService};
 use crate::AppState;
 
 #[tauri::command]
@@ -56,18 +56,9 @@ pub fn update_item_linked_app(
 #[tauri::command]
 pub fn get_items(
     category_id: Option<i64>,
-    app: AppHandle,
     state: State<AppState>,
 ) -> Result<Vec<TodoItem>, String> {
-    with_db(&state, |db| {
-        if let Err(error) = WidgetService::process_pending_actions(db, &app, None) {
-            log::error!(
-                "Failed to process widget actions before get_items: {}",
-                error
-            );
-        }
-        TodoService::get_items(db, category_id)
-    })
+    with_db(&state, |db| TodoService::get_items(db, category_id))
 }
 
 #[tauri::command]

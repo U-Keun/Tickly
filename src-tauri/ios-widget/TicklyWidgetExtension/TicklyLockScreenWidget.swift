@@ -43,11 +43,11 @@ struct TicklyLockScreenWidgetEntryView: View {
         } else {
             switch family {
             case .accessoryInline:
-                Text("All done")
+                Text(WidgetCopy.allDone)
             case .accessoryCircular:
                 Image(systemName: "checkmark.circle.fill")
             default:
-                Text("All done")
+                Text(WidgetCopy.allDone)
                     .font(.caption)
             }
         }
@@ -70,7 +70,7 @@ struct TicklyLockScreenWidgetEntryView: View {
                 }
             }
         } else {
-            Text("All done")
+            Text(WidgetCopy.allDone)
         }
     }
 
@@ -113,7 +113,7 @@ struct TicklyLockScreenWidgetEntryView: View {
 
         VStack(alignment: .leading, spacing: 4) {
             if visibleItems.isEmpty {
-                Text("All done")
+                Text(WidgetCopy.allDone)
                     .font(.caption)
             } else {
                 ForEach(visibleItems) { item in
@@ -123,7 +123,7 @@ struct TicklyLockScreenWidgetEntryView: View {
                 if overflowCount > 0 {
                     HStack {
                         Spacer(minLength: 0)
-                        Text("+\(overflowCount) more")
+                        Text(WidgetCopy.more(overflowCount))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }

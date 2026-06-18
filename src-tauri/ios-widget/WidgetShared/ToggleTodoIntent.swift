@@ -1,7 +1,7 @@
 import AppIntents
 import WidgetKit
 
-@available(iOSApplicationExtension 17.0, *)
+@available(iOS 17.0, iOSApplicationExtension 17.0, *)
 struct ToggleTodoIntent: AppIntent {
     static var title: LocalizedStringResource = "Toggle Todo"
     static var description = IntentDescription("Marks the next pending task in a category as done.")

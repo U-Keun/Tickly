@@ -6,7 +6,6 @@
   import { cubicOut } from 'svelte/easing';
   import { onMount, onDestroy } from 'svelte';
   import type { Snippet } from 'svelte';
-  import { appStore } from '$lib/stores';
   import {
     authStore,
     handleOAuthCallback,
@@ -14,6 +13,7 @@
   } from '$lib/stores/authStore.svelte';
   import { syncStore } from '$lib/stores/syncStore.svelte';
   import { ensurePermission } from '$lib/notification';
+  import { v2ChecklistStore } from '$lib/v2/v2ChecklistStore.svelte';
 
   let { children }: { children: Snippet } = $props();
 
@@ -47,15 +47,15 @@
         return true;
       }
 
-      await appStore.toggleItemFromWidget(itemId);
-      await goto('/v1');
+      await v2ChecklistStore.toggleItemFromWidget(itemId);
+      await goto('/');
       return true;
     }
 
     if (parsedUrl.pathname === '/category') {
       const categoryIdParam = parsedUrl.searchParams.get('categoryId') ?? parsedUrl.searchParams.get('id');
       if (!categoryIdParam) {
-        await goto('/v1');
+        await goto('/');
         return true;
       }
 
@@ -65,16 +65,16 @@
         return true;
       }
 
-      await appStore.loadCategories();
-      const categoryExists = appStore.categories.some(category => category.id === categoryId);
+      await v2ChecklistStore.load();
+      const categoryExists = v2ChecklistStore.categories.some(category => category.id === categoryId);
 
       if (categoryExists) {
-        await appStore.selectCategory(categoryId);
+        await v2ChecklistStore.selectCategory(categoryId);
       } else {
         console.error('Widget category id does not exist:', categoryId);
       }
 
-      await goto('/v1');
+      await goto('/');
       return true;
     }
 
@@ -133,8 +133,8 @@
     // Load persisted sync state before any sync-related decisions
     await syncStore.loadStatus();
 
-    // Apply widget-only check actions queued in app group storage
-    await appStore.processWidgetActions();
+    // Apply widget-only check actions queued in app group storage to the v2 checklist.
+    await v2ChecklistStore.processWidgetActions();
 
     if (authStore.isLoggedIn && syncStore.isEnabled) {
       await syncStore.sync();

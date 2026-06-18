@@ -1,7 +1,7 @@
 import AppIntents
 import WidgetKit
 
-@available(iOSApplicationExtension 17.0, *)
+@available(iOS 17.0, iOSApplicationExtension 17.0, *)
 struct RefreshWidgetIntent: AppIntent {
     static var title: LocalizedStringResource = "Refresh Widget"
     static var description = IntentDescription("Reload the widget timeline.")

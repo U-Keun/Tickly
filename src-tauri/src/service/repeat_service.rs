@@ -149,26 +149,6 @@ impl RepeatService {
         Ok(Some(item))
     }
 
-    /// Complete an item and handle repeat logic.
-    /// If the item is already done, this is a no-op.
-    pub fn complete_with_repeat(
-        conn: &Connection,
-        id: i64,
-    ) -> Result<Option<TodoItem>, rusqlite::Error> {
-        let item = TodoRepository::get_by_id(conn, id)?;
-
-        let Some(mut item) = item else {
-            return Ok(None);
-        };
-
-        if item.done {
-            return Ok(Some(item));
-        }
-
-        Self::apply_completion(conn, id, &mut item)?;
-        Ok(Some(item))
-    }
-
     fn apply_completion(
         conn: &Connection,
         id: i64,

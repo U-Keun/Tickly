@@ -2,7 +2,7 @@
 
 ## Analysis Checkpoint
 
-v2 reached a point where the local checklist surface, category rail, item interactions, search suggestions, and iOS sheet behavior are usable enough to become the first screen. v1 still contains important reference behavior and legacy feature flows such as widgets, graph, settings, tags, repeat rules, notifications, and sync.
+v2 reached a point where the local checklist surface, category rail, item interactions, search suggestions, and iOS sheet behavior are usable enough to become the first screen. v1 still contains important reference behavior and legacy data, while rebuilt v2 slices now own tags, repeat rules, notifications, archive, streak, graph, settings, and the iOS widget cache/action flow.
 
 ## Selected Decisions
 

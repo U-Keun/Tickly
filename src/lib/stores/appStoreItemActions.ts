@@ -2,7 +2,6 @@ import type { RepeatType, Tag, TodoItem } from '../../types';
 import * as streakApi from '../api/streakApi';
 import * as tagApi from '../api/tagApi';
 import * as todoApi from '../api/todoApi';
-import * as widgetApi from '../api/widgetApi';
 
 type ItemTagsMap = Record<number, Tag[]>;
 
@@ -98,16 +97,6 @@ export function createItemActions(context: ItemActionsContext) {
       await context.finalizeMutation();
     } catch (error) {
       console.error('Failed to toggle item:', error);
-    }
-  }
-
-  async function toggleItemFromWidget(id: number): Promise<void> {
-    try {
-      await widgetApi.toggleItemFromWidget(id);
-      await context.refreshAll();
-      context.scheduleSync();
-    } catch (error) {
-      console.error('Failed to toggle item from widget:', error);
     }
   }
 
@@ -207,7 +196,6 @@ export function createItemActions(context: ItemActionsContext) {
   return {
     addItem,
     toggleItem,
-    toggleItemFromWidget,
     deleteItem,
     editItem,
     updateMemo,
