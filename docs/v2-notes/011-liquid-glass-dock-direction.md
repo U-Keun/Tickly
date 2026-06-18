@@ -20,7 +20,7 @@ flowchart LR
 - `Settings` opens the existing settings route with `returnTo=/`, then settings back navigation returns to the v2 main UI.
 - `Streak` now opens a v2 web overlay backed by opt-in v2 item streak tracking.
 - `Archive` opens a v2 web confirm modal for current-category cleanup. It archives only completed non-repeating items.
-- `Graph` still emits a placeholder event. The real v2 graph remains a later slice.
+- `Graph` opens a v2 web graph overlay backed by local v2 category, item, and tag data.
 - `V2ChecklistScreen` does not call native APIs. It only reports when web fallback sheets or confirm modals should hide the dock.
 - The dock hides while the iOS keyboard is visible, and the root shell hides it while native sheets are open.
 
@@ -44,7 +44,7 @@ The Dock sits slightly lower than the safe-area baseline so it belongs to the bo
 
 When the native Dock is visible, the web list does not reserve a separate bottom safe-area band and does not render the old bottom fade. The native Dock itself owns the bottom layer; the checklist only keeps scroll clearance so the final item can move above the Dock.
 
-The Dock is split into two glass surfaces. The left surface is a single elongated pill for the feature group: `Streak`, `Graph`, and `Archive`. `Streak` opens the v2 streak overlay. `Archive` asks before hiding the current category's completed regular items. `Graph` remains an intentionally plain placeholder action inside the shared glass surface so the group reads as one control cluster. The right surface is a separate circular glass button for `Settings`. This follows the toolbar grouping principle that related controls should be grouped together while distinct behavior gets its own section.
+The Dock is split into two glass surfaces. The left surface is a single elongated pill for the feature group: `Streak`, `Graph`, and `Archive`. `Streak` opens the v2 streak overlay. `Graph` opens the v2 relationship overlay. `Archive` asks before hiding the current category's completed regular items. The right surface is a separate circular glass button for `Settings`. This follows the toolbar grouping principle that related controls should be grouped together while distinct behavior gets its own section.
 
 The `Graph` action uses a compact connected-node glyph rather than a line chart. It reads more like a future relationship/history surface and keeps the Dock icon language simple at small sizes.
 

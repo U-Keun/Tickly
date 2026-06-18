@@ -1,7 +1,8 @@
 use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::models::{
-    V2ArchivedItem, V2Category, V2ItemSearchResult, V2RepeatType, V2StreakLog, V2Tag, V2TodoItem,
+    V2ArchivedItem, V2Category, V2GraphData, V2GraphTagEdge, V2ItemSearchResult, V2RepeatType,
+    V2StreakLog, V2Tag, V2TodoItem,
 };
 
 pub struct V2ChecklistRepository;
@@ -658,6 +659,66 @@ impl V2ChecklistRepository {
             .collect::<Result<Vec<_>, _>>()?;
 
         Self::attach_tags_to_search_results(conn, results)
+    }
+
+    pub fn get_graph_data(conn: &Connection) -> Result<V2GraphData, rusqlite::Error> {
+        let item_sql = format!(
+            "SELECT {} FROM v2_todos
+             WHERE archived_at IS NULL
+             ORDER BY category_id ASC, done ASC, display_order ASC",
+            Self::ITEM_COLUMNS
+        );
+        let mut item_stmt = conn.prepare(&item_sql)?;
+        let items = item_stmt
+            .query_map([], Self::row_to_item)?
+            .collect::<Result<Vec<_>, _>>()?;
+        let items = Self::attach_tags_to_items(conn, items)?;
+
+        let category_sql = "\
+            SELECT DISTINCT c.id, c.name, c.display_order, c.created_at, c.updated_at
+            FROM v2_categories c
+            INNER JOIN v2_todos t ON t.category_id = c.id
+            WHERE t.archived_at IS NULL
+            ORDER BY c.display_order ASC";
+        let mut category_stmt = conn.prepare(&category_sql)?;
+        let categories = category_stmt
+            .query_map([], Self::row_to_category)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let tag_sql = "\
+            SELECT DISTINCT tg.id, tg.name, tg.created_at, tg.updated_at
+            FROM v2_tags tg
+            INNER JOIN v2_todo_tags tt ON tt.tag_id = tg.id
+            INNER JOIN v2_todos t ON t.id = tt.todo_id
+            WHERE t.archived_at IS NULL
+            ORDER BY tg.name COLLATE NOCASE ASC";
+        let mut tag_stmt = conn.prepare(tag_sql)?;
+        let tags = tag_stmt
+            .query_map([], Self::row_to_tag)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let edge_sql = "\
+            SELECT tt.tag_id, tt.todo_id
+            FROM v2_todo_tags tt
+            INNER JOIN v2_todos t ON t.id = tt.todo_id
+            WHERE t.archived_at IS NULL
+            ORDER BY tt.tag_id ASC, t.category_id ASC, t.display_order ASC";
+        let mut edge_stmt = conn.prepare(edge_sql)?;
+        let tag_edges = edge_stmt
+            .query_map([], |row| {
+                Ok(V2GraphTagEdge {
+                    tag_id: row.get(0)?,
+                    item_id: row.get(1)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(V2GraphData {
+            categories,
+            items,
+            tags,
+            tag_edges,
+        })
     }
 
     pub fn get_completion_logs_for_item(
@@ -1389,6 +1450,88 @@ mod tests {
         assert!(restored.done);
         assert_eq!(visible_items.len(), 1);
         assert_eq!(visible_items[0].id, item.id);
+    }
+
+    #[test]
+    fn graph_data_uses_active_v2_items_and_tag_edges() {
+        let conn = setup_conn();
+        let home = V2ChecklistRepository::get_categories(&conn).unwrap()[0].clone();
+        let work = V2ChecklistRepository::create_category(&conn, "Work").unwrap();
+        let home_item = V2ChecklistRepository::create_item(
+            &conn,
+            home.id,
+            "Home tagged",
+            &["shared".to_string(), "home".to_string()],
+        )
+        .unwrap();
+        let work_item = V2ChecklistRepository::create_item(
+            &conn,
+            work.id,
+            "Work tagged",
+            &["shared".to_string()],
+        )
+        .unwrap();
+        let archived_item = V2ChecklistRepository::create_item(
+            &conn,
+            home.id,
+            "Archived tagged",
+            &["hidden".to_string()],
+        )
+        .unwrap();
+
+        V2ChecklistRepository::update_item_details(
+            &conn,
+            home_item.id,
+            "Home tagged",
+            None,
+            &["shared".to_string(), "home".to_string()],
+            &V2RepeatType::Daily,
+            None,
+            Some("2026-06-17"),
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+        V2ChecklistRepository::complete_item(&conn, home_item.id, "2026-06-16", None).unwrap();
+        V2ChecklistRepository::complete_item(&conn, archived_item.id, "2026-06-16", None).unwrap();
+        V2ChecklistRepository::archive_completed_items(&conn, home.id).unwrap();
+
+        let graph_data = V2ChecklistRepository::get_graph_data(&conn).unwrap();
+        let item_ids = graph_data
+            .items
+            .iter()
+            .map(|item| item.id)
+            .collect::<Vec<_>>();
+        let tag_names = graph_data
+            .tags
+            .iter()
+            .map(|tag| tag.name.as_str())
+            .collect::<Vec<_>>();
+        let shared_tag = graph_data
+            .tags
+            .iter()
+            .find(|tag| tag.name == "shared")
+            .expect("shared tag");
+
+        assert!(item_ids.contains(&home_item.id));
+        assert!(item_ids.contains(&work_item.id));
+        assert!(!item_ids.contains(&archived_item.id));
+        assert!(graph_data
+            .items
+            .iter()
+            .any(|item| item.id == home_item.id && item.done));
+        assert_eq!(graph_data.categories.len(), 2);
+        assert!(tag_names.contains(&"shared"));
+        assert!(!tag_names.contains(&"hidden"));
+        assert!(graph_data
+            .tag_edges
+            .iter()
+            .any(|edge| edge.tag_id == shared_tag.id && edge.item_id == home_item.id));
+        assert!(graph_data
+            .tag_edges
+            .iter()
+            .any(|edge| edge.tag_id == shared_tag.id && edge.item_id == work_item.id));
     }
 
     #[test]

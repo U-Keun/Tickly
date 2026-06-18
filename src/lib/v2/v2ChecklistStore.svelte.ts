@@ -1,5 +1,6 @@
 import type {
   V2Category,
+  V2GraphData,
   V2ItemSearchResult,
   V2RepeatType,
   V2StreakHeatmap,
@@ -333,6 +334,16 @@ async function getStreakHeatmaps(): Promise<V2StreakHeatmap[]> {
   }
 }
 
+async function getGraphData(): Promise<V2GraphData> {
+  errorMessage = null;
+
+  try {
+    return await v2ChecklistApi.v2GetGraphData();
+  } catch (error) {
+    throw setError(error, 'Failed to load v2 graph data.');
+  }
+}
+
 async function toggleItem(id: number): Promise<void> {
   errorMessage = null;
 
@@ -482,6 +493,7 @@ export const v2ChecklistStore = {
   updateItemText,
   updateItemDetails,
   getStreakHeatmaps,
+  getGraphData,
   toggleItem,
   processRepeatsAndReload,
   archiveCompletedItems,

@@ -2,14 +2,17 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
 
+  import V2GraphOverlay from '../components/v2/V2GraphOverlay.svelte';
+  import V2ItemDetailSheet from '../components/v2/V2ItemDetailSheet.svelte';
   import V2ChecklistScreen from '../components/v2/V2ChecklistScreen.svelte';
   import V2StreakOverlay from '../components/v2/V2StreakOverlay.svelte';
   import * as v2NativeDockApi from '../lib/api/v2NativeDockApi';
   import { initializeFonts } from '../lib/fonts';
   import { i18n } from '../lib/i18n';
   import { initializeTheme } from '../lib/themes';
+  import { openNativeV2ItemDetailSheet } from '../lib/v2/v2ItemDetailLauncher';
   import { v2ChecklistStore } from '../lib/v2/v2ChecklistStore.svelte';
-  import type { V2StreakHeatmap } from '../types';
+  import type { V2GraphData, V2RepeatType, V2StreakHeatmap, V2TodoItem } from '../types';
 
   let nativeDockSupported = $state(false);
   let nativeDockRequestedVisible = $state(true);
@@ -20,12 +23,19 @@
   let isLoadingStreakHeatmaps = $state(false);
   let streakHeatmapError = $state<string | null>(null);
   let streakHeatmaps = $state<V2StreakHeatmap[]>([]);
+  let showGraphOverlay = $state(false);
+  let isLoadingGraphData = $state(false);
+  let graphError = $state<string | null>(null);
+  let graphData = $state<V2GraphData | null>(null);
+  let graphItemPendingEdit = $state<V2TodoItem | null>(null);
+  let isSavingGraphItemEdit = $state(false);
   let nativeDockVisible = $derived(
     nativeDockSupported &&
       nativeDockRequestedVisible &&
       !nativeSheetOpen &&
       !webEditableFocused &&
-      !showStreakOverlay
+      !showStreakOverlay &&
+      !showGraphOverlay
   );
 
   function shouldShowNativeDock(): boolean {
@@ -34,7 +44,8 @@
       nativeDockRequestedVisible &&
       !nativeSheetOpen &&
       !webEditableFocused &&
-      !showStreakOverlay
+      !showStreakOverlay &&
+      !showGraphOverlay
     );
   }
 
@@ -79,6 +90,11 @@
       return;
     }
 
+    if (actionId === 'graph') {
+      void openGraphOverlay();
+      return;
+    }
+
     console.info(`Tickly native ${actionId} dock action requested`);
   }
 
@@ -104,6 +120,99 @@
   function closeStreakOverlay(): void {
     showStreakOverlay = false;
     syncNativeDock();
+  }
+
+  async function loadGraphData(): Promise<void> {
+    isLoadingGraphData = true;
+    graphError = null;
+    try {
+      graphData = await v2ChecklistStore.getGraphData();
+    } catch (error) {
+      graphError = error instanceof Error ? error.message : i18n.t('v2GraphLoadErrorMessage');
+    } finally {
+      isLoadingGraphData = false;
+    }
+  }
+
+  async function openGraphOverlay(): Promise<void> {
+    showGraphOverlay = true;
+    syncNativeDock();
+    await loadGraphData();
+  }
+
+  function closeGraphOverlay(): void {
+    if (isSavingGraphItemEdit) return;
+    graphItemPendingEdit = null;
+    showGraphOverlay = false;
+    syncNativeDock();
+  }
+
+  async function saveGraphItemDetails(
+    id: number,
+    text: string,
+    memo: string | null,
+    tagNames: string[] = [],
+    repeatType: V2RepeatType = 'none',
+    repeatDetail: string | null = null,
+    reminderAt: string | null = null,
+    trackStreak = false
+  ): Promise<void> {
+    if (isSavingGraphItemEdit) return;
+
+    isSavingGraphItemEdit = true;
+    try {
+      await v2ChecklistStore.updateItemDetails(
+        id,
+        text,
+        memo,
+        tagNames,
+        repeatType,
+        repeatDetail,
+        reminderAt,
+        trackStreak
+      );
+      await loadGraphData();
+    } finally {
+      isSavingGraphItemEdit = false;
+    }
+  }
+
+  async function openGraphItemDetail(item: V2TodoItem): Promise<void> {
+    const nativeResult = await openNativeV2ItemDetailSheet(item, v2ChecklistStore.tags);
+
+    if (nativeResult.status === 'unavailable') {
+      graphItemPendingEdit = item;
+      return;
+    }
+
+    if (nativeResult.status === 'saved') {
+      const { values } = nativeResult;
+      try {
+        await saveGraphItemDetails(
+          values.id,
+          values.text,
+          values.memo,
+          values.tagNames,
+          values.repeatType,
+          values.repeatDetail,
+          values.reminderAt,
+          values.trackStreak
+        );
+      } catch {
+        // The v2 store owns the visible error banner.
+      }
+    }
+  }
+
+  function handleGraphItemSelect(itemId: number): void {
+    const item = graphData?.items.find((candidate) => candidate.id === itemId);
+    if (!item) return;
+    void openGraphItemDetail(item);
+  }
+
+  function cancelGraphItemEdit(): void {
+    if (isSavingGraphItemEdit) return;
+    graphItemPendingEdit = null;
   }
 
   function isEditableElement(target: EventTarget | Element | null): boolean {
@@ -220,4 +329,23 @@
   errorMessage={streakHeatmapError}
   onRefresh={loadStreakHeatmaps}
   onClose={closeStreakOverlay}
+/>
+
+<V2GraphOverlay
+  show={showGraphOverlay}
+  data={graphData}
+  isLoading={isLoadingGraphData}
+  errorMessage={graphError}
+  onRefresh={loadGraphData}
+  onItemSelect={handleGraphItemSelect}
+  onClose={closeGraphOverlay}
+/>
+
+<V2ItemDetailSheet
+  show={graphItemPendingEdit !== null}
+  item={graphItemPendingEdit}
+  availableTags={v2ChecklistStore.tags}
+  isSaving={isSavingGraphItemEdit}
+  onSaveDetails={saveGraphItemDetails}
+  onClose={cancelGraphItemEdit}
 />

@@ -226,6 +226,12 @@ export const en: Translations = {
   graphView: 'Graph View',
   graphEmpty: 'No items yet',
   graphEmptyHint: 'Add items to see them on the graph',
+  v2GraphOverlayTitle: 'Graph',
+  v2GraphOverlaySubtitle: 'See category spaces and tag connections at a glance.',
+  v2GraphEmptyTitle: 'No items to show on the graph.',
+  v2GraphEmptyMessage: 'Add items and tags to see relationships here.',
+  v2GraphLoadErrorTitle: 'Could not load the graph.',
+  v2GraphLoadErrorMessage: 'Something went wrong while loading graph data.',
 
   // Reminder / Notification
   reminder: 'Reminder',

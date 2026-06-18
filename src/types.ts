@@ -202,6 +202,18 @@ export interface V2ArchivedItem {
   category: V2Category;
 }
 
+export interface V2GraphTagEdge {
+  tag_id: number;
+  item_id: number;
+}
+
+export interface V2GraphData {
+  categories: V2Category[];
+  items: V2TodoItem[];
+  tags: V2Tag[];
+  tag_edges: V2GraphTagEdge[];
+}
+
 export interface V2StreakLog {
   completed_on: string;
   completed_count: number;

@@ -2,8 +2,8 @@ use chrono::{Datelike, Local, NaiveDate, NaiveTime};
 use rusqlite::Connection;
 
 use crate::models::{
-    V2ArchivedItem, V2Category, V2ItemSearchResult, V2RepeatType, V2StreakHeatmap, V2StreakLog,
-    V2Tag, V2TodoItem,
+    V2ArchivedItem, V2Category, V2GraphData, V2ItemSearchResult, V2RepeatType, V2StreakHeatmap,
+    V2StreakLog, V2Tag, V2TodoItem,
 };
 use crate::repository::{SettingsRepository, V2ChecklistRepository};
 
@@ -337,6 +337,10 @@ impl V2ChecklistService {
         }
 
         Ok(heatmaps)
+    }
+
+    pub fn get_graph_data(conn: &Connection) -> Result<V2GraphData, String> {
+        V2ChecklistRepository::get_graph_data(conn).map_err(|error| error.to_string())
     }
 
     pub fn delete_item(conn: &Connection, id: i64) -> Result<(), String> {

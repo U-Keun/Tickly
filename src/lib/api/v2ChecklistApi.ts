@@ -2,6 +2,7 @@ import { invoke } from './client';
 import type {
   V2ArchivedItem,
   V2Category,
+  V2GraphData,
   V2ItemSearchResult,
   V2RepeatType,
   V2StreakHeatmap,
@@ -108,6 +109,10 @@ export async function v2DeleteArchivedItem(id: number): Promise<void> {
 
 export async function v2GetStreakHeatmaps(): Promise<V2StreakHeatmap[]> {
   return invoke<V2StreakHeatmap[]>('v2_get_streak_heatmaps');
+}
+
+export async function v2GetGraphData(): Promise<V2GraphData> {
+  return invoke<V2GraphData>('v2_get_graph_data');
 }
 
 export async function v2DeleteItem(id: number): Promise<void> {

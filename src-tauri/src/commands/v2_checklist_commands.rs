@@ -2,8 +2,8 @@ use tauri::State;
 
 use super::with_db;
 use crate::models::{
-    V2ArchivedItem, V2Category, V2ItemSearchResult, V2RepeatType, V2StreakHeatmap, V2Tag,
-    V2TodoItem,
+    V2ArchivedItem, V2Category, V2GraphData, V2ItemSearchResult, V2RepeatType, V2StreakHeatmap,
+    V2Tag, V2TodoItem,
 };
 use crate::service::V2ChecklistService;
 use crate::AppState;
@@ -158,6 +158,11 @@ pub fn v2_delete_archived_item(id: i64, state: State<AppState>) -> Result<(), St
 #[tauri::command]
 pub fn v2_get_streak_heatmaps(state: State<AppState>) -> Result<Vec<V2StreakHeatmap>, String> {
     with_db(&state, V2ChecklistService::get_streak_heatmaps)
+}
+
+#[tauri::command]
+pub fn v2_get_graph_data(state: State<AppState>) -> Result<V2GraphData, String> {
+    with_db(&state, V2ChecklistService::get_graph_data)
 }
 
 #[tauri::command]

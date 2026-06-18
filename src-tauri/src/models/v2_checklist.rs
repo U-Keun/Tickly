@@ -89,6 +89,20 @@ pub struct V2ArchivedItem {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct V2GraphTagEdge {
+    pub tag_id: i64,
+    pub item_id: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct V2GraphData {
+    pub categories: Vec<V2Category>,
+    pub items: Vec<V2TodoItem>,
+    pub tags: Vec<V2Tag>,
+    pub tag_edges: Vec<V2GraphTagEdge>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct V2StreakLog {
     pub completed_on: String,
     pub completed_count: i64,

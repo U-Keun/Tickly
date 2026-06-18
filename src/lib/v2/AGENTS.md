@@ -10,5 +10,6 @@ Apply the root, `src/AGENTS.md`, and `src/lib/AGENTS.md` first.
 - v2 local reminders may use v2 notification API wrappers only. Do not import v1 notification stores or helpers.
 - v2 local archive may use v2 API/store helpers only. Do not import v1 archive, history, or deletion flows.
 - v2 local streak may use v2 API/store helpers and v2 completion logs only. Do not import v1 streak stores, commands, or heatmap helpers.
-- Do not import sync, widget, auth, graph, or v1 tag stores here.
+- v2 local graph may use v2 API/store helpers only. Do not import v1 graph stores, commands, or canvas data contracts.
+- Do not import sync, widget, auth, or v1 tag stores here.
 - Keep methods mapped to one local checklist intent at a time.

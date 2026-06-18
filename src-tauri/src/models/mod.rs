@@ -18,8 +18,8 @@ pub use sync::{AuthProvider, AuthSession, SyncResult, SyncStatus, SyncStatusInfo
 pub use tag::{Tag, TodoTag};
 pub use todo_item::{RepeatType, TodoItem};
 pub use v2_checklist::{
-    V2ArchivedItem, V2Category, V2ItemSearchResult, V2RepeatType, V2StreakHeatmap, V2StreakLog,
-    V2Tag, V2TodoItem,
+    V2ArchivedItem, V2Category, V2GraphData, V2GraphTagEdge, V2ItemSearchResult, V2RepeatType,
+    V2StreakHeatmap, V2StreakLog, V2Tag, V2TodoItem,
 };
 pub use widget::{
     WidgetCategoryPendingItem, WidgetCategorySummary, WidgetSnapshot, WidgetTheme, WidgetTodoItem,

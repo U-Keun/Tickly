@@ -226,6 +226,12 @@ export const ja: Translations = {
   graphView: 'グラフビュー',
   graphEmpty: '項目がありません',
   graphEmptyHint: '項目を追加するとグラフに表示されます',
+  v2GraphOverlayTitle: 'グラフ',
+  v2GraphOverlaySubtitle: 'カテゴリの空間とタグのつながりを確認できます。',
+  v2GraphEmptyTitle: 'グラフに表示する項目がありません。',
+  v2GraphEmptyMessage: '項目とタグを追加すると、関係がここに表示されます。',
+  v2GraphLoadErrorTitle: 'グラフを読み込めませんでした。',
+  v2GraphLoadErrorMessage: 'グラフ情報の読み込み中に問題が発生しました。',
 
   // Reminder / Notification
   reminder: 'リマインダー',

@@ -162,6 +162,7 @@ pub fn run() {
             v2_restore_archived_item,
             v2_delete_archived_item,
             v2_get_streak_heatmaps,
+            v2_get_graph_data,
             v2_delete_item,
             v2_reorder_items,
             v2_configure_native_dock,

@@ -224,6 +224,12 @@ export const ko = {
   graphView: '그래프 뷰',
   graphEmpty: '항목이 없습니다',
   graphEmptyHint: '항목을 추가하면 그래프에 표시됩니다',
+  v2GraphOverlayTitle: '그래프',
+  v2GraphOverlaySubtitle: '카테고리 공간과 태그 연결을 한눈에 봅니다.',
+  v2GraphEmptyTitle: '그래프에 표시할 항목이 없습니다.',
+  v2GraphEmptyMessage: '항목과 태그를 추가하면 관계가 여기에 표시됩니다.',
+  v2GraphLoadErrorTitle: '그래프를 불러오지 못했습니다.',
+  v2GraphLoadErrorMessage: '그래프 정보를 불러오는 중 문제가 생겼습니다.',
 
   // Reminder / Notification
   reminder: '알림',
