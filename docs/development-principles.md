@@ -25,7 +25,7 @@ Tickly development now follows a small-slice rebuild model: understand the curre
 
 ## Understanding Track
 
-Each meaningful stage should leave a short note under `docs/v2-notes/` or another current decision-note location that answers:
+Each meaningful stage should leave a short note under `docs/rebuild-notes/` or another current decision-note location that answers:
 
 - What existing structure did we inspect?
 - What boundary did we choose?

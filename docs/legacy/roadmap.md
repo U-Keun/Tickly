@@ -1,6 +1,6 @@
 # Tickly 0.2.0 ~ 0.9.0 상세 스펙 초안
 
-> Legacy note: this roadmap describes an older implementation plan and Supabase sync direction. Tickly is now a local-first app; use `docs/development-principles.md` and the historical rebuild notes in `docs/v2-notes/` for the current direction.
+> Legacy note: this roadmap describes an older implementation plan and Supabase sync direction. Tickly is now a local-first app; use `docs/development-principles.md` and the historical rebuild notes in `docs/rebuild-notes/` for the current direction.
 
 이 문서는 0.2.0부터 0.9.0까지의 MVP 범위와 화면/데이터 변경을 요약합니다.
 

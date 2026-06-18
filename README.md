@@ -39,5 +39,5 @@ yarn tauri ios dev
 
 - `AGENTS.md`: active repository rules for agents
 - `docs/development-principles.md`: current development principles
-- `docs/v2-notes/`: historical stage-by-stage rebuild decisions
+- `docs/rebuild-notes/`: historical stage-by-stage rebuild decisions
 - `docs/legacy/`: archived older planning notes

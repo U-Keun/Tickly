@@ -5,7 +5,7 @@ Apply the root `AGENTS.md` first. This file adds rules for `docs/`.
 ## Documentation Roles
 
 - `development-principles.md` records how the project is worked on.
-- `v2-notes/` records historical stage-by-stage explanations from the rebuild.
+- `rebuild-notes/` records historical stage-by-stage explanations from the rebuild.
 - `legacy/` keeps pre-current-app or retired planning, troubleshooting, and deployment notes for historical reference.
 
 ## Writing Rules

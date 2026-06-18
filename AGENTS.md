@@ -14,7 +14,7 @@ This file guides AI agents working on the Tickly codebase.
 - Build small, flexible, verified slices. A slice is not complete until the data contract, behavior, UI surface, verification, and explanation are all handled.
 - Prefer progressive rebuilds and clear boundaries over broad rewrites.
 - Treat Tickly as a single current-app runtime. Legacy runtime, sync, auth, and old feature code have been removed from the active app surface.
-- Document the reasoning for architectural decisions in `docs/development-principles.md` or the historical rebuild notes under `docs/v2-notes/`.
+- Document the reasoning for architectural decisions in `docs/development-principles.md` or the historical rebuild notes under `docs/rebuild-notes/`.
 - Do not move to a larger feature until the current small unit has a clear verification story.
 
 ## Current App Boundary
