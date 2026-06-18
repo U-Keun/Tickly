@@ -4,6 +4,7 @@ Apply the root `AGENTS.md` first. This file adds rules for `supabase/`.
 
 ## Schema Management
 
+- This directory is legacy reference material while v2 remains local-first and cloud sync is deferred.
 - `schema.sql` is the canonical full remote schema snapshot.
 - `reconcile.sql` brings an existing remote project in line with the current schema.
 - `migrations/` contains rollout SQL for sequential production changes.

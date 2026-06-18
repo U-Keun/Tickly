@@ -4,14 +4,8 @@
   import { fly, fade } from 'svelte/transition';
   import { beforeNavigate, goto } from '$app/navigation';
   import { cubicOut } from 'svelte/easing';
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
   import type { Snippet } from 'svelte';
-  import {
-    authStore,
-    handleOAuthCallback,
-    handleOAuthCallbackError,
-  } from '$lib/stores/authStore.svelte';
-  import { syncStore } from '$lib/stores/syncStore.svelte';
   import { ensurePermission } from '$lib/notification';
   import { v2ChecklistStore } from '$lib/v2/v2ChecklistStore.svelte';
 
@@ -19,19 +13,6 @@
 
   let direction = $state(1); // 1: 오른쪽에서, -1: 왼쪽에서
   let hasNavigated = $state(false); // 네비게이션 발생 여부
-
-  // Connect realtime when logged in
-  async function connectRealtimeIfLoggedIn() {
-    if (!syncStore.isEnabled) {
-      await syncStore.disconnectRealtime();
-      return;
-    }
-
-    if (authStore.isLoggedIn && authStore.session) {
-      const { access_token, user_id } = authStore.session;
-      await syncStore.connectRealtime(access_token, user_id);
-    }
-  }
 
   async function handleWidgetDeepLink(parsedUrl: URL): Promise<boolean> {
     if (parsedUrl.host !== 'widget') {
@@ -83,38 +64,11 @@
 
   async function handleIncomingDeepLinks(urls: string[]): Promise<void> {
     for (const url of urls) {
-
-      // Parse the URL to extract OAuth callback parameters
       try {
         const parsedUrl = new URL(url);
 
         if (await handleWidgetDeepLink(parsedUrl)) {
           continue;
-        }
-
-        // Check if this is an OAuth callback
-        if (parsedUrl.host === 'auth' && parsedUrl.pathname === '/callback') {
-          const code = parsedUrl.searchParams.get('code');
-          const error = parsedUrl.searchParams.get('error');
-          const errorDescription = parsedUrl.searchParams.get('error_description');
-
-          if (error) {
-            const message = errorDescription ? `${error}: ${errorDescription}` : error;
-            console.error('OAuth error:', message);
-            handleOAuthCallbackError(new Error(message));
-            continue;
-          }
-
-          if (code) {
-            await handleOAuthCallback(code);
-            // Connect to realtime after successful OAuth
-            await connectRealtimeIfLoggedIn();
-            continue;
-          }
-
-          const message = 'OAuth callback missing authorization code';
-          console.error(message);
-          handleOAuthCallbackError(new Error(message));
         }
       } catch (e) {
         console.error('Failed to parse deep link URL:', e);
@@ -122,26 +76,11 @@
     }
   }
 
-  // Check session and set up deep link listener
   onMount(async () => {
-    // Request notification permission
     await ensurePermission();
-
-    // Restore login state from saved session
-    await authStore.checkSession();
-
-    // Load persisted sync state before any sync-related decisions
-    await syncStore.loadStatus();
 
     // Apply widget-only check actions queued in app group storage to the v2 checklist.
     await v2ChecklistStore.processWidgetActions();
-
-    if (authStore.isLoggedIn && syncStore.isEnabled) {
-      await syncStore.sync();
-    }
-
-    // Connect to realtime if logged in and sync is enabled
-    await connectRealtimeIfLoggedIn();
 
     try {
       const { getCurrent, onOpenUrl } = await import('@tauri-apps/plugin-deep-link');
@@ -159,11 +98,6 @@
       // Deep link plugin might not be available on all platforms
       // Deep link plugin not available on this platform
     }
-  });
-
-  // Disconnect realtime on component destroy
-  onDestroy(() => {
-    syncStore.disconnectRealtime();
   });
 
   // 경로 깊이 계산

@@ -5,7 +5,7 @@ Tickly development now follows a small-slice rebuild model: understand the curre
 ## Core Working Rules
 
 - A unit of work is complete only when the data contract, behavior, UI surface, verification, and explanation are all handled.
-- Keep v1 available as the `/v1` legacy route while v2 becomes the main UI.
+- Keep v2 as the only app runtime. Removed v1 runtime code should not be reintroduced without a dedicated recovery or migration slice.
 - Prefer explicit boundaries over broad rewrites.
 - Use the existing architecture unless there is a concrete reason to change it.
 - Let tests and stories grow with the risk of the change.
@@ -17,8 +17,10 @@ Tickly development now follows a small-slice rebuild model: understand the curre
 - v2 uses `v2_` Tauri commands and `v2_` SQLite tables.
 - v2 starts empty except for a default `Home` category.
 - v2 does not use v1 stores or v1 data tables.
-- v1 stays available at `/v1` for reference, existing data, and legacy feature checks.
-- The first v2 feature is local checklist behavior only: categories, items, CRUD, completion, deletion, editing, ordering, and persistence.
+- `/v1` is retired from runtime and redirects to `/`.
+- v2 now owns the rebuilt local features: checklist, tags, repeat, reminders, archive, streak, graph, settings, and widget behavior.
+- Cloud sync is deferred and should not run in the v2 runtime.
+- v1 data migration is intentionally skipped because there are no existing users for this rebuild.
 - iOS native UI is currently limited to v2 bottom-sheet surfaces: text-entry sheets and category management actions. Item/category save, delete, and reorder behavior still belongs to the existing v2 store/API layer.
 
 ## Understanding Track

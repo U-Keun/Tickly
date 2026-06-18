@@ -11,7 +11,6 @@ import * as settingsApi from '../api/settingsApi';
 import * as v2ChecklistApi from '../api/v2ChecklistApi';
 import * as v2ReminderNotificationApi from '../api/v2ReminderNotificationApi';
 import * as widgetApi from '../api/widgetApi';
-import { v2ICloudSyncStore } from './v2ICloudSyncStore.svelte';
 
 const MIN_REPEAT_TIMER_DELAY_MS = 1000;
 const WIDGET_REFRESH_DEBOUNCE_MS = 300;
@@ -129,7 +128,6 @@ function scheduleWidgetRefresh(): void {
 }
 
 function finalizeLocalMutation(): void {
-  v2ICloudSyncStore.scheduleSync();
   scheduleWidgetRefresh();
 }
 
@@ -473,7 +471,6 @@ async function processWidgetActionsAndReload(): Promise<number> {
     const processedCount = await widgetApi.processWidgetActions();
     if (processedCount > 0) {
       await load();
-      v2ICloudSyncStore.scheduleSync();
       scheduleWidgetRefresh();
     }
     return processedCount;
@@ -489,7 +486,6 @@ async function toggleItemFromWidget(id: number): Promise<void> {
   try {
     await widgetApi.toggleItemFromWidget(id);
     await load();
-    v2ICloudSyncStore.scheduleSync();
     scheduleWidgetRefresh();
   } catch (error) {
     throw setError(error, 'Failed to toggle v2 item from widget.');

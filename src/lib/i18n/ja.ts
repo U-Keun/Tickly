@@ -49,8 +49,6 @@ export const ja: Translations = {
   settingsGroupAppearance: '表示',
   settingsGroupDaily: '1日の基準',
   settingsGroupData: 'データ管理',
-  settingsGroupLegacy: '以前の機能',
-  settingsLegacyBadge: 'Legacy',
   themeChange: 'テーマ変更',
   languageChange: '言語変更',
   back: '戻る',
@@ -179,37 +177,6 @@ export const ja: Translations = {
   resetTimeHourLabel: '時',
   resetTimeMinuteLabel: '分',
 
-  // Account & Sync settings
-  syncTitle: '同期',
-  loginRequired: 'ログインが必要です',
-  loginDescription: 'クラウド同期を使用するにはログインしてください',
-  signInWithApple: 'Appleでサインイン',
-  signInWithGoogle: 'Googleでサインイン',
-  appleSignInConfigurationError:
-    'このiOSビルドにAppleサインイン権限が含まれていない可能性があります。XcodeのSigning & CapabilitiesでSign In with Appleとプロビジョニングプロファイルを確認してください。',
-  logout: 'ログアウト',
-  logoutConfirm: '本当にログアウトしますか？',
-  syncEnabled: '同期を有効化',
-  lastSynced: '最終同期',
-  pendingChanges: '保留中の変更',
-  syncNow: '今すぐ同期',
-  forcePull: 'クラウドデータを再取得',
-  forcePullConfirm:
-    'ローカルのクラウドデータを削除して、サーバーから再取得しますか？\nこの端末にだけあり、まだ同期されていない変更は失われる可能性があります。',
-  syncing: '同期中...',
-  never: 'なし',
-  justNow: 'たった今',
-  minutesAgo: (minutes: number) => `${minutes}分前`,
-  hoursAgo: (hours: number) => `${hours}時間前`,
-  cloudSync: 'クラウド同期',
-
-  // Realtime sync
-  realtimeSync: 'リアルタイム同期',
-  realtimeConnected: '接続済み',
-  realtimeConnecting: '接続中...',
-  realtimeReconnecting: '再接続中...',
-  realtimeDisconnected: '未接続',
-
   // Tags
   tags: 'タグ',
   tagFilter: 'タグフィルター',
@@ -239,26 +206,12 @@ export const ja: Translations = {
   reminderPlaceholder: '時間を選択...',
   reminderClear: 'リマインダー解除',
 
-  // Linked app
-  linkedApp: '連携アプリ',
-  linkedAppOpen: '開く',
-  linkedAppNone: 'なし',
-  linkedAppSelect: 'アプリ選択',
-  linkedAppConnect: 'アプリ連携',
-  linkedAppCustomAdd: 'カスタム追加',
-  linkedAppNamePlaceholder: 'アプリ名',
-  linkedAppUrlPlaceholder: 'URL（例：spotify://）',
-
-  // Advanced settings
-  advancedSettings: '詳細設定',
-
   // Common
   saving: '保存中...',
 
   // v2 local checklist
   v2Title: 'Tickly v2',
   v2Subtitle: 'ローカルチェックリスト再構築',
-  v2BackHome: 'v1ホーム',
   v2Refresh: '更新',
   v2Loading: '読み込み中...',
   v2ClearInput: '入力をクリア',
@@ -365,34 +318,4 @@ export const ja: Translations = {
   v2DeleteArchivedConfirmTitle: 'アーカイブ項目を完全に削除しますか？',
   v2DeleteArchivedConfirmMessageTemplate: (text: string) =>
     `「${text}」はアーカイブからも削除されます。この操作は元に戻せません。`,
-  v2ICloudSyncTitle: 'iCloud同期',
-  v2ICloudSyncGroupTitle: 'v2 iCloud',
-  v2ICloudSyncDescription:
-    '同じApple IDでサインインした端末間で、v2のカテゴリ、項目、タグ、完了履歴をマージします。iOS 17以降で利用できます。',
-  v2ICloudSyncToggleTitle: 'iCloud同期を使う',
-  v2ICloudSyncToggleDescription:
-    '初期状態ではオフです。オンにすると、ローカルデータとiCloudデータを最初にマージし、アプリ起動・復帰・変更後に同期します。',
-  v2ICloudSyncStatusTitle: '同期状態',
-  v2ICloudSyncStatusLabel: '状態',
-  v2ICloudSyncAvailabilityLabel: '利用可否',
-  v2ICloudSyncLastSyncedLabel: '最終同期',
-  v2ICloudSyncAvailable: '利用可能',
-  v2ICloudSyncUnavailable: '利用不可',
-  v2ICloudSyncNever: 'まだありません',
-  v2ICloudSyncNow: '今すぐ同期',
-  v2ICloudSyncSyncing: '同期中...',
-  v2ICloudSyncStatusIdle: '待機中',
-  v2ICloudSyncStatusAvailable: '利用可能',
-  v2ICloudSyncStatusSyncing: '同期中',
-  v2ICloudSyncStatusSynced: '同期済み',
-  v2ICloudSyncStatusDisabled: 'オフ',
-  v2ICloudSyncStatusUnavailable: '利用できません',
-  v2ICloudSyncStatusUnsupportedOs: 'iOS 17以降が必要',
-  v2ICloudSyncStatusNoAccount: 'iCloudアカウントなし',
-  v2ICloudSyncStatusRestricted: 'iCloudが制限されています',
-  v2ICloudSyncStatusTemporarilyUnavailable: '一時的に利用できません',
-  v2ICloudSyncStatusCouldNotDetermine: '状態を確認できません',
-  v2ICloudSyncStatusTimeout: 'タイムアウト',
-  v2ICloudSyncStatusError: 'エラー',
-  v2ICloudSyncStatusUnknown: '不明',
 };

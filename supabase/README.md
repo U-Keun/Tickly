@@ -1,5 +1,7 @@
 # Supabase Schema
 
+> Legacy note: Tickly is currently a v2-only local-first runtime and does not run Supabase sync. This folder is retained as historical reference only until a future cloud-sync slice explicitly defines a new remote contract.
+
 Tickly의 원격 Supabase 스키마 기준 문서입니다.
 
 ## 어떤 파일을 실행하면 되나

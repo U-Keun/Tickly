@@ -2,7 +2,7 @@
 
 ## Decision
 
-v2 tag management lives in `/settings/tags` and uses only v2 local tables, commands, and API wrappers. The legacy v1 tag store remains available only through `/v1` reference flows and is not used by the v2 settings page.
+v2 tag management lives in `/settings/tags` and uses only v2 local tables, commands, and API wrappers. The legacy v1 tag store has been removed and is not used by the v2 settings page.
 
 ## Behavior
 

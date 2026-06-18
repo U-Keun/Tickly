@@ -47,8 +47,6 @@ export const ko = {
   settingsGroupAppearance: '표시',
   settingsGroupDaily: '하루 기준',
   settingsGroupData: '데이터 관리',
-  settingsGroupLegacy: '이전 기능',
-  settingsLegacyBadge: 'Legacy',
   themeChange: '테마 변경',
   languageChange: '언어 변경',
   back: '뒤로 가기',
@@ -177,37 +175,6 @@ export const ko = {
   resetTimeHourLabel: '시',
   resetTimeMinuteLabel: '분',
 
-  // Account & Sync settings
-  syncTitle: '동기화',
-  loginRequired: '로그인이 필요합니다',
-  loginDescription: '클라우드 동기화를 사용하려면 로그인하세요',
-  signInWithApple: 'Apple로 로그인',
-  signInWithGoogle: 'Google로 로그인',
-  appleSignInConfigurationError:
-    'Apple 로그인 권한이 이 iOS 빌드에 포함되지 않았을 수 있습니다. Xcode Signing & Capabilities에서 Sign In with Apple과 프로비저닝 프로필을 확인하세요.',
-  logout: '로그아웃',
-  logoutConfirm: '정말 로그아웃하시겠습니까?',
-  syncEnabled: '동기화 사용',
-  lastSynced: '마지막 동기화',
-  pendingChanges: '대기 중인 변경사항',
-  syncNow: '지금 동기화',
-  forcePull: '클라우드 데이터 다시 받기',
-  forcePullConfirm:
-    '로컬 클라우드 데이터를 지우고 서버에서 다시 받아오시겠습니까?\n이 기기에만 있고 아직 동기화되지 않은 변경사항은 사라질 수 있습니다.',
-  syncing: '동기화 중...',
-  never: '없음',
-  justNow: '방금 전',
-  minutesAgo: (minutes: number) => `${minutes}분 전`,
-  hoursAgo: (hours: number) => `${hours}시간 전`,
-  cloudSync: '클라우드 동기화',
-
-  // Realtime sync
-  realtimeSync: '실시간 동기화',
-  realtimeConnected: '연결됨',
-  realtimeConnecting: '연결 중...',
-  realtimeReconnecting: '재연결 중...',
-  realtimeDisconnected: '연결 안됨',
-
   // Tags
   tags: '태그',
   tagFilter: '태그 필터',
@@ -237,26 +204,12 @@ export const ko = {
   reminderPlaceholder: '시간 선택...',
   reminderClear: '알림 해제',
 
-  // Linked app
-  linkedApp: '연결 앱',
-  linkedAppOpen: '열기',
-  linkedAppNone: '없음',
-  linkedAppSelect: '앱 선택',
-  linkedAppConnect: '앱 연결하기',
-  linkedAppCustomAdd: '직접 추가',
-  linkedAppNamePlaceholder: '앱 이름',
-  linkedAppUrlPlaceholder: 'URL (예: spotify://)',
-
-  // Advanced settings
-  advancedSettings: '상세 설정',
-
   // Common
   saving: '저장 중...',
 
   // v2 local checklist
   v2Title: 'Tickly v2',
   v2Subtitle: '로컬 체크리스트 재구축',
-  v2BackHome: 'v1 홈',
   v2Refresh: '새로고침',
   v2Loading: '불러오는 중...',
   v2ClearInput: '입력 지우기',
@@ -361,36 +314,6 @@ export const ko = {
   v2DeleteArchivedConfirmTitle: '보관 항목을 완전히 삭제할까요?',
   v2DeleteArchivedConfirmMessageTemplate: (text: string) =>
     `"${text}" 항목이 보관함에서도 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`,
-  v2ICloudSyncTitle: 'iCloud 동기화',
-  v2ICloudSyncGroupTitle: 'v2 iCloud',
-  v2ICloudSyncDescription:
-    'v2 카테고리, 항목, 태그, 완료 기록을 같은 Apple ID의 기기 사이에서 병합합니다. iOS 17 이상에서만 사용할 수 있습니다.',
-  v2ICloudSyncToggleTitle: 'iCloud 동기화 사용',
-  v2ICloudSyncToggleDescription:
-    '기본값은 꺼짐입니다. 켜면 로컬 데이터와 iCloud 데이터를 먼저 병합한 뒤, 앱 실행/복귀와 변경 후에 동기화합니다.',
-  v2ICloudSyncStatusTitle: '동기화 상태',
-  v2ICloudSyncStatusLabel: '상태',
-  v2ICloudSyncAvailabilityLabel: '사용 가능',
-  v2ICloudSyncLastSyncedLabel: '마지막 동기화',
-  v2ICloudSyncAvailable: '가능',
-  v2ICloudSyncUnavailable: '불가',
-  v2ICloudSyncNever: '아직 없음',
-  v2ICloudSyncNow: '지금 동기화',
-  v2ICloudSyncSyncing: '동기화 중...',
-  v2ICloudSyncStatusIdle: '대기 중',
-  v2ICloudSyncStatusAvailable: '사용 가능',
-  v2ICloudSyncStatusSyncing: '동기화 중',
-  v2ICloudSyncStatusSynced: '동기화됨',
-  v2ICloudSyncStatusDisabled: '꺼짐',
-  v2ICloudSyncStatusUnavailable: '사용할 수 없음',
-  v2ICloudSyncStatusUnsupportedOs: 'iOS 17 이상 필요',
-  v2ICloudSyncStatusNoAccount: 'iCloud 계정 없음',
-  v2ICloudSyncStatusRestricted: 'iCloud 제한됨',
-  v2ICloudSyncStatusTemporarilyUnavailable: '일시적으로 사용할 수 없음',
-  v2ICloudSyncStatusCouldNotDetermine: '상태 확인 불가',
-  v2ICloudSyncStatusTimeout: '시간 초과',
-  v2ICloudSyncStatusError: '오류',
-  v2ICloudSyncStatusUnknown: '알 수 없음',
 };
 
 export type Translations = typeof ko;

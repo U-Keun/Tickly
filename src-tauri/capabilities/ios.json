@@ -5,7 +5,6 @@
   "platforms": ["iOS"],
   "windows": ["main"],
   "permissions": [
-    "sign-in-with-apple:default",
     "opener:default",
     {
       "identifier": "opener:allow-open-url",

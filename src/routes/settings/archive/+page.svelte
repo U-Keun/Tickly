@@ -12,7 +12,6 @@
   import { i18n } from '$lib/i18n';
   import { getSettingsReturnTo, settingsPathWithReturnTo } from '$lib/settings/returnTo';
   import * as v2ChecklistApi from '$lib/api/v2ChecklistApi';
-  import { v2ICloudSyncStore } from '$lib/v2/v2ICloudSyncStore.svelte';
 
   let returnTo = $derived(getSettingsReturnTo($page.url.searchParams));
   let archivedItems = $state<V2ArchivedItem[]>([]);
@@ -62,7 +61,6 @@
     try {
       await v2ChecklistApi.v2RestoreArchivedItem(id);
       archivedItems = archivedItems.filter((archivedItem) => archivedItem.item.id !== id);
-      v2ICloudSyncStore.scheduleSync();
     } catch (error) {
       const nextError = error instanceof Error ? error : new Error(String(error));
       errorMessage = nextError.message;
@@ -93,7 +91,6 @@
       await v2ChecklistApi.v2DeleteArchivedItem(itemId);
       archivedItems = archivedItems.filter((archivedItem) => archivedItem.item.id !== itemId);
       itemPendingDeletion = null;
-      v2ICloudSyncStore.scheduleSync();
     } catch (error) {
       const nextError = error instanceof Error ? error : new Error(String(error));
       errorMessage = nextError.message;

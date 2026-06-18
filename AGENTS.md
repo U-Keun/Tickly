@@ -13,7 +13,7 @@ This file guides AI agents working on the Tickly codebase.
 
 - Build small, flexible, verified slices. A slice is not complete until the data contract, behavior, UI surface, verification, and explanation are all handled.
 - Prefer progressive rebuilds and clear boundaries over broad rewrites.
-- Keep v1 available as `/v1` legacy while v2 becomes the main UI.
+- Treat Tickly as a v2-only runtime. v1 runtime, sync, auth, and legacy feature code have been removed from the active app surface.
 - Document the reasoning for architectural decisions in `docs/development-principles.md` or `docs/v2-notes/`.
 - Do not move to a larger feature until the current small unit has a clear verification story.
 
@@ -21,11 +21,13 @@ This file guides AI agents working on the Tickly codebase.
 
 - v2 is the canonical main UI at `/`.
 - `/v2` is a compatibility alias for old v2 QA links and should redirect/replace to `/`.
-- v1 is preserved at `/v1` for legacy data, reference behavior, and features not yet rebuilt in v2.
+- `/v1` is no longer a runtime fallback and should redirect/replace to `/`.
+- v1 source and v1 command/store surfaces should not be reintroduced unless a task explicitly starts a legacy recovery or migration slice.
 - v2 backend commands use the `v2_` prefix.
 - v2 local persistence uses `v2_` SQLite tables.
-- v2 must not implicitly depend on v1 stores, v1 tables, sync, widget, tag, repeat, streak, reminder, linked-app, or graph flows.
-- Initial v2 scope is local checklist only: categories, items, CRUD, completion, deletion, editing, ordering, and SQLite persistence.
+- v2 must not implicitly depend on removed v1 stores, v1 tables, sync, widget, tag, repeat, streak, reminder, linked-app, or graph flows.
+- v2 scope now includes the local checklist, tags, repeat, reminders, archive, streak, graph, settings, and the iOS widget flow.
+- Cloud sync is deferred and should not run from v2 runtime unless a future task explicitly reintroduces it.
 - Do not migrate or copy user data into v2 unless a task explicitly asks for a migration.
 
 ## Build / Lint / Test Commands
@@ -77,10 +79,11 @@ When adding or changing app-level Swift sources, update the repo-owned template 
 **API Layer Usage:**
 - NEVER call `invoke()` directly from components
 - Always import and use API modules from `$lib/api/`
-- Example: `import * as todoApi from '$lib/api/todoApi'; await todoApi.addItem('text', id)`
+- Example: `import * as v2ChecklistApi from '$lib/api/v2ChecklistApi'; await v2ChecklistApi.v2CreateItem(categoryId, 'text', [])`
 
 **Stores:**
-- Use existing stores from `$lib/stores`: `appStore`, `modalStore`, `authStore`, `syncStore`
+- v2 runtime should use v2-specific stores from `$lib/v2`.
+- Legacy `$lib/stores` modules have been removed. Do not recreate a broad app/global store layer without a clear v2 reason.
 - Don't create new stores unless necessary
 - Store methods update reactive state and call API functions
 
@@ -137,11 +140,10 @@ When adding or changing app-level Swift sources, update the repo-owned template 
 - Use transactions for multi-step operations
 - Use prepared statements (no string concatenation for queries)
 - Timestamps: ISO 8601 format using `chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ")`
-- `supabase/schema.sql` is the canonical remote schema snapshot; when cloud-sync schema changes, update it, update `supabase/reconcile.sql`, and add a rollout SQL file under `supabase/migrations/`
+- `supabase/` is legacy reference material while cloud sync is deferred. When a future cloud-sync slice explicitly reintroduces remote sync, define the new remote contract before updating those files.
 
 **Sync Fields:**
-All syncable entities have: `sync_id` (UUID), `created_at`, `updated_at`, `sync_status`
-Sync status values: `'pending'`, `'synced'`, `'deleted'`
+- Cloud sync is currently deferred. Do not add sync metadata or remote-schema fields to v2 local entities unless a future sync slice explicitly defines that contract.
 
 ### General
 

@@ -2,7 +2,7 @@
 
 ## Analysis Checkpoint
 
-Tickly v1 already has a layered architecture:
+Tickly originally had a v1 layered architecture:
 
 ```mermaid
 flowchart LR
@@ -14,7 +14,7 @@ flowchart LR
   Repo --> SQLite["SQLite"]
 ```
 
-The v1 checklist is connected to repeat rules, tags, streaks, widgets, notifications, and sync. v2 starts by isolating the local checklist core so that it can be understood and verified without those feature branches.
+The old v1 checklist was connected to repeat rules, tags, streaks, widgets, notifications, and sync. v2 started by isolating the local checklist core so that it could be understood and verified without those feature branches.
 
 ## Design Checkpoint
 
@@ -22,13 +22,13 @@ v2 uses parallel names and tables:
 
 ```mermaid
 flowchart TB
-  V1["/v1 legacy app"] --> V1Tables["categories / todos / sync tables"]
+  V1["removed v1 runtime"] -. "not used" .-> V1Tables["old categories / todos / sync tables"]
   V2["/ main v2 route"] --> V2Api["v2ChecklistApi"]
   V2Api --> V2Commands["v2_* commands"]
   V2Commands --> V2Tables["v2_categories / v2_todos"]
 ```
 
-This keeps the existing app available as legacy while the local checklist model becomes the main UI.
+v1 was initially kept as a legacy runtime, then retired, and now its active source surfaces have been removed. v2 owns the app surface and the supported local data path.
 
 ## Data Model
 
@@ -55,7 +55,7 @@ erDiagram
 
 ## Excluded From First Slice
 
-Search, tags, local repeat rules, local reminder times, archive, streak, graph, and the iOS widget cache/action flow are now part of v2. Linked apps, Supabase sync, and data migration remain intentionally excluded.
+Search, tags, local repeat rules, local reminder times, archive, streak, graph, settings, and the iOS widget cache/action flow are now part of v2. Linked apps, Supabase sync, iCloud sync, and data migration remain intentionally excluded.
 
 ## Verification Target
 

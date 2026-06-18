@@ -1,4 +1,4 @@
-const DEFAULT_RETURN_TO = '/v1';
+const DEFAULT_RETURN_TO = '/';
 
 export function getSettingsReturnTo(searchParams: URLSearchParams): string {
   const returnTo = searchParams.get('returnTo');

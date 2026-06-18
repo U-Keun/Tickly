@@ -49,8 +49,6 @@ export const en: Translations = {
   settingsGroupAppearance: 'Appearance',
   settingsGroupDaily: 'Daily rhythm',
   settingsGroupData: 'Data management',
-  settingsGroupLegacy: 'Legacy features',
-  settingsLegacyBadge: 'Legacy',
   themeChange: 'Change Theme',
   languageChange: 'Change Language',
   back: 'Back',
@@ -179,37 +177,6 @@ export const en: Translations = {
   resetTimeHourLabel: 'Hour',
   resetTimeMinuteLabel: 'Minute',
 
-  // Account & Sync settings
-  syncTitle: 'Sync',
-  loginRequired: 'Login required',
-  loginDescription: 'Sign in to use cloud sync',
-  signInWithApple: 'Sign in with Apple',
-  signInWithGoogle: 'Sign in with Google',
-  appleSignInConfigurationError:
-    'This iOS build may be missing the Apple Sign In entitlement. Check Sign In with Apple in Xcode Signing & Capabilities and verify the provisioning profile.',
-  logout: 'Log out',
-  logoutConfirm: 'Are you sure you want to log out?',
-  syncEnabled: 'Sync enabled',
-  lastSynced: 'Last synced',
-  pendingChanges: 'Pending changes',
-  syncNow: 'Sync now',
-  forcePull: 'Re-download cloud data',
-  forcePullConfirm:
-    'Clear local cloud data and download it again from the server?\nAny changes that exist only on this device and are not synced yet may be lost.',
-  syncing: 'Syncing...',
-  never: 'Never',
-  justNow: 'Just now',
-  minutesAgo: (minutes: number) => `${minutes}m ago`,
-  hoursAgo: (hours: number) => `${hours}h ago`,
-  cloudSync: 'Cloud Sync',
-
-  // Realtime sync
-  realtimeSync: 'Realtime Sync',
-  realtimeConnected: 'Connected',
-  realtimeConnecting: 'Connecting...',
-  realtimeReconnecting: 'Reconnecting...',
-  realtimeDisconnected: 'Disconnected',
-
   // Tags
   tags: 'Tags',
   tagFilter: 'Tag Filter',
@@ -239,26 +206,12 @@ export const en: Translations = {
   reminderPlaceholder: 'Select time...',
   reminderClear: 'Clear reminder',
 
-  // Linked app
-  linkedApp: 'Linked App',
-  linkedAppOpen: 'Open',
-  linkedAppNone: 'None',
-  linkedAppSelect: 'Select App',
-  linkedAppConnect: 'Link App',
-  linkedAppCustomAdd: 'Add Custom',
-  linkedAppNamePlaceholder: 'App name',
-  linkedAppUrlPlaceholder: 'URL (e.g. spotify://)',
-
-  // Advanced settings
-  advancedSettings: 'More Options',
-
   // Common
   saving: 'Saving...',
 
   // v2 local checklist
   v2Title: 'Tickly v2',
   v2Subtitle: 'Local checklist rebuild',
-  v2BackHome: 'v1 Home',
   v2Refresh: 'Refresh',
   v2Loading: 'Loading...',
   v2ClearInput: 'Clear input',
@@ -365,34 +318,4 @@ export const en: Translations = {
   v2DeleteArchivedConfirmTitle: 'Permanently delete archived item?',
   v2DeleteArchivedConfirmMessageTemplate: (text: string) =>
     `"${text}" will be deleted from Archive too. This cannot be undone.`,
-  v2ICloudSyncTitle: 'iCloud Sync',
-  v2ICloudSyncGroupTitle: 'v2 iCloud',
-  v2ICloudSyncDescription:
-    'Merge v2 categories, items, tags, and completion history across devices signed in to the same Apple ID. Requires iOS 17 or later.',
-  v2ICloudSyncToggleTitle: 'Use iCloud sync',
-  v2ICloudSyncToggleDescription:
-    'Off by default. When enabled, Tickly first merges local and iCloud data, then syncs on app launch, app return, and after changes.',
-  v2ICloudSyncStatusTitle: 'Sync status',
-  v2ICloudSyncStatusLabel: 'Status',
-  v2ICloudSyncAvailabilityLabel: 'Available',
-  v2ICloudSyncLastSyncedLabel: 'Last synced',
-  v2ICloudSyncAvailable: 'Available',
-  v2ICloudSyncUnavailable: 'Unavailable',
-  v2ICloudSyncNever: 'Never',
-  v2ICloudSyncNow: 'Sync now',
-  v2ICloudSyncSyncing: 'Syncing...',
-  v2ICloudSyncStatusIdle: 'Idle',
-  v2ICloudSyncStatusAvailable: 'Available',
-  v2ICloudSyncStatusSyncing: 'Syncing',
-  v2ICloudSyncStatusSynced: 'Synced',
-  v2ICloudSyncStatusDisabled: 'Off',
-  v2ICloudSyncStatusUnavailable: 'Unavailable',
-  v2ICloudSyncStatusUnsupportedOs: 'Requires iOS 17+',
-  v2ICloudSyncStatusNoAccount: 'No iCloud account',
-  v2ICloudSyncStatusRestricted: 'iCloud restricted',
-  v2ICloudSyncStatusTemporarilyUnavailable: 'Temporarily unavailable',
-  v2ICloudSyncStatusCouldNotDetermine: 'Could not determine',
-  v2ICloudSyncStatusTimeout: 'Timed out',
-  v2ICloudSyncStatusError: 'Error',
-  v2ICloudSyncStatusUnknown: 'Unknown',
 };

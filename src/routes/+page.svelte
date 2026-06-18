@@ -12,7 +12,6 @@
   import { initializeTheme } from '../lib/themes';
   import { openNativeV2ItemDetailSheet } from '../lib/v2/v2ItemDetailLauncher';
   import { v2ChecklistStore } from '../lib/v2/v2ChecklistStore.svelte';
-  import { v2ICloudSyncStore } from '../lib/v2/v2ICloudSyncStore.svelte';
   import type { V2GraphData, V2RepeatType, V2StreakHeatmap, V2TodoItem } from '../types';
 
   let nativeDockSupported = $state(false);
@@ -258,11 +257,6 @@
           void v2ChecklistStore.scheduleRepeatProcessing();
         }
       });
-    void v2ICloudSyncStore
-      .loadStatus()
-      .then(() => v2ICloudSyncStore.syncNow())
-      .catch(() => undefined);
-
     nativeDockSupported = v2NativeDockApi.shouldUseNativeDock();
     const removeNativeDockActionListener =
       v2NativeDockApi.addNativeDockActionListener(handleNativeDockAction);
@@ -297,10 +291,6 @@
         .finally(() => {
           void v2ChecklistStore.scheduleRepeatProcessing();
         });
-      void v2ICloudSyncStore
-        .loadStatus()
-        .then(() => v2ICloudSyncStore.syncNow())
-        .catch(() => undefined);
     };
 
     window.addEventListener('tickly:nativeSheetState', handleNativeSheetState);
@@ -320,7 +310,6 @@
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       v2ChecklistStore.disposeRepeatProcessingTimer();
       v2ChecklistStore.disposeWidgetRefreshTimer();
-      v2ICloudSyncStore.dispose();
       if (nativeDockSupported) {
         void v2NativeDockApi.configureNativeDock(buildNativeDockRequest(false));
       }

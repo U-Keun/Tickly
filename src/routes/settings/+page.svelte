@@ -60,12 +60,6 @@
         label={i18n.t('v2ArchiveManageTitle')}
         onSelect={() => goToSetting('/settings/archive')}
       />
-      <V2SettingsRow
-        icon="cloud"
-        tone="peach"
-        label={i18n.t('v2ICloudSyncTitle')}
-        onSelect={() => goToSetting('/settings/icloud')}
-      />
     </V2SettingsGroup>
   </div>
 </V2SettingsShell>
