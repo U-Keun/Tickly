@@ -12,7 +12,7 @@ Apply parent component rules first.
 - v2 local archive is now in scope as a cleanup surface for completed non-repeating items. Keep archive UI local to v2 props/API/store data.
 - v2 local streak is now in scope for opt-in item tracking and the v2 Streak overlay. Keep it backed by v2 completion logs and v2 props/API/store data.
 - v2 local graph is now in scope as a relationship overlay. Keep graph data backed by v2 category/item/tag props or v2 API/store helpers, not v1 graph flows.
-- Cloud sync is deferred. Do not add iCloud/Supabase sync surfaces to v2 components unless a future task explicitly reintroduces sync.
+- Cloud sync is deferred. Do not add cloud sync surfaces to v2 components unless a future task explicitly reintroduces sync.
 - v2 iOS widget behavior is now in scope through v2 props/API/store data. Do not import v1 widget, todo, repeat, tag, or app stores for widget behavior.
 
 ## Storybook

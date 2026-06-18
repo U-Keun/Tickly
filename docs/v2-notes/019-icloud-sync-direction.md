@@ -8,12 +8,12 @@ This note uses `019` because `018` is already used by tag management.
 
 ## Boundary
 
-- v2 sync must remain independent from v1 Supabase sync, v1 auth/account flows, and v1 sync stores if it is reintroduced later.
+- v2 sync must remain independent from removed v1 sync, v1 auth/account flows, and v1 sync stores if it is reintroduced later.
 - v2 remains local-first. A future sync slice must define a fresh remote identity and conflict contract before adding metadata back to the local schema.
 - iOS app support remains iOS 15.0. Any future iCloud plan should separately decide its minimum supported OS and entitlement requirements.
 - This is same-Apple-ID device sync only. CloudKit Sharing/collaboration is out of scope.
 - Settings such as theme, font, language, and reset time are not synced in this slice.
-- The v2 settings entry no longer links to iCloud or v1/Supabase cloud sync.
+- The v2 settings entry no longer links to iCloud or v1 cloud sync.
 - The main route no longer runs iCloud status checks, foreground sync, or debounce sync after local mutations.
 
 ## Parked Data Contract

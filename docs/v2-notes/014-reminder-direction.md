@@ -28,7 +28,7 @@ flowchart LR
 
 ## Out Of Scope
 
-Execution time, due date, snooze, notification actions, Supabase sync, widgets, Graph, Streak, archive history behavior, and migration from v1 reminders remain out of this slice. Local archive cleanup is separate from reminder scheduling and cancels no active reminder because only completed non-repeating items can be archived.
+Execution time, due date, snooze, notification actions, cloud sync, widgets, Graph, Streak, archive history behavior, and migration from v1 reminders remain out of this slice. Local archive cleanup is separate from reminder scheduling and cancels no active reminder because only completed non-repeating items can be archived.
 
 ## Verification
 

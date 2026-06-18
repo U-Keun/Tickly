@@ -9,7 +9,7 @@ Tickly is now a v2-only runtime. Because there are no existing users or migratio
 - v1 Svelte components and global stores.
 - v1 frontend API wrappers and home orchestration helpers.
 - v1 Rust commands, models, repositories, and services.
-- Supabase auth/sync/realtime runtime code.
+- v1 cloud auth/sync/realtime runtime code.
 - The parked iCloud/CloudKit prototype bridge, commands, store, entitlements, and Xcode project references.
 
 ## Kept Surface

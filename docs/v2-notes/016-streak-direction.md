@@ -36,7 +36,7 @@ Storybook and browser environments use the same web overlay. iOS uses the existi
 
 ## Out Of Scope
 
-Supabase sync, widgets, Graph, archive recommendations, notification actions, and streak-specific editing screens are out of this slice.
+Cloud sync, widgets, Graph, archive recommendations, notification actions, and streak-specific editing screens are out of this slice.
 
 ## Verification
 

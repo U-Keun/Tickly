@@ -140,7 +140,7 @@ When adding or changing app-level Swift sources, update the repo-owned template 
 - Use transactions for multi-step operations
 - Use prepared statements (no string concatenation for queries)
 - Timestamps: ISO 8601 format using `chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ")`
-- `supabase/` is legacy reference material while cloud sync is deferred. When a future cloud-sync slice explicitly reintroduces remote sync, define the new remote contract before updating those files.
+- Cloud sync is currently deferred. When a future cloud-sync slice explicitly reintroduces remote persistence, define the new remote contract before adding schema files or sync metadata.
 
 **Sync Fields:**
 - Cloud sync is currently deferred. Do not add sync metadata or remote-schema fields to v2 local entities unless a future sync slice explicitly defines that contract.

@@ -30,7 +30,7 @@ flowchart LR
 
 ## Out Of Scope
 
-Supabase sync, widgets, Graph screen, archive history views, and data migration remain out of this slice. Local reminder times are handled as item metadata in the reminder slice and are rescheduled when repeats reactivate. Local archive cleanup is a separate v2 slice and excludes repeating items. Local streak tracking is now handled by the v2 streak slice.
+Cloud sync, widgets, Graph screen, archive history views, and data migration remain out of this slice. Local reminder times are handled as item metadata in the reminder slice and are rescheduled when repeats reactivate. Local archive cleanup is a separate v2 slice and excludes repeating items. Local streak tracking is now handled by the v2 streak slice.
 
 ## Verification
 
