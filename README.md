@@ -277,9 +277,9 @@ Tickly/
 │   │       └── graph_commands.rs     # Graph 커맨드
 │   └── tauri.conf.json               # Tauri 설정
 ├── docs/                             # 프로젝트 문서
-│   ├── deployment-automation.md      # CI/CD 및 배포 자동화 가이드
-│   ├── roadmap.md                    # 버전별 로드맵
-│   └── troubleshooting.md            # 트러블슈팅 기록
+│   ├── development-principles.md     # 현재 개발 원칙
+│   ├── v2-notes/                     # v2 단계별 결정 기록
+│   └── legacy/                       # pre-v2 기록 보관
 ├── CLAUDE.md                         # 프로젝트 가이드
 └── README.md                         # 이 파일
 ```

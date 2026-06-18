@@ -717,7 +717,7 @@ if let Ok(url) = std::env::var("SUPABASE_URL") {
 
 ### Troubleshooting
 
-See `docs/troubleshooting.md` for common issues:
+See `docs/legacy/troubleshooting.md` for pre-v2 troubleshooting notes:
 - Apple Sign In permissions
 - iOS environment variables
 - Deleted items reappearing
@@ -811,7 +811,7 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
   - reminder_at 필드 DB 저장 + 클라우드 동기화
   - 항목 완료/삭제 시 알림 자동 취소, 앱 시작 시 재스케줄
 
-### Planned Features (see `docs/roadmap.md` for details)
+### Planned Features (see `docs/legacy/roadmap.md` for pre-v2 roadmap details)
 - **v0.8.0**: iOS widgets
 - **v0.9.0**: Shared lists (family/team collaboration)
 
