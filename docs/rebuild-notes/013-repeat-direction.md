@@ -9,23 +9,23 @@ Repeat does not create copied future items. A repeated item stays the same row, 
 
 ```mermaid
 flowchart LR
-  UI["Item detail sheet"] --> Command["v2_update_item_details"]
+  UI["Item detail sheet"] --> Command["checklist_update_item_details"]
   Toggle["Checkbox toggle"] --> Service["v2 checklist service"]
-  Service --> Todo["v2_todos repeat fields"]
-  Service --> Logs["v2_completion_logs"]
-  Startup["App load / foreground"] --> Process["v2_process_repeats"]
+  Service --> Todo["checklist_todos repeat fields"]
+  Service --> Logs["checklist_completion_logs"]
+  Startup["App load / foreground"] --> Process["checklist_process_repeats"]
   Timer["Visible one-shot reset timer"] --> Process
   Process --> Todo
 ```
 
 ## Boundaries
 
-- `v2_todos` owns `repeat_type`, `repeat_detail`, `next_due_at`, and `last_completed_at`.
-- `v2_completion_logs` records local completion counts by logical date. The v2 Streak slice now reads these logs for opt-in tracked items; Graph remains future work.
+- `checklist_todos` owns `repeat_type`, `repeat_detail`, `next_due_at`, and `last_completed_at`.
+- `checklist_completion_logs` records local completion counts by logical date. The v2 Streak slice now reads these logs for opt-in tracked items; Graph remains future work.
 - Weekly detail is JSON `[0-6]`; monthly detail is JSON `[1-31]`.
 - The logical date uses the existing reset-time setting, but v2 does not read v1 todo/repeat tables.
 - While the v2 main screen is visible, a single one-shot timer is scheduled for the next reset time and then rescheduled after it fires.
-- Background or suspended execution is not trusted for repeat timing; foreground return still runs `v2_process_repeats` as the correctness fallback.
+- Background or suspended execution is not trusted for repeat timing; foreground return still runs `checklist_process_repeats` as the correctness fallback.
 - iOS uses the Swift native item detail form for repeat editing. Storybook, browser, and native-unavailable contexts use the Svelte fallback sheet.
 
 ## Out Of Scope

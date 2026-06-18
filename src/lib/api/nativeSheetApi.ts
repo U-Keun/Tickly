@@ -268,7 +268,7 @@ async function openNativeSheet(request: NativeSheetRequest): Promise<NativeSheet
 
     window.addEventListener('tickly:nativeSheetResult', handleResult);
 
-    void invoke<boolean>('v2_show_native_sheet', { request })
+    void invoke<boolean>('show_native_sheet', { request })
       .then((didShow) => {
         if (!didShow) {
           finish({ status: 'unavailable' });

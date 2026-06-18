@@ -12,8 +12,8 @@ flowchart TB
   Detail --> Native["iOS native form sheet"]
   Detail --> Web["Svelte fallback sheet"]
   Detail --> Store["checklistStore.updateItemDetails"]
-  Store --> Command["v2_update_item_details"]
-  Command --> Table["v2_todos.memo"]
+  Store --> Command["checklist_update_item_details"]
+  Command --> Table["checklist_todos.memo"]
   Tag["v2 tags"] --> Drawer
   Tag --> Detail
   Search["v2 search"] --> Table

@@ -20,10 +20,10 @@ This file guides AI agents working on the Tickly codebase.
 ## Current App Boundary
 
 - The current app is the canonical main UI at `/`.
-- Removed compatibility routes such as `/v1`, `/v2`, and legacy `/graph` should not be reintroduced unless a task explicitly asks for migration or legacy compatibility.
+- Removed compatibility and legacy routes should not be reintroduced unless a task explicitly asks for migration or legacy compatibility.
 - Legacy source and legacy command/store surfaces should not be reintroduced unless a task explicitly starts a recovery or migration slice.
-- Backend commands still use the `v2_` prefix as a stable Tauri command contract.
-- Local persistence still uses `v2_` SQLite tables as a stable storage contract.
+- Backend commands use `checklist_` names for checklist behavior.
+- Local persistence uses `checklist_` SQLite tables to avoid collisions with removed legacy tables.
 - Current app code must not implicitly depend on removed legacy stores, legacy tables, sync, widget, tag, repeat, streak, reminder, linked-app, or graph flows.
 - Current scope includes the local checklist, tags, repeat, reminders, archive, streak, graph, settings, and the iOS widget flow.
 - Cloud sync is deferred and should not run from the current runtime unless a future task explicitly reintroduces it.

@@ -11,13 +11,13 @@ flowchart TB
   Input["LeafCommandBar: text with #tag tokens"] --> Suggest["tag suggestion board"]
   Suggest --> Selected["selected tag chips"]
   Input --> Text["item text"]
-  Selected --> Create["v2_create_item"]
+  Selected --> Create["checklist_create_item"]
   Text --> Create
-  Detail["Item detail sheet: text + memo + tags"] --> Update["v2_update_item_details"]
+  Detail["Item detail sheet: text + memo + tags"] --> Update["checklist_update_item_details"]
   Create --> Service["service normalizes tag names"]
   Update --> Service
-  Service --> Tags["v2_tags"]
-  Service --> Join["v2_todo_tags"]
+  Service --> Tags["checklist_tags"]
+  Service --> Join["checklist_todo_tags"]
   Tags --> Item["TodoItem.tags"]
   Join --> Item
   Item --> Row["row first tag + extra count"]
@@ -49,8 +49,8 @@ flowchart TB
 
 ## Data Boundary
 
-- `v2_tags` owns unique tag names.
-- `v2_todo_tags` owns item/tag membership.
+- `checklist_tags` owns unique tag names.
+- `checklist_todo_tags` owns item/tag membership.
 - Item delete, category delete, and tag replacement clean up unused v2 tags.
 - v1 tag tables, stores, and sync flows are not used.
 

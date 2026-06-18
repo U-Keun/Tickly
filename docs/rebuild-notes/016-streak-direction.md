@@ -10,18 +10,18 @@ Tracking starts on the logical date when the user turns the toggle on. Existing 
 
 ```mermaid
 flowchart LR
-  Detail["Item detail sheet"] --> Update["v2_update_item_details"]
-  Update --> Todo["v2_todos.track_streak / streak_started_on"]
-  Toggle["Checkbox toggle"] --> Logs["v2_completion_logs"]
+  Detail["Item detail sheet"] --> Update["checklist_update_item_details"]
+  Update --> Todo["checklist_todos.track_streak / streak_started_on"]
+  Toggle["Checkbox toggle"] --> Logs["checklist_completion_logs"]
   Dock["Native Dock Streak"] --> Route["/ route shell"]
   Route --> Store["checklistStore.getStreakHeatmaps"]
-  Store --> Command["v2_get_streak_heatmaps"]
+  Store --> Command["checklist_get_streak_heatmaps"]
   Command --> Overlay["StreakOverlay"]
 ```
 
 ## Boundaries
 
-- v2 streak uses only `v2_todos` and `v2_completion_logs`.
+- v2 streak uses only `checklist_todos` and `checklist_completion_logs`.
 - v1 streak commands, stores, modals, and heatmap components are reference material only.
 - The item detail sheet owns the `track_streak` toggle, and that toggle depends on repeat being enabled. The Dock only opens the read-only overlay.
 - Current and longest streaks are calculated from the item’s current repeat rule. Repeat rule history is not stored.

@@ -24,6 +24,6 @@ Apply the root `AGENTS.md` first. This file adds rules for `src-tauri/src/`.
 ## Current Checklist Runtime
 
 - Rust symbols should use current checklist names such as `ChecklistService` and `ChecklistRepository`.
-- Tauri command names still use the `v2_` prefix as the stable frontend/native contract.
-- Persistence must keep using `v2_` tables unless an explicit migration slice renames storage.
+- Tauri command names use current checklist-oriented names such as `checklist_get_items`.
+- Persistence uses `checklist_` tables to avoid collisions with removed legacy tables.
 - Current checklist persistence must not read or write legacy tables.

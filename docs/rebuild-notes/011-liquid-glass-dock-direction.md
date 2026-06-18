@@ -9,7 +9,7 @@ v2 uses a native iOS bottom dock as a small launcher layer above the checklist. 
 ```mermaid
 flowchart LR
   Root["/ route shell"] --> DockApi["nativeDockApi"]
-  DockApi --> Command["v2_configure_native_dock"]
+  DockApi --> Command["configure_native_dock"]
   Command --> Swift["TicklyLiquidGlassDock"]
   Swift --> Event["tickly:nativeDockAction"]
   Event --> Root

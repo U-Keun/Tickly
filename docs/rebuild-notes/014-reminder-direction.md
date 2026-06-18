@@ -9,12 +9,12 @@ An item may have a nullable `reminder_at` in `HH:MM` format. The reminder is act
 
 ```mermaid
 flowchart LR
-  Sheet["Item detail sheet"] --> Command["v2_update_item_details"]
-  Command --> Todo["v2_todos.reminder_at"]
+  Sheet["Item detail sheet"] --> Command["checklist_update_item_details"]
+  Command --> Todo["checklist_todos.reminder_at"]
   Store["v2 checklist store"] --> Notify["v2 notification API wrapper"]
   Notify --> Plugin["tauri-plugin-notification"]
   Toggle["Complete / restore / delete"] --> Store
-  Repeat["v2_process_repeats"] --> Store
+  Repeat["checklist_process_repeats"] --> Store
 ```
 
 ## Boundaries

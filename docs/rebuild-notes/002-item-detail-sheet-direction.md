@@ -36,7 +36,7 @@ flowchart TB
 - Item detail sheet: item name, memo, and tag editing. Native iOS owns only the temporary input UI; the Svelte screen still receives the result and saves through the existing v2 store/API flow.
 - Confirm modal: destructive confirmation.
 
-The first detail expansion added `memo` to `v2_todos`. The next local metadata expansion adds v2 tags to the same editing surface through `v2_tags` and `v2_todo_tags`.
+The first detail expansion added `memo` to `checklist_todos`. The next local metadata expansion adds v2 tags to the same editing surface through `checklist_tags` and `checklist_todo_tags`.
 
 ## Out Of Scope
 

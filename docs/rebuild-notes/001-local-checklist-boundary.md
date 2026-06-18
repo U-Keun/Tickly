@@ -25,7 +25,7 @@ flowchart TB
   V1["removed v1 runtime"] -. "not used" .-> V1Tables["old categories / todos / sync tables"]
   V2["/ app route"] --> V2Api["checklistApi"]
   V2Api --> V2Commands["v2_* commands"]
-  V2Commands --> V2Tables["v2_categories / v2_todos"]
+  V2Commands --> V2Tables["checklist_categories / checklist_todos"]
 ```
 
 v1 was initially kept as a legacy runtime, then retired, and now its active source and compatibility route surfaces have been removed. v2 owns the app surface and the supported local data path.

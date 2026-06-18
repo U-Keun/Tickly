@@ -10,12 +10,12 @@ use crate::service::ChecklistService;
 use crate::AppState;
 
 #[tauri::command]
-pub fn v2_get_categories(state: State<AppState>) -> Result<Vec<ChecklistCategory>, String> {
+pub fn checklist_get_categories(state: State<AppState>) -> Result<Vec<ChecklistCategory>, String> {
     with_db(&state, ChecklistService::get_categories)
 }
 
 #[tauri::command]
-pub fn v2_create_category(
+pub fn checklist_create_category(
     name: String,
     state: State<AppState>,
 ) -> Result<ChecklistCategory, String> {
@@ -23,26 +23,33 @@ pub fn v2_create_category(
 }
 
 #[tauri::command]
-pub fn v2_update_category(id: i64, name: String, state: State<AppState>) -> Result<(), String> {
+pub fn checklist_update_category(
+    id: i64,
+    name: String,
+    state: State<AppState>,
+) -> Result<(), String> {
     with_db(&state, |db| {
         ChecklistService::update_category(db, id, &name)
     })
 }
 
 #[tauri::command]
-pub fn v2_delete_category(id: i64, state: State<AppState>) -> Result<(), String> {
+pub fn checklist_delete_category(id: i64, state: State<AppState>) -> Result<(), String> {
     with_db(&state, |db| ChecklistService::delete_category(db, id))
 }
 
 #[tauri::command]
-pub fn v2_reorder_categories(category_ids: Vec<i64>, state: State<AppState>) -> Result<(), String> {
+pub fn checklist_reorder_categories(
+    category_ids: Vec<i64>,
+    state: State<AppState>,
+) -> Result<(), String> {
     with_db(&state, |db| {
         ChecklistService::reorder_categories(db, &category_ids)
     })
 }
 
 #[tauri::command]
-pub fn v2_get_items(
+pub fn checklist_get_items(
     category_id: i64,
     state: State<AppState>,
 ) -> Result<Vec<ChecklistTodoItem>, String> {
@@ -50,24 +57,26 @@ pub fn v2_get_items(
 }
 
 #[tauri::command]
-pub fn v2_get_active_reminder_items(
+pub fn checklist_get_active_reminder_items(
     state: State<AppState>,
 ) -> Result<Vec<ChecklistTodoItem>, String> {
     with_db(&state, ChecklistService::get_active_reminder_items)
 }
 
 #[tauri::command]
-pub fn v2_get_tags(state: State<AppState>) -> Result<Vec<ChecklistTag>, String> {
+pub fn checklist_get_tags(state: State<AppState>) -> Result<Vec<ChecklistTag>, String> {
     with_db(&state, ChecklistService::get_tags)
 }
 
 #[tauri::command]
-pub fn v2_get_tag_summaries(state: State<AppState>) -> Result<Vec<ChecklistTagSummary>, String> {
+pub fn checklist_get_tag_summaries(
+    state: State<AppState>,
+) -> Result<Vec<ChecklistTagSummary>, String> {
     with_db(&state, ChecklistService::get_tag_summaries)
 }
 
 #[tauri::command]
-pub fn v2_rename_tag(
+pub fn checklist_rename_tag(
     id: i64,
     name: String,
     state: State<AppState>,
@@ -76,12 +85,12 @@ pub fn v2_rename_tag(
 }
 
 #[tauri::command]
-pub fn v2_delete_tag(id: i64, state: State<AppState>) -> Result<(), String> {
+pub fn checklist_delete_tag(id: i64, state: State<AppState>) -> Result<(), String> {
     with_db(&state, |db| ChecklistService::delete_tag(db, id))
 }
 
 #[tauri::command]
-pub fn v2_search_items(
+pub fn checklist_search_items(
     query: String,
     limit: i64,
     state: State<AppState>,
@@ -92,7 +101,7 @@ pub fn v2_search_items(
 }
 
 #[tauri::command]
-pub fn v2_create_item(
+pub fn checklist_create_item(
     category_id: i64,
     text: String,
     tag_names: Option<Vec<String>>,
@@ -109,14 +118,18 @@ pub fn v2_create_item(
 }
 
 #[tauri::command]
-pub fn v2_update_item_text(id: i64, text: String, state: State<AppState>) -> Result<(), String> {
+pub fn checklist_update_item_text(
+    id: i64,
+    text: String,
+    state: State<AppState>,
+) -> Result<(), String> {
     with_db(&state, |db| {
         ChecklistService::update_item_text(db, id, &text)
     })
 }
 
 #[tauri::command]
-pub fn v2_update_item_details(
+pub fn checklist_update_item_details(
     id: i64,
     text: String,
     memo: Option<String>,
@@ -148,29 +161,34 @@ pub fn v2_update_item_details(
 }
 
 #[tauri::command]
-pub fn v2_toggle_item(id: i64, state: State<AppState>) -> Result<ChecklistTodoItem, String> {
+pub fn checklist_toggle_item(id: i64, state: State<AppState>) -> Result<ChecklistTodoItem, String> {
     with_db(&state, |db| ChecklistService::toggle_item(db, id))
 }
 
 #[tauri::command]
-pub fn v2_process_repeats(state: State<AppState>) -> Result<i64, String> {
+pub fn checklist_process_repeats(state: State<AppState>) -> Result<i64, String> {
     with_db(&state, ChecklistService::process_repeats)
 }
 
 #[tauri::command]
-pub fn v2_archive_completed_items(category_id: i64, state: State<AppState>) -> Result<i64, String> {
+pub fn checklist_archive_completed_items(
+    category_id: i64,
+    state: State<AppState>,
+) -> Result<i64, String> {
     with_db(&state, |db| {
         ChecklistService::archive_completed_items(db, category_id)
     })
 }
 
 #[tauri::command]
-pub fn v2_get_archived_items(state: State<AppState>) -> Result<Vec<ChecklistArchivedItem>, String> {
+pub fn checklist_get_archived_items(
+    state: State<AppState>,
+) -> Result<Vec<ChecklistArchivedItem>, String> {
     with_db(&state, ChecklistService::get_archived_items)
 }
 
 #[tauri::command]
-pub fn v2_restore_archived_item(
+pub fn checklist_restore_archived_item(
     id: i64,
     state: State<AppState>,
 ) -> Result<ChecklistTodoItem, String> {
@@ -178,29 +196,29 @@ pub fn v2_restore_archived_item(
 }
 
 #[tauri::command]
-pub fn v2_delete_archived_item(id: i64, state: State<AppState>) -> Result<(), String> {
+pub fn checklist_delete_archived_item(id: i64, state: State<AppState>) -> Result<(), String> {
     with_db(&state, |db| ChecklistService::delete_archived_item(db, id))
 }
 
 #[tauri::command]
-pub fn v2_get_streak_heatmaps(
+pub fn checklist_get_streak_heatmaps(
     state: State<AppState>,
 ) -> Result<Vec<ChecklistStreakHeatmap>, String> {
     with_db(&state, ChecklistService::get_streak_heatmaps)
 }
 
 #[tauri::command]
-pub fn v2_get_graph_data(state: State<AppState>) -> Result<ChecklistGraphData, String> {
+pub fn checklist_get_graph_data(state: State<AppState>) -> Result<ChecklistGraphData, String> {
     with_db(&state, ChecklistService::get_graph_data)
 }
 
 #[tauri::command]
-pub fn v2_delete_item(id: i64, state: State<AppState>) -> Result<(), String> {
+pub fn checklist_delete_item(id: i64, state: State<AppState>) -> Result<(), String> {
     with_db(&state, |db| ChecklistService::delete_item(db, id))
 }
 
 #[tauri::command]
-pub fn v2_reorder_items(
+pub fn checklist_reorder_items(
     category_id: i64,
     item_ids: Vec<i64>,
     state: State<AppState>,

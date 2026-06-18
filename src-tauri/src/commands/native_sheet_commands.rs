@@ -70,7 +70,7 @@ pub struct NativeSheetActionRequest {
 }
 
 #[tauri::command]
-pub fn v2_show_native_sheet(request: NativeSheetRequest, app: AppHandle) -> Result<bool, String> {
+pub fn show_native_sheet(request: NativeSheetRequest, app: AppHandle) -> Result<bool, String> {
     #[cfg(target_os = "ios")]
     {
         let request_json = serde_json::to_string(&request).map_err(|error| error.to_string())?;

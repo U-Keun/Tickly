@@ -42,7 +42,7 @@ export async function configureNativeDock(request: NativeDockRequest): Promise<b
   }
 
   try {
-    return await invoke<boolean>('v2_configure_native_dock', { request });
+    return await invoke<boolean>('configure_native_dock', { request });
   } catch (error) {
     console.error('Failed to configure native dock:', error);
     return false;

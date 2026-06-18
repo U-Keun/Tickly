@@ -9,8 +9,8 @@ flowchart LR
   Dock["Native Dock Graph"] --> Root["/ route shell"]
   Root --> Overlay["GraphOverlay"]
   Overlay --> Canvas["PixiJS + d3-force canvas"]
-  Store["checklistStore"] --> Api["v2_get_graph_data"]
-  Api --> Sqlite["v2_categories + v2_todos + v2_tags + v2_todo_tags"]
+  Store["checklistStore"] --> Api["checklist_get_graph_data"]
+  Api --> Sqlite["checklist_categories + checklist_todos + checklist_tags + checklist_todo_tags"]
 ```
 
 ## Shape

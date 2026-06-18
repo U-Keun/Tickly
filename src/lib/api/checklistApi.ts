@@ -12,54 +12,54 @@ import type {
 } from '../../types';
 
 export async function getCategories(): Promise<Category[]> {
-  return invoke<Category[]>('v2_get_categories');
+  return invoke<Category[]>('checklist_get_categories');
 }
 
 export async function createCategory(name: string): Promise<Category> {
-  return invoke<Category>('v2_create_category', { name });
+  return invoke<Category>('checklist_create_category', { name });
 }
 
 export async function updateCategory(id: number, name: string): Promise<void> {
-  return invoke<void>('v2_update_category', { id, name });
+  return invoke<void>('checklist_update_category', { id, name });
 }
 
 export async function deleteCategory(id: number): Promise<void> {
-  return invoke<void>('v2_delete_category', { id });
+  return invoke<void>('checklist_delete_category', { id });
 }
 
 export async function reorderCategories(categoryIds: number[]): Promise<void> {
-  return invoke<void>('v2_reorder_categories', { categoryIds });
+  return invoke<void>('checklist_reorder_categories', { categoryIds });
 }
 
 export async function getItems(categoryId: number): Promise<TodoItem[]> {
-  return invoke<TodoItem[]>('v2_get_items', { categoryId });
+  return invoke<TodoItem[]>('checklist_get_items', { categoryId });
 }
 
 export async function getActiveReminderItems(): Promise<TodoItem[]> {
-  return invoke<TodoItem[]>('v2_get_active_reminder_items');
+  return invoke<TodoItem[]>('checklist_get_active_reminder_items');
 }
 
 export async function getTags(): Promise<Tag[]> {
-  return invoke<Tag[]>('v2_get_tags');
+  return invoke<Tag[]>('checklist_get_tags');
 }
 
 export async function getTagSummaries(): Promise<TagSummary[]> {
-  return invoke<TagSummary[]>('v2_get_tag_summaries');
+  return invoke<TagSummary[]>('checklist_get_tag_summaries');
 }
 
 export async function renameTag(id: number, name: string): Promise<Tag> {
-  return invoke<Tag>('v2_rename_tag', { id, name });
+  return invoke<Tag>('checklist_rename_tag', { id, name });
 }
 
 export async function deleteTag(id: number): Promise<void> {
-  return invoke<void>('v2_delete_tag', { id });
+  return invoke<void>('checklist_delete_tag', { id });
 }
 
 export async function searchItems(
   query: string,
   limit: number
 ): Promise<ItemSearchResult[]> {
-  return invoke<ItemSearchResult[]>('v2_search_items', { query, limit });
+  return invoke<ItemSearchResult[]>('checklist_search_items', { query, limit });
 }
 
 export async function createItem(
@@ -67,11 +67,11 @@ export async function createItem(
   text: string,
   tagNames: string[] = []
 ): Promise<TodoItem> {
-  return invoke<TodoItem>('v2_create_item', { categoryId, text, tagNames });
+  return invoke<TodoItem>('checklist_create_item', { categoryId, text, tagNames });
 }
 
 export async function updateItemText(id: number, text: string): Promise<void> {
-  return invoke<void>('v2_update_item_text', { id, text });
+  return invoke<void>('checklist_update_item_text', { id, text });
 }
 
 export async function updateItemDetails(
@@ -84,7 +84,7 @@ export async function updateItemDetails(
   reminderAt: string | null = null,
   trackStreak = false
 ): Promise<TodoItem> {
-  return invoke<TodoItem>('v2_update_item_details', {
+  return invoke<TodoItem>('checklist_update_item_details', {
     id,
     text,
     memo,
@@ -97,41 +97,41 @@ export async function updateItemDetails(
 }
 
 export async function toggleItem(id: number): Promise<TodoItem> {
-  return invoke<TodoItem>('v2_toggle_item', { id });
+  return invoke<TodoItem>('checklist_toggle_item', { id });
 }
 
 export async function processRepeats(): Promise<number> {
-  return invoke<number>('v2_process_repeats');
+  return invoke<number>('checklist_process_repeats');
 }
 
 export async function archiveCompletedItems(categoryId: number): Promise<number> {
-  return invoke<number>('v2_archive_completed_items', { categoryId });
+  return invoke<number>('checklist_archive_completed_items', { categoryId });
 }
 
 export async function getArchivedItems(): Promise<ArchivedItem[]> {
-  return invoke<ArchivedItem[]>('v2_get_archived_items');
+  return invoke<ArchivedItem[]>('checklist_get_archived_items');
 }
 
 export async function restoreArchivedItem(id: number): Promise<TodoItem> {
-  return invoke<TodoItem>('v2_restore_archived_item', { id });
+  return invoke<TodoItem>('checklist_restore_archived_item', { id });
 }
 
 export async function deleteArchivedItem(id: number): Promise<void> {
-  return invoke<void>('v2_delete_archived_item', { id });
+  return invoke<void>('checklist_delete_archived_item', { id });
 }
 
 export async function getStreakHeatmaps(): Promise<StreakHeatmap[]> {
-  return invoke<StreakHeatmap[]>('v2_get_streak_heatmaps');
+  return invoke<StreakHeatmap[]>('checklist_get_streak_heatmaps');
 }
 
 export async function getGraphData(): Promise<GraphData> {
-  return invoke<GraphData>('v2_get_graph_data');
+  return invoke<GraphData>('checklist_get_graph_data');
 }
 
 export async function deleteItem(id: number): Promise<void> {
-  return invoke<void>('v2_delete_item', { id });
+  return invoke<void>('checklist_delete_item', { id });
 }
 
 export async function reorderItems(categoryId: number, itemIds: number[]): Promise<void> {
-  return invoke<void>('v2_reorder_items', { categoryId, itemIds });
+  return invoke<void>('checklist_reorder_items', { categoryId, itemIds });
 }

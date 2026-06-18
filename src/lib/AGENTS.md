@@ -22,5 +22,5 @@ Apply the root and `src/AGENTS.md` first. This file adds rules for `src/lib/`.
 ## Checklist Runtime
 
 - Checklist runtime modules live in `src/lib/checklist/`.
-- The API wrappers may still call `v2_` Tauri commands and local SQLite tables; do not rename those contracts without an explicit migration slice.
+- The API wrappers should call current Tauri commands through `src/lib/api/`; components should not rely on command names directly.
 - Checklist stores must not import legacy app, modal, auth, sync, tag, repeat, widget, or notification stores.

@@ -14,10 +14,10 @@ Tickly development now follows a small-slice rebuild model: understand the curre
 ## Current App Rules
 
 - The current app is the only app route at `/`; old compatibility routes are removed.
-- The current app still uses `v2_` Tauri commands and `v2_` SQLite tables as stable contracts.
+- The current app uses `checklist_` Tauri commands and `checklist_` SQLite tables as stable contracts.
 - The app starts empty except for a default `Home` category.
 - The app does not use legacy stores or legacy data tables.
-- `/v1`, `/v2`, and legacy `/graph` are removed from the route surface.
+- Compatibility and legacy routes are removed from the route surface.
 - The current app owns the rebuilt local features: checklist, tags, repeat, reminders, archive, streak, graph, settings, and widget behavior.
 - Cloud sync is deferred and should not run in the current runtime.
 - Legacy data migration is intentionally skipped because there are no existing users for this rebuild.

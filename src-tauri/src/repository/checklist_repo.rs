@@ -16,7 +16,7 @@ impl ChecklistRepository {
 
     pub fn create_tables(conn: &Connection) -> Result<(), rusqlite::Error> {
         conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS v2_categories (
+            "CREATE TABLE IF NOT EXISTS checklist_categories (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
                 display_order INTEGER NOT NULL,
@@ -24,7 +24,7 @@ impl ChecklistRepository {
                 updated_at TEXT NOT NULL
             );
 
-            CREATE TABLE IF NOT EXISTS v2_todos (
+            CREATE TABLE IF NOT EXISTS checklist_todos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 category_id INTEGER NOT NULL,
                 text TEXT NOT NULL,
@@ -41,45 +41,45 @@ impl ChecklistRepository {
                 display_order INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                FOREIGN KEY (category_id) REFERENCES v2_categories(id) ON DELETE CASCADE
+                FOREIGN KEY (category_id) REFERENCES checklist_categories(id) ON DELETE CASCADE
             );
 
-            CREATE INDEX IF NOT EXISTS idx_v2_todos_category_order
-                ON v2_todos(category_id, done, display_order);
+            CREATE INDEX IF NOT EXISTS idx_checklist_todos_category_order
+                ON checklist_todos(category_id, done, display_order);
 
-            CREATE TABLE IF NOT EXISTS v2_tags (
+            CREATE TABLE IF NOT EXISTS checklist_tags (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE COLLATE NOCASE,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
 
-            CREATE TABLE IF NOT EXISTS v2_todo_tags (
+            CREATE TABLE IF NOT EXISTS checklist_todo_tags (
                 todo_id INTEGER NOT NULL,
                 tag_id INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
                 PRIMARY KEY (todo_id, tag_id),
-                FOREIGN KEY (todo_id) REFERENCES v2_todos(id) ON DELETE CASCADE,
-                FOREIGN KEY (tag_id) REFERENCES v2_tags(id) ON DELETE CASCADE
+                FOREIGN KEY (todo_id) REFERENCES checklist_todos(id) ON DELETE CASCADE,
+                FOREIGN KEY (tag_id) REFERENCES checklist_tags(id) ON DELETE CASCADE
             );
 
-            CREATE INDEX IF NOT EXISTS idx_v2_todo_tags_tag_id
-                ON v2_todo_tags(tag_id);
+            CREATE INDEX IF NOT EXISTS idx_checklist_todo_tags_tag_id
+                ON checklist_todo_tags(tag_id);
 
-            CREATE TABLE IF NOT EXISTS v2_completion_logs (
+            CREATE TABLE IF NOT EXISTS checklist_completion_logs (
                 item_id INTEGER NOT NULL,
                 completed_on TEXT NOT NULL,
                 completed_count INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 PRIMARY KEY (item_id, completed_on),
-                FOREIGN KEY (item_id) REFERENCES v2_todos(id) ON DELETE CASCADE
+                FOREIGN KEY (item_id) REFERENCES checklist_todos(id) ON DELETE CASCADE
             );",
         )?;
         Self::ensure_todo_columns(conn)?;
         conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_v2_todos_archive_category_order
-             ON v2_todos(archived_at, category_id, done, display_order)",
+            "CREATE INDEX IF NOT EXISTS idx_checklist_todos_archive_category_order
+             ON checklist_todos(archived_at, category_id, done, display_order)",
             [],
         )?;
 
@@ -88,43 +88,61 @@ impl ChecklistRepository {
 
     fn ensure_todo_columns(conn: &Connection) -> Result<(), rusqlite::Error> {
         if !Self::todos_has_column(conn, "memo")? {
-            conn.execute("ALTER TABLE v2_todos ADD COLUMN memo TEXT", [])?;
+            conn.execute("ALTER TABLE checklist_todos ADD COLUMN memo TEXT", [])?;
         }
         if !Self::todos_has_column(conn, "repeat_type")? {
             conn.execute(
-                "ALTER TABLE v2_todos ADD COLUMN repeat_type TEXT NOT NULL DEFAULT 'none'",
+                "ALTER TABLE checklist_todos ADD COLUMN repeat_type TEXT NOT NULL DEFAULT 'none'",
                 [],
             )?;
         }
         if !Self::todos_has_column(conn, "repeat_detail")? {
-            conn.execute("ALTER TABLE v2_todos ADD COLUMN repeat_detail TEXT", [])?;
+            conn.execute(
+                "ALTER TABLE checklist_todos ADD COLUMN repeat_detail TEXT",
+                [],
+            )?;
         }
         if !Self::todos_has_column(conn, "next_due_at")? {
-            conn.execute("ALTER TABLE v2_todos ADD COLUMN next_due_at TEXT", [])?;
+            conn.execute(
+                "ALTER TABLE checklist_todos ADD COLUMN next_due_at TEXT",
+                [],
+            )?;
         }
         if !Self::todos_has_column(conn, "last_completed_at")? {
-            conn.execute("ALTER TABLE v2_todos ADD COLUMN last_completed_at TEXT", [])?;
+            conn.execute(
+                "ALTER TABLE checklist_todos ADD COLUMN last_completed_at TEXT",
+                [],
+            )?;
         }
         if !Self::todos_has_column(conn, "reminder_at")? {
-            conn.execute("ALTER TABLE v2_todos ADD COLUMN reminder_at TEXT", [])?;
+            conn.execute(
+                "ALTER TABLE checklist_todos ADD COLUMN reminder_at TEXT",
+                [],
+            )?;
         }
         if !Self::todos_has_column(conn, "archived_at")? {
-            conn.execute("ALTER TABLE v2_todos ADD COLUMN archived_at TEXT", [])?;
+            conn.execute(
+                "ALTER TABLE checklist_todos ADD COLUMN archived_at TEXT",
+                [],
+            )?;
         }
         if !Self::todos_has_column(conn, "track_streak")? {
             conn.execute(
-                "ALTER TABLE v2_todos ADD COLUMN track_streak BOOLEAN NOT NULL DEFAULT 0",
+                "ALTER TABLE checklist_todos ADD COLUMN track_streak BOOLEAN NOT NULL DEFAULT 0",
                 [],
             )?;
         }
         if !Self::todos_has_column(conn, "streak_started_on")? {
-            conn.execute("ALTER TABLE v2_todos ADD COLUMN streak_started_on TEXT", [])?;
+            conn.execute(
+                "ALTER TABLE checklist_todos ADD COLUMN streak_started_on TEXT",
+                [],
+            )?;
         }
         Ok(())
     }
 
     fn todos_has_column(conn: &Connection, column_name: &str) -> Result<bool, rusqlite::Error> {
-        let mut stmt = conn.prepare("PRAGMA table_info(v2_todos)")?;
+        let mut stmt = conn.prepare("PRAGMA table_info(checklist_todos)")?;
         let columns = stmt.query_map([], |row| row.get::<_, String>(1))?;
 
         for column in columns {
@@ -138,12 +156,14 @@ impl ChecklistRepository {
 
     pub fn ensure_default_category(conn: &Connection) -> Result<(), rusqlite::Error> {
         let category_count: i64 =
-            conn.query_row("SELECT COUNT(*) FROM v2_categories", [], |row| row.get(0))?;
+            conn.query_row("SELECT COUNT(*) FROM checklist_categories", [], |row| {
+                row.get(0)
+            })?;
 
         if category_count == 0 {
             let now = Self::now_iso();
             conn.execute(
-                "INSERT INTO v2_categories (name, display_order, created_at, updated_at)
+                "INSERT INTO checklist_categories (name, display_order, created_at, updated_at)
                  VALUES (?1, ?2, ?3, ?4)",
                 params!["Home", Self::ORDER_STEP, &now, &now],
             )?;
@@ -291,7 +311,7 @@ impl ChecklistRepository {
         name: &str,
     ) -> Result<Option<ChecklistTag>, rusqlite::Error> {
         let sql = format!(
-            "SELECT {} FROM v2_tags WHERE name = ?1 COLLATE NOCASE",
+            "SELECT {} FROM checklist_tags WHERE name = ?1 COLLATE NOCASE",
             Self::TAG_COLUMNS
         );
         conn.query_row(&sql, params![name], Self::row_to_tag)
@@ -299,7 +319,10 @@ impl ChecklistRepository {
     }
 
     fn get_tag_by_id(conn: &Connection, id: i64) -> Result<Option<ChecklistTag>, rusqlite::Error> {
-        let sql = format!("SELECT {} FROM v2_tags WHERE id = ?1", Self::TAG_COLUMNS);
+        let sql = format!(
+            "SELECT {} FROM checklist_tags WHERE id = ?1",
+            Self::TAG_COLUMNS
+        );
         conn.query_row(&sql, params![id], Self::row_to_tag)
             .optional()
     }
@@ -311,7 +334,7 @@ impl ChecklistRepository {
 
         let now = Self::now_iso();
         conn.execute(
-            "INSERT OR IGNORE INTO v2_tags (name, created_at, updated_at)
+            "INSERT OR IGNORE INTO checklist_tags (name, created_at, updated_at)
              VALUES (?1, ?2, ?3)",
             params![name, &now, &now],
         )?;
@@ -325,7 +348,7 @@ impl ChecklistRepository {
         tag_names: &[String],
     ) -> Result<(), rusqlite::Error> {
         conn.execute(
-            "DELETE FROM v2_todo_tags WHERE todo_id = ?1",
+            "DELETE FROM checklist_todo_tags WHERE todo_id = ?1",
             params![item_id],
         )?;
 
@@ -333,7 +356,7 @@ impl ChecklistRepository {
         for tag_name in tag_names {
             let tag = Self::get_or_create_tag(conn, tag_name)?;
             conn.execute(
-                "INSERT OR IGNORE INTO v2_todo_tags (todo_id, tag_id, created_at)
+                "INSERT OR IGNORE INTO checklist_todo_tags (todo_id, tag_id, created_at)
                  VALUES (?1, ?2, ?3)",
                 params![item_id, tag.id, &now],
             )?;
@@ -345,20 +368,22 @@ impl ChecklistRepository {
 
     fn cleanup_unused_tags(conn: &Connection) -> Result<(), rusqlite::Error> {
         conn.execute(
-            "DELETE FROM v2_tags
-             WHERE id NOT IN (SELECT DISTINCT tag_id FROM v2_todo_tags)",
+            "DELETE FROM checklist_tags
+             WHERE id NOT IN (SELECT DISTINCT tag_id FROM checklist_todo_tags)",
             [],
         )?;
         Ok(())
     }
 
     pub fn count_categories(conn: &Connection) -> Result<i64, rusqlite::Error> {
-        conn.query_row("SELECT COUNT(*) FROM v2_categories", [], |row| row.get(0))
+        conn.query_row("SELECT COUNT(*) FROM checklist_categories", [], |row| {
+            row.get(0)
+        })
     }
 
     pub fn get_categories(conn: &Connection) -> Result<Vec<ChecklistCategory>, rusqlite::Error> {
         let sql = format!(
-            "SELECT {} FROM v2_categories ORDER BY display_order ASC",
+            "SELECT {} FROM checklist_categories ORDER BY display_order ASC",
             Self::CATEGORY_COLUMNS
         );
         let mut stmt = conn.prepare(&sql)?;
@@ -374,7 +399,7 @@ impl ChecklistRepository {
         id: i64,
     ) -> Result<Option<ChecklistCategory>, rusqlite::Error> {
         let sql = format!(
-            "SELECT {} FROM v2_categories WHERE id = ?1",
+            "SELECT {} FROM checklist_categories WHERE id = ?1",
             Self::CATEGORY_COLUMNS
         );
         let mut stmt = conn.prepare(&sql)?;
@@ -393,7 +418,7 @@ impl ChecklistRepository {
     ) -> Result<ChecklistCategory, rusqlite::Error> {
         let max_order: i64 = conn
             .query_row(
-                "SELECT COALESCE(MAX(display_order), 0) FROM v2_categories",
+                "SELECT COALESCE(MAX(display_order), 0) FROM checklist_categories",
                 [],
                 |row| row.get(0),
             )
@@ -402,7 +427,7 @@ impl ChecklistRepository {
         let now = Self::now_iso();
 
         conn.execute(
-            "INSERT INTO v2_categories (name, display_order, created_at, updated_at)
+            "INSERT INTO checklist_categories (name, display_order, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4)",
             params![name, display_order, &now, &now],
         )?;
@@ -419,7 +444,7 @@ impl ChecklistRepository {
     pub fn update_category(conn: &Connection, id: i64, name: &str) -> Result<(), rusqlite::Error> {
         let now = Self::now_iso();
         let updated = conn.execute(
-            "UPDATE v2_categories SET name = ?1, updated_at = ?2 WHERE id = ?3",
+            "UPDATE checklist_categories SET name = ?1, updated_at = ?2 WHERE id = ?3",
             params![name, now, id],
         )?;
         if updated == 0 {
@@ -432,8 +457,8 @@ impl ChecklistRepository {
         conn.execute("BEGIN TRANSACTION", [])?;
 
         if let Err(error) = conn.execute(
-            "DELETE FROM v2_todo_tags
-             WHERE todo_id IN (SELECT id FROM v2_todos WHERE category_id = ?1)",
+            "DELETE FROM checklist_todo_tags
+             WHERE todo_id IN (SELECT id FROM checklist_todos WHERE category_id = ?1)",
             params![id],
         ) {
             let _ = conn.execute("ROLLBACK", []);
@@ -441,21 +466,26 @@ impl ChecklistRepository {
         }
 
         if let Err(error) = conn.execute(
-            "DELETE FROM v2_completion_logs
-             WHERE item_id IN (SELECT id FROM v2_todos WHERE category_id = ?1)",
+            "DELETE FROM checklist_completion_logs
+             WHERE item_id IN (SELECT id FROM checklist_todos WHERE category_id = ?1)",
             params![id],
         ) {
             let _ = conn.execute("ROLLBACK", []);
             return Err(error);
         }
 
-        if let Err(error) = conn.execute("DELETE FROM v2_todos WHERE category_id = ?1", params![id])
-        {
+        if let Err(error) = conn.execute(
+            "DELETE FROM checklist_todos WHERE category_id = ?1",
+            params![id],
+        ) {
             let _ = conn.execute("ROLLBACK", []);
             return Err(error);
         }
 
-        match conn.execute("DELETE FROM v2_categories WHERE id = ?1", params![id]) {
+        match conn.execute(
+            "DELETE FROM checklist_categories WHERE id = ?1",
+            params![id],
+        ) {
             Ok(0) => {
                 let _ = conn.execute("ROLLBACK", []);
                 Err(rusqlite::Error::QueryReturnedNoRows)
@@ -485,7 +515,7 @@ impl ChecklistRepository {
         for (index, category_id) in category_ids.iter().enumerate() {
             let display_order = (index as i64 + 1) * Self::ORDER_STEP;
             match conn.execute(
-                "UPDATE v2_categories
+                "UPDATE checklist_categories
                  SET display_order = ?1, updated_at = ?2
                  WHERE id = ?3",
                 params![display_order, &now, category_id],
@@ -508,7 +538,7 @@ impl ChecklistRepository {
 
     pub fn get_tags(conn: &Connection) -> Result<Vec<ChecklistTag>, rusqlite::Error> {
         let sql = format!(
-            "SELECT {} FROM v2_tags ORDER BY name COLLATE NOCASE ASC",
+            "SELECT {} FROM checklist_tags ORDER BY name COLLATE NOCASE ASC",
             Self::TAG_COLUMNS
         );
         let mut stmt = conn.prepare(&sql)?;
@@ -532,9 +562,9 @@ impl ChecklistRepository {
                     WHEN t.archived_at IS NULL THEN tt.todo_id
                     ELSE NULL
                 END) AS item_count
-            FROM v2_tags tg
-            LEFT JOIN v2_todo_tags tt ON tt.tag_id = tg.id
-            LEFT JOIN v2_todos t ON t.id = tt.todo_id
+            FROM checklist_tags tg
+            LEFT JOIN checklist_todo_tags tt ON tt.tag_id = tg.id
+            LEFT JOIN checklist_todos t ON t.id = tt.todo_id
             GROUP BY tg.id, tg.name, tg.created_at, tg.updated_at
             ORDER BY tg.name COLLATE NOCASE ASC";
         let mut stmt = conn.prepare(sql)?;
@@ -561,32 +591,35 @@ impl ChecklistRepository {
             if let Some(target_tag) = existing_tag {
                 if target_tag.id != source_tag.id {
                     conn.execute(
-                        "INSERT OR IGNORE INTO v2_todo_tags (todo_id, tag_id, created_at)
+                        "INSERT OR IGNORE INTO checklist_todo_tags (todo_id, tag_id, created_at)
                          SELECT todo_id, ?1, ?2
-                         FROM v2_todo_tags
+                         FROM checklist_todo_tags
                          WHERE tag_id = ?3",
                         params![target_tag.id, &now, source_tag.id],
                     )?;
                     conn.execute(
-                        "DELETE FROM v2_todo_tags WHERE tag_id = ?1",
+                        "DELETE FROM checklist_todo_tags WHERE tag_id = ?1",
                         params![source_tag.id],
                     )?;
-                    conn.execute("DELETE FROM v2_tags WHERE id = ?1", params![source_tag.id])?;
                     conn.execute(
-                        "UPDATE v2_tags SET updated_at = ?1 WHERE id = ?2",
+                        "DELETE FROM checklist_tags WHERE id = ?1",
+                        params![source_tag.id],
+                    )?;
+                    conn.execute(
+                        "UPDATE checklist_tags SET updated_at = ?1 WHERE id = ?2",
                         params![&now, target_tag.id],
                     )?;
                     return Self::get_tag_by_id(conn, target_tag.id);
                 }
 
                 conn.execute(
-                    "UPDATE v2_tags SET name = ?1, updated_at = ?2 WHERE id = ?3",
+                    "UPDATE checklist_tags SET name = ?1, updated_at = ?2 WHERE id = ?3",
                     params![name, &now, source_tag.id],
                 )?;
                 Self::get_tag_by_id(conn, source_tag.id)
             } else {
                 let updated = conn.execute(
-                    "UPDATE v2_tags SET name = ?1, updated_at = ?2 WHERE id = ?3",
+                    "UPDATE checklist_tags SET name = ?1, updated_at = ?2 WHERE id = ?3",
                     params![name, &now, source_tag.id],
                 )?;
                 if updated == 0 {
@@ -615,8 +648,11 @@ impl ChecklistRepository {
     pub fn delete_tag(conn: &Connection, id: i64) -> Result<(), rusqlite::Error> {
         conn.execute("BEGIN TRANSACTION", [])?;
         let operation = (|| -> Result<usize, rusqlite::Error> {
-            conn.execute("DELETE FROM v2_todo_tags WHERE tag_id = ?1", params![id])?;
-            conn.execute("DELETE FROM v2_tags WHERE id = ?1", params![id])
+            conn.execute(
+                "DELETE FROM checklist_todo_tags WHERE tag_id = ?1",
+                params![id],
+            )?;
+            conn.execute("DELETE FROM checklist_tags WHERE id = ?1", params![id])
         })();
 
         match operation {
@@ -639,8 +675,8 @@ impl ChecklistRepository {
         conn: &Connection,
         item_id: i64,
     ) -> Result<Vec<ChecklistTag>, rusqlite::Error> {
-        let sql = "SELECT tg.id, tg.name, tg.created_at, tg.updated_at FROM v2_tags tg
-             INNER JOIN v2_todo_tags tt ON tt.tag_id = tg.id
+        let sql = "SELECT tg.id, tg.name, tg.created_at, tg.updated_at FROM checklist_tags tg
+             INNER JOIN checklist_todo_tags tt ON tt.tag_id = tg.id
              WHERE tt.todo_id = ?1
              ORDER BY tg.name COLLATE NOCASE ASC";
         let mut stmt = conn.prepare(&sql)?;
@@ -656,7 +692,7 @@ impl ChecklistRepository {
         category_id: i64,
     ) -> Result<Vec<ChecklistTodoItem>, rusqlite::Error> {
         let sql = format!(
-            "SELECT {} FROM v2_todos
+            "SELECT {} FROM checklist_todos
              WHERE category_id = ?1
                AND archived_at IS NULL
              ORDER BY done ASC, display_order ASC",
@@ -699,16 +735,16 @@ impl ChecklistRepository {
                 c.display_order,
                 c.created_at,
                 c.updated_at
-             FROM v2_todos t
-             INNER JOIN v2_categories c ON c.id = t.category_id
+             FROM checklist_todos t
+             INNER JOIN checklist_categories c ON c.id = t.category_id
              WHERE t.archived_at IS NULL
                AND (
                 t.text LIKE ?1 ESCAPE '\\'
                 OR COALESCE(t.memo, '') LIKE ?2 ESCAPE '\\'
                 OR EXISTS (
                     SELECT 1
-                    FROM v2_todo_tags tt
-                    INNER JOIN v2_tags tg ON tg.id = tt.tag_id
+                    FROM checklist_todo_tags tt
+                    INNER JOIN checklist_tags tg ON tg.id = tt.tag_id
                     WHERE tt.todo_id = t.id
                       AND tg.name LIKE ?3 ESCAPE '\\'
                 )
@@ -730,7 +766,10 @@ impl ChecklistRepository {
         conn: &Connection,
         id: i64,
     ) -> Result<Option<ChecklistTodoItem>, rusqlite::Error> {
-        let sql = format!("SELECT {} FROM v2_todos WHERE id = ?1", Self::ITEM_COLUMNS);
+        let sql = format!(
+            "SELECT {} FROM checklist_todos WHERE id = ?1",
+            Self::ITEM_COLUMNS
+        );
         let mut stmt = conn.prepare(&sql)?;
         let mut rows = stmt.query_map(params![id], Self::row_to_item)?;
 
@@ -751,7 +790,7 @@ impl ChecklistRepository {
         conn: &Connection,
     ) -> Result<Vec<ChecklistTodoItem>, rusqlite::Error> {
         let sql = format!(
-            "SELECT {} FROM v2_todos
+            "SELECT {} FROM checklist_todos
              WHERE done = 0
                AND reminder_at IS NOT NULL
                AND archived_at IS NULL
@@ -792,8 +831,8 @@ impl ChecklistRepository {
                 c.display_order,
                 c.created_at,
                 c.updated_at
-             FROM v2_todos t
-             INNER JOIN v2_categories c ON c.id = t.category_id
+             FROM checklist_todos t
+             INNER JOIN checklist_categories c ON c.id = t.category_id
              WHERE t.track_streak = 1
                AND t.repeat_type != 'none'
                AND t.archived_at IS NULL
@@ -808,7 +847,7 @@ impl ChecklistRepository {
 
     pub fn get_graph_data(conn: &Connection) -> Result<ChecklistGraphData, rusqlite::Error> {
         let item_sql = format!(
-            "SELECT {} FROM v2_todos
+            "SELECT {} FROM checklist_todos
              WHERE archived_at IS NULL
              ORDER BY category_id ASC, done ASC, display_order ASC",
             Self::ITEM_COLUMNS
@@ -821,8 +860,8 @@ impl ChecklistRepository {
 
         let category_sql = "\
             SELECT DISTINCT c.id, c.name, c.display_order, c.created_at, c.updated_at
-            FROM v2_categories c
-            INNER JOIN v2_todos t ON t.category_id = c.id
+            FROM checklist_categories c
+            INNER JOIN checklist_todos t ON t.category_id = c.id
             WHERE t.archived_at IS NULL
             ORDER BY c.display_order ASC";
         let mut category_stmt = conn.prepare(&category_sql)?;
@@ -832,9 +871,9 @@ impl ChecklistRepository {
 
         let tag_sql = "\
             SELECT DISTINCT tg.id, tg.name, tg.created_at, tg.updated_at
-            FROM v2_tags tg
-            INNER JOIN v2_todo_tags tt ON tt.tag_id = tg.id
-            INNER JOIN v2_todos t ON t.id = tt.todo_id
+            FROM checklist_tags tg
+            INNER JOIN checklist_todo_tags tt ON tt.tag_id = tg.id
+            INNER JOIN checklist_todos t ON t.id = tt.todo_id
             WHERE t.archived_at IS NULL
             ORDER BY tg.name COLLATE NOCASE ASC";
         let mut tag_stmt = conn.prepare(tag_sql)?;
@@ -844,8 +883,8 @@ impl ChecklistRepository {
 
         let edge_sql = "\
             SELECT tt.tag_id, tt.todo_id
-            FROM v2_todo_tags tt
-            INNER JOIN v2_todos t ON t.id = tt.todo_id
+            FROM checklist_todo_tags tt
+            INNER JOIN checklist_todos t ON t.id = tt.todo_id
             WHERE t.archived_at IS NULL
             ORDER BY tt.tag_id ASC, t.category_id ASC, t.display_order ASC";
         let mut edge_stmt = conn.prepare(edge_sql)?;
@@ -873,7 +912,7 @@ impl ChecklistRepository {
     ) -> Result<Vec<ChecklistStreakLog>, rusqlite::Error> {
         let mut stmt = conn.prepare(
             "SELECT completed_on, completed_count
-             FROM v2_completion_logs
+             FROM checklist_completion_logs
              WHERE item_id = ?1
                AND completed_on >= ?2
                AND completed_count > 0
@@ -903,7 +942,7 @@ impl ChecklistRepository {
         let max_order: i64 = conn
             .query_row(
                 "SELECT COALESCE(MAX(display_order), 0)
-                 FROM v2_todos
+                 FROM checklist_todos
                  WHERE category_id = ?1",
                 params![category_id],
                 |row| row.get(0),
@@ -913,7 +952,7 @@ impl ChecklistRepository {
         let now = Self::now_iso();
 
         if let Err(error) = conn.execute(
-            "INSERT INTO v2_todos
+            "INSERT INTO checklist_todos
                 (category_id, text, memo, repeat_type, repeat_detail, next_due_at, last_completed_at, reminder_at, track_streak, streak_started_on, done, display_order, created_at, updated_at)
              VALUES (?1, ?2, NULL, 'none', NULL, NULL, NULL, NULL, 0, NULL, 0, ?3, ?4, ?5)",
             params![category_id, text, display_order, &now, &now],
@@ -959,7 +998,7 @@ impl ChecklistRepository {
     pub fn update_item_text(conn: &Connection, id: i64, text: &str) -> Result<(), rusqlite::Error> {
         let now = Self::now_iso();
         let updated = conn.execute(
-            "UPDATE v2_todos SET text = ?1, updated_at = ?2 WHERE id = ?3",
+            "UPDATE checklist_todos SET text = ?1, updated_at = ?2 WHERE id = ?3",
             params![text, now, id],
         )?;
         if updated == 0 {
@@ -985,7 +1024,7 @@ impl ChecklistRepository {
         let now = Self::now_iso();
         let repeat_type_value = repeat_type.to_str();
         let updated = match conn.execute(
-            "UPDATE v2_todos
+            "UPDATE checklist_todos
              SET text = ?1,
                  memo = ?2,
                  repeat_type = ?3,
@@ -1040,7 +1079,7 @@ impl ChecklistRepository {
         let now = Self::now_iso();
 
         let updated = match conn.execute(
-            "UPDATE v2_todos
+            "UPDATE checklist_todos
              SET done = 1,
                  last_completed_at = ?1,
                  next_due_at = ?2,
@@ -1077,7 +1116,7 @@ impl ChecklistRepository {
         let now = Self::now_iso();
 
         let updated = match conn.execute(
-            "UPDATE v2_todos
+            "UPDATE checklist_todos
              SET done = 0,
                  last_completed_at = NULL,
                  next_due_at = NULL,
@@ -1111,7 +1150,7 @@ impl ChecklistRepository {
     ) -> Result<i64, rusqlite::Error> {
         let now = Self::now_iso();
         let updated = conn.execute(
-            "UPDATE v2_todos
+            "UPDATE checklist_todos
              SET done = 0,
                  next_due_at = NULL,
                  updated_at = ?1
@@ -1132,7 +1171,7 @@ impl ChecklistRepository {
     ) -> Result<i64, rusqlite::Error> {
         let now = Self::now_iso();
         let updated = conn.execute(
-            "UPDATE v2_todos
+            "UPDATE checklist_todos
              SET archived_at = ?1,
                  updated_at = ?2
              WHERE category_id = ?3
@@ -1171,8 +1210,8 @@ impl ChecklistRepository {
                 c.display_order,
                 c.created_at,
                 c.updated_at
-             FROM v2_todos t
-             INNER JOIN v2_categories c ON c.id = t.category_id
+             FROM checklist_todos t
+             INNER JOIN checklist_categories c ON c.id = t.category_id
              WHERE t.archived_at IS NOT NULL
              ORDER BY t.archived_at DESC, c.display_order ASC, t.display_order ASC";
         let mut stmt = conn.prepare(sql)?;
@@ -1193,7 +1232,7 @@ impl ChecklistRepository {
     ) -> Result<ChecklistTodoItem, rusqlite::Error> {
         let now = Self::now_iso();
         let updated = conn.execute(
-            "UPDATE v2_todos
+            "UPDATE checklist_todos
              SET archived_at = NULL,
                  done = 1,
                  updated_at = ?1
@@ -1211,14 +1250,16 @@ impl ChecklistRepository {
     pub fn delete_archived_item(conn: &Connection, id: i64) -> Result<(), rusqlite::Error> {
         conn.execute("BEGIN TRANSACTION", [])?;
 
-        if let Err(error) = conn.execute("DELETE FROM v2_todo_tags WHERE todo_id = ?1", params![id])
-        {
+        if let Err(error) = conn.execute(
+            "DELETE FROM checklist_todo_tags WHERE todo_id = ?1",
+            params![id],
+        ) {
             let _ = conn.execute("ROLLBACK", []);
             return Err(error);
         }
 
         if let Err(error) = conn.execute(
-            "DELETE FROM v2_completion_logs WHERE item_id = ?1",
+            "DELETE FROM checklist_completion_logs WHERE item_id = ?1",
             params![id],
         ) {
             let _ = conn.execute("ROLLBACK", []);
@@ -1226,7 +1267,7 @@ impl ChecklistRepository {
         }
 
         let updated = match conn.execute(
-            "DELETE FROM v2_todos
+            "DELETE FROM checklist_todos
              WHERE id = ?1
                AND archived_at IS NOT NULL",
             params![id],
@@ -1258,7 +1299,7 @@ impl ChecklistRepository {
         now: &str,
     ) -> Result<(), rusqlite::Error> {
         conn.execute(
-            "INSERT INTO v2_completion_logs
+            "INSERT INTO checklist_completion_logs
                 (item_id, completed_on, completed_count, created_at, updated_at)
              VALUES (?1, ?2, 1, ?3, ?4)
              ON CONFLICT(item_id, completed_on)
@@ -1277,14 +1318,14 @@ impl ChecklistRepository {
         now: &str,
     ) -> Result<(), rusqlite::Error> {
         conn.execute(
-            "UPDATE v2_completion_logs
+            "UPDATE checklist_completion_logs
              SET completed_count = MAX(completed_count - 1, 0),
                  updated_at = ?3
              WHERE item_id = ?1 AND completed_on = ?2",
             params![item_id, completed_on, now],
         )?;
         conn.execute(
-            "DELETE FROM v2_completion_logs
+            "DELETE FROM checklist_completion_logs
              WHERE item_id = ?1 AND completed_on = ?2 AND completed_count <= 0",
             params![item_id, completed_on],
         )?;
@@ -1294,21 +1335,23 @@ impl ChecklistRepository {
     pub fn delete_item(conn: &Connection, id: i64) -> Result<(), rusqlite::Error> {
         conn.execute("BEGIN TRANSACTION", [])?;
 
-        if let Err(error) = conn.execute("DELETE FROM v2_todo_tags WHERE todo_id = ?1", params![id])
-        {
-            let _ = conn.execute("ROLLBACK", []);
-            return Err(error);
-        }
-
         if let Err(error) = conn.execute(
-            "DELETE FROM v2_completion_logs WHERE item_id = ?1",
+            "DELETE FROM checklist_todo_tags WHERE todo_id = ?1",
             params![id],
         ) {
             let _ = conn.execute("ROLLBACK", []);
             return Err(error);
         }
 
-        let updated = match conn.execute("DELETE FROM v2_todos WHERE id = ?1", params![id]) {
+        if let Err(error) = conn.execute(
+            "DELETE FROM checklist_completion_logs WHERE item_id = ?1",
+            params![id],
+        ) {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+
+        let updated = match conn.execute("DELETE FROM checklist_todos WHERE id = ?1", params![id]) {
             Ok(updated) => updated,
             Err(error) => {
                 let _ = conn.execute("ROLLBACK", []);
@@ -1340,7 +1383,7 @@ impl ChecklistRepository {
         for (index, item_id) in item_ids.iter().enumerate() {
             let display_order = (index as i64 + 1) * Self::ORDER_STEP;
             match conn.execute(
-                "UPDATE v2_todos
+                "UPDATE checklist_todos
                  SET display_order = ?1, updated_at = ?2
                  WHERE id = ?3 AND category_id = ?4",
                 params![display_order, &now, item_id, category_id],
@@ -1387,7 +1430,7 @@ mod tests {
     fn migrates_existing_checklist_todos_with_detail_columns_and_completion_logs() {
         let conn = Connection::open_in_memory().expect("in-memory db");
         conn.execute_batch(
-            "CREATE TABLE v2_categories (
+            "CREATE TABLE checklist_categories (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
                 display_order INTEGER NOT NULL,
@@ -1395,7 +1438,7 @@ mod tests {
                 updated_at TEXT NOT NULL
             );
 
-            CREATE TABLE v2_todos (
+            CREATE TABLE checklist_todos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 category_id INTEGER NOT NULL,
                 text TEXT NOT NULL,
@@ -1415,7 +1458,7 @@ mod tests {
         let has_archived_at = ChecklistRepository::todos_has_column(&conn, "archived_at").unwrap();
         let completion_log_count: i64 = conn
             .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'v2_completion_logs'",
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'checklist_completion_logs'",
                 [],
                 |row| row.get(0),
             )

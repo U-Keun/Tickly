@@ -759,7 +759,7 @@ mod tests {
     fn completion_count(conn: &Connection, item_id: i64, completed_on: &str) -> i64 {
         conn.query_row(
             "SELECT COALESCE(completed_count, 0)
-             FROM v2_completion_logs
+             FROM checklist_completion_logs
              WHERE item_id = ?1 AND completed_on = ?2",
             rusqlite::params![item_id, completed_on],
             |row| row.get(0),
@@ -769,7 +769,7 @@ mod tests {
 
     fn insert_completion_log(conn: &Connection, item_id: i64, completed_on: &str) {
         conn.execute(
-            "INSERT INTO v2_completion_logs
+            "INSERT INTO checklist_completion_logs
                 (item_id, completed_on, completed_count, created_at, updated_at)
              VALUES (?1, ?2, 1, '2026-06-17T00:00:00Z', '2026-06-17T00:00:00Z')",
             rusqlite::params![item_id, completed_on],
@@ -927,7 +927,7 @@ mod tests {
         let item =
             ChecklistService::create_item_with_tags(&conn, category_id, "Read", &[]).unwrap();
         conn.execute(
-            "UPDATE v2_todos
+            "UPDATE checklist_todos
              SET repeat_type = 'daily', track_streak = 1, streak_started_on = '2026-06-01'
              WHERE id = ?1",
             rusqlite::params![item.id],
@@ -953,7 +953,7 @@ mod tests {
         let item =
             ChecklistService::create_item_with_tags(&conn, category_id, "Read", &[]).unwrap();
         conn.execute(
-            "UPDATE v2_todos
+            "UPDATE checklist_todos
              SET repeat_type = 'none', track_streak = 1, streak_started_on = '2026-06-01'
              WHERE id = ?1",
             rusqlite::params![item.id],
@@ -1115,7 +1115,7 @@ mod tests {
         .unwrap();
         ChecklistService::toggle_item(&conn, item.id).unwrap();
         conn.execute(
-            "UPDATE v2_todos SET next_due_at = '2000-01-01' WHERE id = ?1",
+            "UPDATE checklist_todos SET next_due_at = '2000-01-01' WHERE id = ?1",
             rusqlite::params![item.id],
         )
         .unwrap();

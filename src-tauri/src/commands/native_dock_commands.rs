@@ -16,10 +16,7 @@ pub struct NativeDockRequest {
 }
 
 #[tauri::command]
-pub fn v2_configure_native_dock(
-    request: NativeDockRequest,
-    app: AppHandle,
-) -> Result<bool, String> {
+pub fn configure_native_dock(request: NativeDockRequest, app: AppHandle) -> Result<bool, String> {
     #[cfg(target_os = "ios")]
     {
         let request_json = serde_json::to_string(&request).map_err(|error| error.to_string())?;

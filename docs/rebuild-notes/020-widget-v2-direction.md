@@ -10,7 +10,7 @@ The iOS widget now reads v2 data while keeping the existing Widget Extension con
 flowchart LR
   V2Store["checklistStore mutation"] --> WidgetApi["widgetApi.refreshWidgetCache"]
   WidgetApi --> WidgetService["WidgetService"]
-  WidgetService --> V2Tables["v2_categories / v2_todos / v2_tags"]
+  WidgetService --> V2Tables["checklist_categories / checklist_todos / checklist_tags"]
   WidgetService --> Cache["widget-cache.json"]
   SwiftWidget["Swift Widget Extension"] --> Cache
   SwiftWidget --> Queue["widget-actions.json"]

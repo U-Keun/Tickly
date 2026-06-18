@@ -5,8 +5,8 @@ Tickly is a local-first checklist app for iPhone-first daily lists.
 ## Current Direction
 
 - `/` is the app.
-- Old compatibility routes such as `/v1`, `/v2`, and legacy `/graph` have been removed.
-- Data is stored locally in SQLite through `v2_` tables.
+- Old compatibility and legacy routes have been removed.
+- Data is stored locally in SQLite through `checklist_` tables.
 - Cloud sync is currently out of scope.
 - Legacy runtime code has been removed; older planning notes live in `docs/legacy/`.
 

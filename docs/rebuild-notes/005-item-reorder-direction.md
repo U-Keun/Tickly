@@ -13,7 +13,7 @@ flowchart TB
   Text["Short tap text area"] --> Drawer["Open inline drawer"]
   Text --> Hold["Touch and hold 450ms"]
   Hold --> Drag["Drag current item directly"]
-  Drag --> Save["Drop immediately saves v2_reorder_items"]
+  Drag --> Save["Drop immediately saves checklist_reorder_items"]
   Checkbox["Checkbox area"] --> Toggle["Toggle completion only"]
   DrawerActions["Drawer actions"] --> Action["Edit or delete only"]
 ```
