@@ -1,6 +1,6 @@
 # Deployment Automation Guide
 
-> Legacy note: this guide describes the pre-v2 release automation, including Supabase secrets and older cloud-sync assumptions. Tickly is now a v2-only local-first runtime; refresh this guide before using it for a production release.
+> Legacy note: this guide describes older release automation, including Supabase secrets and older cloud-sync assumptions. Tickly is now a local-first app; refresh this guide before using it for a production release.
 
 Tickly 배포 자동화는 GitHub Actions의 CI/CD 워크플로우로 구성됩니다.
 

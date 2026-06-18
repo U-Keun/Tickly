@@ -1,6 +1,6 @@
 # Troubleshooting
 
-> Legacy note: many entries in this file describe the pre-v2/v1-era app, Supabase sync, and old route structure. For current v2 runtime decisions, prefer `docs/development-principles.md` and `docs/v2-notes/`.
+> Legacy note: many entries in this file describe an older app shape, Supabase sync, and old route structure. For current runtime decisions, prefer `docs/development-principles.md` and the historical rebuild notes in `docs/v2-notes/`.
 
 이 문서는 Tickly 개발 중 발견된 문제와 해결 방법을 기록합니다.
 
