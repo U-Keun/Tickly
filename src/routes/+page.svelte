@@ -134,6 +134,14 @@
     }
   }
 
+  async function syncGraphDataQuietly(): Promise<void> {
+    try {
+      graphData = await v2ChecklistStore.getGraphData();
+    } catch (error) {
+      console.error('Failed to quietly sync v2 graph data.', error);
+    }
+  }
+
   async function openGraphOverlay(): Promise<void> {
     showGraphOverlay = true;
     syncNativeDock();
@@ -204,10 +212,16 @@
     }
   }
 
-  function handleGraphItemSelect(itemId: number): void {
+  function handleGraphItemEdit(itemId: number): void {
     const item = graphData?.items.find((candidate) => candidate.id === itemId);
     if (!item) return;
     void openGraphItemDetail(item);
+  }
+
+  async function handleGraphItemToggle(itemId: number): Promise<V2TodoItem> {
+    const updatedItem = await v2ChecklistStore.toggleItem(itemId);
+    void syncGraphDataQuietly();
+    return updatedItem;
   }
 
   function cancelGraphItemEdit(): void {
@@ -337,7 +351,8 @@
   isLoading={isLoadingGraphData}
   errorMessage={graphError}
   onRefresh={loadGraphData}
-  onItemSelect={handleGraphItemSelect}
+  onItemEdit={handleGraphItemEdit}
+  onItemToggle={handleGraphItemToggle}
   onClose={closeGraphOverlay}
 />
 

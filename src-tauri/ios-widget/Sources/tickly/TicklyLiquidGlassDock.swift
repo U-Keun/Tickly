@@ -644,29 +644,31 @@ private struct TicklyGraphDockIcon: View {
     var body: some View {
         ZStack {
             Path { path in
-                path.move(to: CGPoint(x: 4.2, y: 5.2))
-                path.addLine(to: CGPoint(x: 15.8, y: 5.2))
-                path.move(to: CGPoint(x: 4.2, y: 5.2))
-                path.addLine(to: CGPoint(x: 10, y: 15.8))
-                path.move(to: CGPoint(x: 15.8, y: 5.2))
-                path.addLine(to: CGPoint(x: 10, y: 15.8))
+                path.move(to: CGPoint(x: 12.2, y: 4.2))
+                path.addLine(to: CGPoint(x: 16.6, y: 4.2))
+                path.addLine(to: CGPoint(x: 16.6, y: 13.1))
+
+                path.move(to: CGPoint(x: 6.4, y: 10.5))
+                path.addLine(to: CGPoint(x: 9.0, y: 10.5))
+                path.addLine(to: CGPoint(x: 9.0, y: 15.7))
+                path.addLine(to: CGPoint(x: 13.2, y: 15.7))
             }
             .stroke(
                 TicklyGlassDockStyle.inkTreatment,
-                style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
+                style: StrokeStyle(lineWidth: 2.05, lineCap: .round, lineJoin: .round)
             )
 
-            node(at: CGPoint(x: 4.2, y: 5.2))
-            node(at: CGPoint(x: 15.8, y: 5.2))
-            node(at: CGPoint(x: 10, y: 15.8))
+            node(at: CGPoint(x: 9.8, y: 4.0))
+            node(at: CGPoint(x: 3.8, y: 10.5))
+            node(at: CGPoint(x: 16.0, y: 15.8))
         }
         .frame(width: 20, height: 20)
     }
 
     private func node(at point: CGPoint) -> some View {
         Circle()
-            .stroke(TicklyGlassDockStyle.inkTreatment, lineWidth: 2)
-            .frame(width: 5.8, height: 5.8)
+            .stroke(TicklyGlassDockStyle.inkTreatment, lineWidth: 2.05)
+            .frame(width: 5.6, height: 5.6)
             .position(point)
     }
 }

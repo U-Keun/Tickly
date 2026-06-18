@@ -4,42 +4,56 @@
   import { RefreshCw, X } from '@lucide/svelte';
 
   import { i18n } from '$lib/i18n';
-  import type { V2GraphData } from '../../types';
+  import type { V2GraphData, V2TodoItem } from '../../types';
   import V2GraphCanvas from './V2GraphCanvas.svelte';
 
-  type MaybePromise = void | Promise<void>;
+  type MaybePromise<T = void> = T | Promise<T>;
 
   interface Props {
     show: boolean;
     data: V2GraphData | null;
+    initialSelectedItemId?: number | null;
     isLoading?: boolean;
     errorMessage?: string | null;
     onRefresh?: () => MaybePromise;
-    onItemSelect: (itemId: number) => MaybePromise;
+    onItemEdit: (itemId: number) => MaybePromise;
+    onItemToggle: (itemId: number) => MaybePromise<V2TodoItem>;
     onClose: () => MaybePromise;
   }
 
   let {
     show,
     data,
+    initialSelectedItemId = null,
     isLoading = false,
     errorMessage = null,
     onRefresh,
-    onItemSelect,
+    onItemEdit,
+    onItemToggle,
     onClose
   }: Props = $props();
 
   let graphSignature = $derived(
     data
       ? [
-          data.categories.map((category) => `${category.id}:${category.name}`).join('|'),
-          data.items
+          [...data.categories]
+            .sort((a, b) => a.id - b.id)
+            .map((category) => `${category.id}:${category.name}`)
+            .join('|'),
+          [...data.items]
+            .sort((a, b) => a.id - b.id)
             .map(
               (item) =>
-                `${item.id}:${item.text}:${item.done}:${item.category_id}:${item.tags.map((tag) => tag.name).join(',')}`
+                `${item.id}:${item.text}:${item.category_id}:${item.tags
+                  .map((tag) => tag.name)
+                  .sort()
+                  .join(',')}`
             )
             .join('|'),
-          data.tag_edges.map((edge) => `${edge.tag_id}:${edge.item_id}`).join('|')
+          [...data.tag_edges]
+            .sort((a, b) => a.tag_id - b.tag_id || a.item_id - b.item_id)
+            .map((edge) => `${edge.tag_id}:${edge.item_id}`)
+            .join('|')
         ].join('::')
       : 'empty'
   );
@@ -52,13 +66,23 @@
   >
     <header class="flex shrink-0 items-center gap-3 px-5 pb-3 pt-[max(1rem,var(--safe-area-top))]">
       <span class="grid h-11 w-11 place-items-center rounded-full border-2 border-[var(--color-ink)] bg-[var(--color-white)]">
-        <span class="relative h-6 w-6" aria-hidden="true">
-          <span class="absolute left-1 top-1 h-2 w-2 rounded-full border-2 border-[var(--color-ink)]"></span>
-          <span class="absolute right-1 top-1 h-2 w-2 rounded-full border-2 border-[var(--color-ink)]"></span>
-          <span class="absolute bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full border-2 border-[var(--color-ink)]"></span>
-          <span class="absolute left-[7px] top-[9px] h-[2px] w-[11px] rotate-[24deg] rounded-full bg-[var(--color-ink)]"></span>
-          <span class="absolute right-[7px] top-[9px] h-[2px] w-[11px] -rotate-[24deg] rounded-full bg-[var(--color-ink)]"></span>
-        </span>
+        <svg
+          class="h-6 w-6 text-[var(--color-ink)]"
+          viewBox="0 0 20 20"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M12.2 4.2H16.6V13.1M6.4 10.5H9V15.7H13.2"
+            stroke="currentColor"
+            stroke-width="2.05"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <circle cx="9.8" cy="4" r="2.8" stroke="currentColor" stroke-width="2.05" />
+          <circle cx="3.8" cy="10.5" r="2.8" stroke="currentColor" stroke-width="2.05" />
+          <circle cx="16" cy="15.8" r="2.8" stroke="currentColor" stroke-width="2.05" />
+        </svg>
       </span>
       <div class="min-w-0 flex-1">
         <h2 class="text-xl font-bold leading-tight">{i18n.t('v2GraphOverlayTitle')}</h2>
@@ -115,7 +139,7 @@
       {:else}
         <div class="relative h-full overflow-hidden rounded-[6px_24px_6px_24px] border-2 border-[var(--color-ink)] bg-[var(--color-paper)]">
           {#key graphSignature}
-            <V2GraphCanvas {data} {onItemSelect} />
+            <V2GraphCanvas {data} {initialSelectedItemId} {onItemEdit} {onItemToggle} />
           {/key}
         </div>
       {/if}

@@ -344,13 +344,14 @@ async function getGraphData(): Promise<V2GraphData> {
   }
 }
 
-async function toggleItem(id: number): Promise<void> {
+async function toggleItem(id: number): Promise<V2TodoItem> {
   errorMessage = null;
 
   try {
     const updatedItem = await v2ChecklistApi.v2ToggleItem(id);
     items = sortItems(items.map((item) => (item.id === id ? updatedItem : item)));
     await v2ReminderNotificationApi.syncReminderForItem(updatedItem);
+    return updatedItem;
   } catch (error) {
     throw setError(error, 'Failed to toggle v2 item.');
   }

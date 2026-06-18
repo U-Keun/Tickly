@@ -10,7 +10,7 @@
   import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 
   import type { Simulation } from 'd3-force';
-  import type { V2GraphData } from '../../types';
+  import type { V2GraphData, V2TodoItem } from '../../types';
   import type { V2GraphCategoryCell, V2GraphSimLink, V2GraphSimNode } from '$lib/v2/v2GraphCanvasUtils';
   import {
     buildV2GraphSimulationData,
@@ -20,14 +20,21 @@
     V2_GRAPH_TAP_THRESHOLD
   } from '$lib/v2/v2GraphCanvasUtils';
 
-  type MaybePromise = void | Promise<void>;
+  type MaybePromise<T = void> = T | Promise<T>;
 
   interface Props {
     data: V2GraphData;
-    onItemSelect: (itemId: number) => MaybePromise;
+    initialSelectedItemId?: number | null;
+    onItemEdit: (itemId: number) => MaybePromise;
+    onItemToggle: (itemId: number) => MaybePromise<V2TodoItem>;
   }
 
-  let { data, onItemSelect }: Props = $props();
+  let {
+    data,
+    initialSelectedItemId = null,
+    onItemEdit,
+    onItemToggle
+  }: Props = $props();
 
   let canvasContainer: HTMLDivElement;
   let app: Application | null = null;
@@ -131,6 +138,8 @@
 
     const world = new Container();
     app.stage.addChild(world);
+    const haloLayer = new Container();
+    app.stage.addChild(haloLayer);
 
     const membraneGraphics = new Graphics();
     const edgeGraphics = new Graphics();
@@ -146,7 +155,20 @@
     let highlightedTagId: string | null = null;
     let isNodeDragging = false;
     let hasUserTransformed = false;
+    let selectedItemNode: V2GraphSimNode | null = null;
+    let lastNodePointerUpAt = 0;
+    let lastHaloPointerAt = 0;
+    let haloActionInFlight = false;
+    let haloAnimationStartedAt = 0;
+    let haloDismissStartedAt = 0;
+    let dismissingItemNode: V2GraphSimNode | null = null;
     const { categoryCells, simNodes, simLinks } = buildV2GraphSimulationData(data, width, height);
+    selectedItemNode =
+      initialSelectedItemId === null
+        ? null
+        : simNodes.find(
+            (node) => node.nodeType === 'item' && node.rawId === initialSelectedItemId
+          ) ?? null;
 
     const categoryTextStyle = new TextStyle({
       fontSize: 13,
@@ -193,6 +215,213 @@
       graphics.stroke({ color: hexToNum(theme.ink), width: 1.6, alpha: 0.55 });
     }
 
+    const toggleHaloButton = new Graphics();
+    const editHaloButton = new Graphics();
+    haloLayer.addChild(toggleHaloButton);
+    haloLayer.addChild(editHaloButton);
+
+    function clamp(value: number, min: number, max: number): number {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    function prepareHaloButton(graphics: Graphics): void {
+      graphics.eventMode = 'static';
+      graphics.cursor = 'pointer';
+      graphics.on('pointerdown', (event) => {
+        event.stopPropagation();
+        lastHaloPointerAt = Date.now();
+      });
+    }
+
+    function drawHaloSurface(graphics: Graphics, x: number, y: number): void {
+      graphics.clear();
+      graphics.x = x;
+      graphics.y = y;
+      graphics.circle(0, 0, 17);
+      graphics.fill({ color: hexToNum(theme.white), alpha: haloActionInFlight ? 0.64 : 0.96 });
+      graphics.stroke({ color: hexToNum(theme.ink), width: 1.35, alpha: 0.62 });
+    }
+
+    function drawCheckIcon(graphics: Graphics): void {
+      const scale = 0.78;
+      graphics.moveTo((20 - 12) * scale, (6 - 12) * scale);
+      graphics.lineTo((9 - 12) * scale, (17 - 12) * scale);
+      graphics.lineTo((4 - 12) * scale, (12 - 12) * scale);
+      graphics.stroke({
+        color: hexToNum(theme.ink),
+        width: 2.15,
+        alpha: haloActionInFlight ? 0.48 : 0.88,
+        cap: 'round',
+        join: 'round'
+      });
+    }
+
+    function drawUndoIcon(graphics: Graphics): void {
+      const scale = 0.7;
+      graphics.moveTo((9 - 12) * scale, (14 - 12) * scale);
+      graphics.lineTo((4 - 12) * scale, (9 - 12) * scale);
+      graphics.lineTo((9 - 12) * scale, (4 - 12) * scale);
+      graphics.moveTo((4 - 12) * scale, (9 - 12) * scale);
+      graphics.lineTo((14.5 - 12) * scale, (9 - 12) * scale);
+      graphics.quadraticCurveTo(
+        (20 - 12) * scale,
+        (9 - 12) * scale,
+        (20 - 12) * scale,
+        (14.5 - 12) * scale
+      );
+      graphics.quadraticCurveTo(
+        (20 - 12) * scale,
+        (20 - 12) * scale,
+        (14.5 - 12) * scale,
+        (20 - 12) * scale
+      );
+      graphics.lineTo((11 - 12) * scale, (20 - 12) * scale);
+      graphics.stroke({
+        color: hexToNum(theme.ink),
+        width: 2.1,
+        alpha: haloActionInFlight ? 0.48 : 0.88,
+        cap: 'round',
+        join: 'round'
+      });
+    }
+
+    function drawEditIcon(graphics: Graphics): void {
+      graphics.moveTo(-7.4, 7.4);
+      graphics.lineTo(-5.1, 2.3);
+      graphics.lineTo(5.6, -8.4);
+      graphics.quadraticCurveTo(6.9, -9.7, 8.2, -8.4);
+      graphics.quadraticCurveTo(9.5, -7.1, 8.2, -5.8);
+      graphics.lineTo(-2.5, 4.9);
+      graphics.lineTo(-7.4, 7.4);
+      graphics.moveTo(-5.1, 2.3);
+      graphics.lineTo(-2.5, 4.9);
+      graphics.stroke({
+        color: hexToNum(theme.ink),
+        width: 1.9,
+        alpha: haloActionInFlight ? 0.48 : 0.88,
+        cap: 'round',
+        join: 'round'
+      });
+    }
+
+    function startHaloDismiss(): void {
+      if (!selectedItemNode) return;
+      dismissingItemNode = selectedItemNode;
+      selectedItemNode = null;
+      haloDismissStartedAt = performance.now();
+    }
+
+    function clearHaloImmediately(): void {
+      selectedItemNode = null;
+      dismissingItemNode = null;
+      haloDismissStartedAt = 0;
+      haloLayer.visible = false;
+      toggleHaloButton.clear();
+      editHaloButton.clear();
+    }
+
+    function drawHalo(): void {
+      const activeNode = selectedItemNode ?? dismissingItemNode;
+      if (!activeNode) {
+        haloLayer.visible = false;
+        toggleHaloButton.clear();
+        editHaloButton.clear();
+        return;
+      }
+
+      haloLayer.visible = true;
+      const scale = world.scale.x;
+      const nodeX = activeNode.x ?? width / 2;
+      const nodeY = activeNode.y ?? height / 2;
+      const screenX = world.x + nodeX * scale;
+      const screenY = world.y + nodeY * scale;
+      const actionGap = 42;
+      const buttonRadius = 17;
+      const pairHalfWidth = actionGap / 2 + buttonRadius;
+      const now = performance.now();
+      const isDismissing = selectedItemNode === null && dismissingItemNode !== null;
+      const elapsed = Math.max(
+        0,
+        now - (isDismissing ? haloDismissStartedAt : haloAnimationStartedAt)
+      );
+      const duration = isDismissing ? 140 : 180;
+      const progress = Math.min(1, elapsed / duration);
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      const haloAlpha = isDismissing ? 1 - easedProgress : 0.2 + easedProgress * 0.8;
+      const haloScale = isDismissing
+        ? 1 - easedProgress * 0.16
+        : 0.78 + easedProgress * 0.22;
+
+      if (isDismissing && progress >= 1) {
+        clearHaloImmediately();
+        return;
+      }
+
+      const centerX = clamp(screenX, pairHalfWidth + 10, width - pairHalfWidth - 10);
+      const y = clamp(
+        screenY - activeNode.radius * scale - 30,
+        buttonRadius + 10,
+        height - buttonRadius - 10
+      );
+
+      drawHaloSurface(toggleHaloButton, centerX - actionGap / 2, y);
+      toggleHaloButton.alpha = haloAlpha;
+      toggleHaloButton.scale.set(haloScale);
+      if (activeNode.done) {
+        drawUndoIcon(toggleHaloButton);
+      } else {
+        drawCheckIcon(toggleHaloButton);
+      }
+
+      drawHaloSurface(editHaloButton, centerX + actionGap / 2, y);
+      editHaloButton.alpha = haloAlpha;
+      editHaloButton.scale.set(haloScale);
+      drawEditIcon(editHaloButton);
+    }
+
+    prepareHaloButton(toggleHaloButton);
+    prepareHaloButton(editHaloButton);
+
+    toggleHaloButton.on('pointerup', async (event) => {
+      event.stopPropagation();
+      lastHaloPointerAt = Date.now();
+      if (!selectedItemNode || haloActionInFlight) return;
+
+      const node = selectedItemNode;
+      const previousDone = node.done;
+      haloActionInFlight = true;
+      node.done = !previousDone;
+      redrawNode(node);
+      drawHalo();
+      try {
+        const updatedItem = await onItemToggle(node.rawId);
+        if (!destroyed) {
+          node.done = updatedItem.done;
+          redrawNode(node);
+        }
+      } catch (error) {
+        node.done = previousDone;
+        redrawNode(node);
+        console.error('Failed to toggle graph item', error);
+      } finally {
+        haloActionInFlight = false;
+        if (!destroyed) {
+          drawHalo();
+        }
+      }
+    });
+
+    editHaloButton.on('pointerup', (event) => {
+      event.stopPropagation();
+      lastHaloPointerAt = Date.now();
+      if (!selectedItemNode || haloActionInFlight) return;
+
+      const node = selectedItemNode;
+      selectedItemNode = null;
+      drawHalo();
+      void onItemEdit(node.rawId);
+    });
+
     for (const node of simNodes) {
       const graphics = new Graphics();
       node.graphics = graphics;
@@ -233,6 +462,9 @@
         if (node.nodeType === 'tag') {
           highlightedTagId = node.id;
         }
+        if (node.nodeType === 'item' && selectedItemNode?.id !== node.id) {
+          startHaloDismiss();
+        }
         simulation?.alphaTarget(0.08).restart();
       });
 
@@ -255,6 +487,7 @@
         if (Math.abs(dx) > V2_GRAPH_TAP_THRESHOLD || Math.abs(dy) > V2_GRAPH_TAP_THRESHOLD) {
           didMove = true;
           hasUserTransformed = true;
+          startHaloDismiss();
         }
         const worldPos = world.toLocal(event.global);
         node.fx = worldPos.x - dragOffset.x;
@@ -274,7 +507,14 @@
         }
 
         if (!didMove && node.nodeType === 'item') {
-          void onItemSelect(node.rawId);
+          if (selectedItemNode?.id === node.id) {
+            startHaloDismiss();
+          } else {
+            selectedItemNode = node;
+            dismissingItemNode = null;
+            haloAnimationStartedAt = performance.now();
+          }
+          lastNodePointerUpAt = Date.now();
         }
       };
 
@@ -410,10 +650,8 @@
       world.y = height * 0.48 - ((bounds.top + bounds.bottom) / 2) * nextScale;
     }
 
-    simulation.tick(90);
+    simulation.tick(180);
     fitWorldToContent();
-    fitTimeoutIds = [80, 260, 560, 920].map((delay) => setTimeout(fitWorldToContent, delay));
-    simulation.on('end', fitWorldToContent);
 
     function drawMembranes(): void {
       membraneGraphics.clear();
@@ -483,6 +721,7 @@
         }
       }
 
+      drawHalo();
       animFrameId = requestAnimationFrame(render);
     }
 
@@ -492,15 +731,19 @@
     let panPointerId: number | null = null;
     let panStart = { x: 0, y: 0 };
     let worldStart = { x: 0, y: 0 };
+    let panDidMove = false;
     const activePointers = new Set<number>();
     const canvas = app.canvas as HTMLCanvasElement;
 
     canvas.addEventListener('pointerdown', (event) => {
+      if (Date.now() - lastHaloPointerAt < 120) return;
       activePointers.add(event.pointerId);
       if (isNodeDragging) return;
       if (activePointers.size === 1 && panPointerId === null) {
         isPanning = true;
         panPointerId = event.pointerId;
+        panDidMove = false;
+        startHaloDismiss();
         panStart = { x: event.clientX, y: event.clientY };
         worldStart = { x: world.x, y: world.y };
       } else {
@@ -511,6 +754,13 @@
 
     canvas.addEventListener('pointermove', (event) => {
       if (!isPanning || event.pointerId !== panPointerId || isNodeDragging) return;
+      if (
+        Math.abs(event.clientX - panStart.x) > V2_GRAPH_TAP_THRESHOLD ||
+        Math.abs(event.clientY - panStart.y) > V2_GRAPH_TAP_THRESHOLD
+      ) {
+        panDidMove = true;
+        startHaloDismiss();
+      }
       hasUserTransformed = true;
       world.x = worldStart.x + event.clientX - panStart.x;
       world.y = worldStart.y + event.clientY - panStart.y;
@@ -519,8 +769,12 @@
     const stopPointer = (event: PointerEvent): void => {
       activePointers.delete(event.pointerId);
       if (event.pointerId === panPointerId) {
+        if (!panDidMove && Date.now() - lastNodePointerUpAt > 80 && Date.now() - lastHaloPointerAt > 120) {
+          startHaloDismiss();
+        }
         isPanning = false;
         panPointerId = null;
+        panDidMove = false;
       }
     };
     canvas.addEventListener('pointerup', stopPointer);
@@ -532,6 +786,7 @@
       (event) => {
         event.preventDefault();
         hasUserTransformed = true;
+        startHaloDismiss();
         const scaleFactor = event.deltaY > 0 ? 0.94 : 1.06;
         const nextScale = Math.min(Math.max(world.scale.x * scaleFactor, 0.35), 2.4);
         const rect = canvas.getBoundingClientRect();
@@ -579,6 +834,7 @@
 
         if (lastTouchDistance > 0) {
           hasUserTransformed = true;
+          startHaloDismiss();
           const nextScale = Math.min(Math.max(world.scale.x * (distance / lastTouchDistance), 0.35), 2.4);
           const rect = canvas.getBoundingClientRect();
           const px = center.x - rect.left;

@@ -122,11 +122,16 @@ const meta = {
   args: {
     show: true,
     data: graphData,
+    initialSelectedItemId: null,
     isLoading: false,
     errorMessage: null,
     onClose: () => {},
     onRefresh: async () => {},
-    onItemSelect: async () => {}
+    onItemEdit: async () => {},
+    onItemToggle: async (itemId: number) => {
+      const item = items.find((candidate) => candidate.id === itemId) ?? items[0];
+      return { ...item, done: !item.done };
+    }
   },
   parameters: {
     layout: 'fullscreen'
@@ -138,6 +143,12 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const CategoryMembranes: Story = {};
+
+export const ActionHalo: Story = {
+  args: {
+    initialSelectedItemId: 1
+  }
+};
 
 export const Empty: Story = {
   args: {

@@ -21,7 +21,7 @@
   import V2SearchSuggestionBoard from './V2SearchSuggestionBoard.svelte';
   import * as v2NativeSheetApi from '$lib/api/v2NativeSheetApi';
 
-  type MaybePromise = void | Promise<void>;
+  type MaybePromise<T = void> = T | Promise<T>;
   const LIST_EXIT_DURATION_MS = 80;
   const LIST_EXIT_GAP_MS = 70;
   const LIST_ENTER_DURATION_MS = 160;
@@ -54,7 +54,7 @@
     onDeleteCategory: (id: number) => MaybePromise;
     onReorderCategories: (categoryIds: number[]) => MaybePromise;
     onAddItem: (text: string, tagNames?: string[]) => MaybePromise;
-    onToggleItem: (id: number) => MaybePromise;
+    onToggleItem: (id: number) => MaybePromise<V2TodoItem | void>;
     onUpdateItemDetails: (
       id: number,
       text: string,
