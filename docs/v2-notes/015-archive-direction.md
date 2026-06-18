@@ -11,9 +11,9 @@ Repeating items are excluded because their completed state is part of the repeat
 ```mermaid
 flowchart LR
   Dock["Native Archive button"] --> Root["/ route shell"]
-  Root --> Screen["V2ChecklistScreen"]
+  Root --> Screen["ChecklistScreen"]
   Screen --> Confirm["Archive confirm modal"]
-  Confirm --> Store["v2ChecklistStore.archiveCompletedItems"]
+  Confirm --> Store["checklistStore.archiveCompletedItems"]
   Store --> Command["v2_archive_completed_items"]
   Command --> Todo["v2_todos.archived_at"]
   Settings["/settings/archive"] --> Restore["v2_restore_archived_item"]

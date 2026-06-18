@@ -8,7 +8,7 @@ v2 uses categories as the primary spaces for items. Search should help the user 
 
 ```mermaid
 flowchart TB
-  Command["V2LeafCommandBar search mode"] --> Query["Search query"]
+  Command["LeafCommandBar search mode"] --> Query["Search query"]
   Query --> Suggest["Anchored suggestion board"]
   Suggest --> Pick["Pick matching item"]
   Pick --> Category["Move to item category"]
@@ -17,7 +17,7 @@ flowchart TB
 
 ## Selected Decisions
 
-- In add mode, `V2LeafCommandBar` separates creation, tags, and search as `+ | input | # | search`.
+- In add mode, `LeafCommandBar` separates creation, tags, and search as `+ | input | # | search`.
 - Search starts from the right search control in add mode, then switches the command bar into search mode.
 - Search mode keeps the command bar in place and shows a z-layered suggestion board anchored directly below it.
 - The suggestion board visually extends from the command bar but does not push the category rail or item list down.

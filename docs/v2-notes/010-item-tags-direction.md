@@ -8,7 +8,7 @@ This slice covers editing, display, and search only. Tag-only filter screens, ta
 
 ```mermaid
 flowchart TB
-  Input["V2LeafCommandBar: text with #tag tokens"] --> Suggest["tag suggestion board"]
+  Input["LeafCommandBar: text with #tag tokens"] --> Suggest["tag suggestion board"]
   Suggest --> Selected["selected tag chips"]
   Input --> Text["item text"]
   Selected --> Create["v2_create_item"]
@@ -18,7 +18,7 @@ flowchart TB
   Update --> Service
   Service --> Tags["v2_tags"]
   Service --> Join["v2_todo_tags"]
-  Tags --> Item["V2TodoItem.tags"]
+  Tags --> Item["TodoItem.tags"]
   Join --> Item
   Item --> Row["row first tag + extra count"]
   Item --> Drawer["drawer all tag chips"]
@@ -38,14 +38,14 @@ flowchart TB
 
 ## UI Roles
 
-- Add mode in `V2LeafCommandBar` separates creation, tags, and search as `+ | input | # | search`.
+- Add mode in `LeafCommandBar` separates creation, tags, and search as `+ | input | # | search`.
 - The `#` control prepares a tag token at the current caret position and opens the tag suggestion board.
 - Add mode also shows the tag suggestion board when the caret is inside an active `#tag` token.
 - Suggestions prefer prefix matches, then contains matches, and stay anchored below the command bar without moving the category rail or list.
 - Suggested tags selected from the board are shown as removable chips in the same overlay, keeping the item text input focused on the item name.
 - Closed rows use the reserved metadata slot for the first tag and a `+N` count.
 - Open drawers show all tags under the title and memo preview.
-- The item detail sheet owns full tag editing. iOS uses the Swift native form field with tag chips; Storybook, desktop, and browser use the Svelte `V2TagEditor` fallback.
+- The item detail sheet owns full tag editing. iOS uses the Swift native form field with tag chips; Storybook, desktop, and browser use the Svelte `TagEditor` fallback.
 
 ## Data Boundary
 

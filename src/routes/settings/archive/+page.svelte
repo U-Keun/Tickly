@@ -5,21 +5,21 @@
   import { fade, slide } from 'svelte/transition';
   import { ArchiveRestore, FileText, Tags, Trash2 } from '@lucide/svelte';
 
-  import type { V2ArchivedItem } from '../../../types';
-  import V2SettingsGroup from '../../../components/settings/V2SettingsGroup.svelte';
-  import V2SettingsShell from '../../../components/settings/V2SettingsShell.svelte';
-  import V2ConfirmModal from '../../../components/v2/V2ConfirmModal.svelte';
+  import type { ArchivedItem } from '../../../types';
+  import SettingsGroup from '../../../components/settings/SettingsGroup.svelte';
+  import SettingsShell from '../../../components/settings/SettingsShell.svelte';
+  import ConfirmModal from '../../../components/checklist/ConfirmModal.svelte';
   import { i18n } from '$lib/i18n';
   import { getSettingsReturnTo, settingsPathWithReturnTo } from '$lib/settings/returnTo';
-  import * as v2ChecklistApi from '$lib/api/v2ChecklistApi';
+  import * as checklistApi from '$lib/api/checklistApi';
 
   let returnTo = $derived(getSettingsReturnTo($page.url.searchParams));
-  let archivedItems = $state<V2ArchivedItem[]>([]);
+  let archivedItems = $state<ArchivedItem[]>([]);
   let isLoading = $state(true);
   let errorMessage = $state<string | null>(null);
   let restoringItemId = $state<number | null>(null);
   let deletingItemId = $state<number | null>(null);
-  let itemPendingDeletion = $state<V2ArchivedItem | null>(null);
+  let itemPendingDeletion = $state<ArchivedItem | null>(null);
 
   function formatArchivedAt(value: string | null): string {
     if (!value) return '';
@@ -42,11 +42,11 @@
     errorMessage = null;
 
     try {
-      archivedItems = await v2ChecklistApi.v2GetArchivedItems();
+      archivedItems = await checklistApi.getArchivedItems();
     } catch (error) {
       const nextError = error instanceof Error ? error : new Error(String(error));
       errorMessage = nextError.message;
-      console.error('Failed to load v2 archived items.', error);
+      console.error('Failed to load archived items.', error);
     } finally {
       isLoading = false;
     }
@@ -59,18 +59,18 @@
     errorMessage = null;
 
     try {
-      await v2ChecklistApi.v2RestoreArchivedItem(id);
+      await checklistApi.restoreArchivedItem(id);
       archivedItems = archivedItems.filter((archivedItem) => archivedItem.item.id !== id);
     } catch (error) {
       const nextError = error instanceof Error ? error : new Error(String(error));
       errorMessage = nextError.message;
-      console.error('Failed to restore v2 archived item.', error);
+      console.error('Failed to restore archived item.', error);
     } finally {
       restoringItemId = null;
     }
   }
 
-  function requestDeleteArchivedItem(archivedItem: V2ArchivedItem): void {
+  function requestDeleteArchivedItem(archivedItem: ArchivedItem): void {
     if (restoringItemId !== null || deletingItemId !== null) return;
     itemPendingDeletion = archivedItem;
   }
@@ -88,13 +88,13 @@
     errorMessage = null;
 
     try {
-      await v2ChecklistApi.v2DeleteArchivedItem(itemId);
+      await checklistApi.deleteArchivedItem(itemId);
       archivedItems = archivedItems.filter((archivedItem) => archivedItem.item.id !== itemId);
       itemPendingDeletion = null;
     } catch (error) {
       const nextError = error instanceof Error ? error : new Error(String(error));
       errorMessage = nextError.message;
-      console.error('Failed to delete v2 archived item.', error);
+      console.error('Failed to delete archived item.', error);
     } finally {
       deletingItemId = null;
     }
@@ -105,8 +105,8 @@
   });
 </script>
 
-<V2SettingsShell
-  title={i18n.t('v2ArchiveManageTitle')}
+<SettingsShell
+  title={i18n.t('checklistArchiveManageTitle')}
   onBack={() => void goto(settingsPathWithReturnTo('/settings', returnTo))}
 >
   <div class="flex flex-col gap-5">
@@ -116,18 +116,18 @@
       </div>
     {/if}
 
-    <V2SettingsGroup
-      title={i18n.t('v2ArchiveManageGroupTitle')}
-      description={i18n.t('v2ArchiveManageDescription')}
+    <SettingsGroup
+      title={i18n.t('checklistArchiveManageGroupTitle')}
+      description={i18n.t('checklistArchiveManageDescription')}
     >
       {#if isLoading}
         <div class="flex min-h-24 items-center px-4 py-4 text-sm font-medium text-ink-muted">
-          {i18n.t('v2Loading')}
+          {i18n.t('checklistLoading')}
         </div>
       {:else if archivedItems.length === 0}
         <div class="px-4 py-6 text-sm leading-6 text-ink-muted">
-          <p class="font-semibold text-ink">{i18n.t('v2ArchiveManageEmptyTitle')}</p>
-          <p class="mt-1">{i18n.t('v2ArchiveManageEmptyDescription')}</p>
+          <p class="font-semibold text-ink">{i18n.t('checklistArchiveManageEmptyTitle')}</p>
+          <p class="mt-1">{i18n.t('checklistArchiveManageEmptyDescription')}</p>
         </div>
       {:else}
         <div class="divide-y divide-stroke">
@@ -158,7 +158,7 @@
 
                     {#if archivedAt}
                       <p class="mt-1 text-xs font-semibold leading-5 text-ink-muted">
-                        {i18n.t('v2ArchivedAtTemplate')(archivedAt)}
+                        {i18n.t('checklistArchivedAtTemplate')(archivedAt)}
                       </p>
                     {/if}
 
@@ -186,14 +186,14 @@
                     onclick={() => void restoreArchivedItem(item.id)}
                   >
                     {restoringItemId === item.id
-                      ? i18n.t('v2RestoringArchivedItem')
-                      : i18n.t('v2RestoreArchivedItem')}
+                      ? i18n.t('checklistRestoringArchivedItem')
+                      : i18n.t('checklistRestoreArchivedItem')}
                   </button>
 
                   <button
                     type="button"
                     class="flex min-h-11 w-12 items-center justify-center rounded-[12px] bg-canvas text-ink-muted transition-colors hover:bg-accent-peach disabled:cursor-not-allowed disabled:opacity-50"
-                    aria-label={i18n.t('v2DeleteArchivedItem')}
+                    aria-label={i18n.t('checklistDeleteArchivedItem')}
                     disabled={restoringItemId !== null || deletingItemId !== null}
                     onclick={() => requestDeleteArchivedItem(archivedItem)}
                   >
@@ -205,17 +205,17 @@
           {/each}
         </div>
       {/if}
-    </V2SettingsGroup>
+    </SettingsGroup>
   </div>
-</V2SettingsShell>
+</SettingsShell>
 
-<V2ConfirmModal
+<ConfirmModal
   show={itemPendingDeletion !== null}
-  title={i18n.t('v2DeleteArchivedConfirmTitle')}
+  title={i18n.t('checklistDeleteArchivedConfirmTitle')}
   message={itemPendingDeletion
-    ? i18n.t('v2DeleteArchivedConfirmMessageTemplate')(itemPendingDeletion.item.text)
+    ? i18n.t('checklistDeleteArchivedConfirmMessageTemplate')(itemPendingDeletion.item.text)
     : ''}
-  confirmLabel={deletingItemId === null ? i18n.t('v2DeleteArchivedItem') : i18n.t('v2DeletingArchivedItem')}
+  confirmLabel={deletingItemId === null ? i18n.t('checklistDeleteArchivedItem') : i18n.t('checklistDeletingArchivedItem')}
   tone="danger"
   isBusy={deletingItemId !== null}
   onConfirm={confirmDeleteArchivedItem}

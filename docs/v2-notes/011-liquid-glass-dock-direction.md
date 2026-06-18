@@ -8,7 +8,7 @@ v2 uses a native iOS bottom dock as a small launcher layer above the checklist. 
 
 ```mermaid
 flowchart LR
-  Root["/ route shell"] --> DockApi["v2NativeDockApi"]
+  Root["/ route shell"] --> DockApi["nativeDockApi"]
   DockApi --> Command["v2_configure_native_dock"]
   Command --> Swift["TicklyLiquidGlassDock"]
   Swift --> Event["tickly:nativeDockAction"]
@@ -21,7 +21,7 @@ flowchart LR
 - `Streak` now opens a v2 web overlay backed by opt-in v2 item streak tracking.
 - `Archive` opens a v2 web confirm modal for current-category cleanup. It archives only completed non-repeating items.
 - `Graph` opens a v2 web graph overlay backed by local v2 category, item, and tag data.
-- `V2ChecklistScreen` does not call native APIs. It only reports when web fallback sheets or confirm modals should hide the dock.
+- `ChecklistScreen` does not call native APIs. It only reports when web fallback sheets or confirm modals should hide the dock.
 - The dock hides while the iOS keyboard is visible, and the root shell hides it while native sheets are open.
 
 ## Visual Direction

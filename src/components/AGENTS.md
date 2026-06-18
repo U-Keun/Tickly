@@ -16,7 +16,7 @@ Apply the root and `src/AGENTS.md` first. This file adds rules for `src/componen
 - Use existing visual language and theme variables.
 - Reusable stateful UI should have Storybook coverage for empty, normal, long-text, and relevant edge states.
 
-## v2 Components
+## Checklist Components
 
-- v2 components live in `src/components/v2/`.
-- v2 components should model only local checklist behavior until the v2 scope expands.
+- Checklist app components live in `src/components/checklist/`.
+- Keep checklist components focused on local-first app behavior and pass mutations through props/store APIs.

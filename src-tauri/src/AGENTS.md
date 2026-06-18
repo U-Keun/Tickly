@@ -21,7 +21,9 @@ Apply the root `AGENTS.md` first. This file adds rules for `src-tauri/src/`.
 - Repository and service behavior should use in-memory SQLite tests where practical.
 - Tests should cover validation, ordering, default data, and destructive operations.
 
-## v2
+## Current Checklist Runtime
 
-- v2 Rust symbols should use `V2` type names and `v2_` command names.
-- v2 persistence must use `v2_` tables and must not read or write v1 tables.
+- Rust symbols should use current checklist names such as `ChecklistService` and `ChecklistRepository`.
+- Tauri command names still use the `v2_` prefix as the stable frontend/native contract.
+- Persistence must keep using `v2_` tables unless an explicit migration slice renames storage.
+- Current checklist persistence must not read or write legacy tables.

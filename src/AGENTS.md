@@ -20,8 +20,8 @@ Apply the root `AGENTS.md` first. This file adds rules for `src/`.
 - Keep UI mobile-first and touch-friendly. Interactive controls should be at least 44px tall or wide where practical.
 - Avoid custom CSS unless the layout cannot be expressed cleanly with utilities.
 
-## v2
+## Current App
 
-- The v2 route shell lives at `/` in `src/routes/+page.svelte`.
-- v2 frontend code should stay isolated in the route shell, `components/v2`, and v2-specific lib modules.
-- v2 should reuse design tokens and i18n, not v1 stores or v1 feature flows.
+- The current app route shell lives at `/` in `src/routes/+page.svelte`.
+- Current checklist frontend code should stay isolated in the route shell, `components/checklist`, and `lib/checklist`.
+- Current app code should reuse design tokens and i18n, not legacy stores or legacy feature flows.

@@ -2,17 +2,17 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
 
-  import V2GraphOverlay from '../components/v2/V2GraphOverlay.svelte';
-  import V2ItemDetailSheet from '../components/v2/V2ItemDetailSheet.svelte';
-  import V2ChecklistScreen from '../components/v2/V2ChecklistScreen.svelte';
-  import V2StreakOverlay from '../components/v2/V2StreakOverlay.svelte';
-  import * as v2NativeDockApi from '../lib/api/v2NativeDockApi';
+  import GraphOverlay from '../components/checklist/GraphOverlay.svelte';
+  import ItemDetailSheet from '../components/checklist/ItemDetailSheet.svelte';
+  import ChecklistScreen from '../components/checklist/ChecklistScreen.svelte';
+  import StreakOverlay from '../components/checklist/StreakOverlay.svelte';
+  import * as nativeDockApi from '../lib/api/nativeDockApi';
   import { initializeFonts } from '../lib/fonts';
   import { i18n } from '../lib/i18n';
   import { initializeTheme } from '../lib/themes';
-  import { openNativeV2ItemDetailSheet } from '../lib/v2/v2ItemDetailLauncher';
-  import { v2ChecklistStore } from '../lib/v2/v2ChecklistStore.svelte';
-  import type { V2GraphData, V2RepeatType, V2StreakHeatmap, V2TodoItem } from '../types';
+  import { openNativeItemDetailSheet } from '../lib/checklist/itemDetailLauncher';
+  import { checklistStore } from '../lib/checklist/checklistStore.svelte';
+  import type { GraphData, RepeatType, StreakHeatmap, TodoItem } from '../types';
 
   let nativeDockSupported = $state(false);
   let nativeDockRequestedVisible = $state(true);
@@ -22,12 +22,12 @@
   let showStreakOverlay = $state(false);
   let isLoadingStreakHeatmaps = $state(false);
   let streakHeatmapError = $state<string | null>(null);
-  let streakHeatmaps = $state<V2StreakHeatmap[]>([]);
+  let streakHeatmaps = $state<StreakHeatmap[]>([]);
   let showGraphOverlay = $state(false);
   let isLoadingGraphData = $state(false);
   let graphError = $state<string | null>(null);
-  let graphData = $state<V2GraphData | null>(null);
-  let graphItemPendingEdit = $state<V2TodoItem | null>(null);
+  let graphData = $state<GraphData | null>(null);
+  let graphItemPendingEdit = $state<TodoItem | null>(null);
   let isSavingGraphItemEdit = $state(false);
   let nativeDockVisible = $derived(
     nativeDockSupported &&
@@ -49,7 +49,7 @@
     );
   }
 
-  function buildNativeDockRequest(visible: boolean): v2NativeDockApi.V2NativeDockRequest {
+  function buildNativeDockRequest(visible: boolean): nativeDockApi.NativeDockRequest {
     return {
       visible,
       streakLabel: i18n.t('streak'),
@@ -65,7 +65,7 @@
 
   function syncNativeDock(): void {
     if (!nativeDockSupported) return;
-    void v2NativeDockApi.configureNativeDock(buildNativeDockRequest(shouldShowNativeDock()));
+    void nativeDockApi.configureNativeDock(buildNativeDockRequest(shouldShowNativeDock()));
   }
 
   function setNativeDockRequestedVisible(visible: boolean): void {
@@ -74,7 +74,7 @@
     syncNativeDock();
   }
 
-  function handleNativeDockAction(actionId: v2NativeDockApi.V2NativeDockActionId): void {
+  function handleNativeDockAction(actionId: nativeDockApi.NativeDockActionId): void {
     if (actionId === 'settings') {
       void goto('/settings?returnTo=%2F');
       return;
@@ -102,10 +102,10 @@
     isLoadingStreakHeatmaps = true;
     streakHeatmapError = null;
     try {
-      streakHeatmaps = await v2ChecklistStore.getStreakHeatmaps();
+      streakHeatmaps = await checklistStore.getStreakHeatmaps();
     } catch (error) {
       streakHeatmapError =
-        error instanceof Error ? error.message : i18n.t('v2StreakLoadErrorMessage');
+        error instanceof Error ? error.message : i18n.t('checklistStreakLoadErrorMessage');
     } finally {
       isLoadingStreakHeatmaps = false;
     }
@@ -126,9 +126,9 @@
     isLoadingGraphData = true;
     graphError = null;
     try {
-      graphData = await v2ChecklistStore.getGraphData();
+      graphData = await checklistStore.getGraphData();
     } catch (error) {
-      graphError = error instanceof Error ? error.message : i18n.t('v2GraphLoadErrorMessage');
+      graphError = error instanceof Error ? error.message : i18n.t('checklistGraphLoadErrorMessage');
     } finally {
       isLoadingGraphData = false;
     }
@@ -136,9 +136,9 @@
 
   async function syncGraphDataQuietly(): Promise<void> {
     try {
-      graphData = await v2ChecklistStore.getGraphData();
+      graphData = await checklistStore.getGraphData();
     } catch (error) {
-      console.error('Failed to quietly sync v2 graph data.', error);
+      console.error('Failed to quietly sync graph data.', error);
     }
   }
 
@@ -160,7 +160,7 @@
     text: string,
     memo: string | null,
     tagNames: string[] = [],
-    repeatType: V2RepeatType = 'none',
+    repeatType: RepeatType = 'none',
     repeatDetail: string | null = null,
     reminderAt: string | null = null,
     trackStreak = false
@@ -169,7 +169,7 @@
 
     isSavingGraphItemEdit = true;
     try {
-      await v2ChecklistStore.updateItemDetails(
+      await checklistStore.updateItemDetails(
         id,
         text,
         memo,
@@ -185,8 +185,8 @@
     }
   }
 
-  async function openGraphItemDetail(item: V2TodoItem): Promise<void> {
-    const nativeResult = await openNativeV2ItemDetailSheet(item, v2ChecklistStore.tags);
+  async function openGraphItemDetail(item: TodoItem): Promise<void> {
+    const nativeResult = await openNativeItemDetailSheet(item, checklistStore.tags);
 
     if (nativeResult.status === 'unavailable') {
       graphItemPendingEdit = item;
@@ -207,7 +207,7 @@
           values.trackStreak
         );
       } catch {
-        // The v2 store owns the visible error banner.
+        // The checklist store owns the visible error banner.
       }
     }
   }
@@ -218,8 +218,8 @@
     void openGraphItemDetail(item);
   }
 
-  async function handleGraphItemToggle(itemId: number): Promise<V2TodoItem> {
-    const updatedItem = await v2ChecklistStore.toggleItem(itemId);
+  async function handleGraphItemToggle(itemId: number): Promise<TodoItem> {
+    const updatedItem = await checklistStore.toggleItem(itemId);
     void syncGraphDataQuietly();
     return updatedItem;
   }
@@ -249,17 +249,17 @@
   onMount(() => {
     initializeTheme();
     initializeFonts();
-    void v2ChecklistStore
+    void checklistStore
       .load()
       .catch(() => undefined)
       .finally(() => {
         if (document.visibilityState === 'visible') {
-          void v2ChecklistStore.scheduleRepeatProcessing();
+          void checklistStore.scheduleRepeatProcessing();
         }
       });
-    nativeDockSupported = v2NativeDockApi.shouldUseNativeDock();
+    nativeDockSupported = nativeDockApi.shouldUseNativeDock();
     const removeNativeDockActionListener =
-      v2NativeDockApi.addNativeDockActionListener(handleNativeDockAction);
+      nativeDockApi.addNativeDockActionListener(handleNativeDockAction);
     const handleNativeSheetState = (event: Event): void => {
       const detail = (event as CustomEvent<{ isOpen?: boolean }>).detail;
       nativeSheetOpen = detail?.isOpen === true;
@@ -277,19 +277,19 @@
     };
     const handleVisibilityChange = (): void => {
       if (document.visibilityState !== 'visible') {
-        v2ChecklistStore.disposeRepeatProcessingTimer();
+        checklistStore.disposeRepeatProcessingTimer();
         return;
       }
 
-      void v2ChecklistStore
+      void checklistStore
         .processWidgetActions()
         .then((processedCount) => {
           if (processedCount > 0) return;
-          return v2ChecklistStore.processRepeatsAndReload();
+          return checklistStore.processRepeatsAndReload();
         })
         .catch(() => undefined)
         .finally(() => {
-          void v2ChecklistStore.scheduleRepeatProcessing();
+          void checklistStore.scheduleRepeatProcessing();
         });
     };
 
@@ -308,39 +308,39 @@
       document.removeEventListener('focusin', handleFocusIn);
       document.removeEventListener('focusout', handleFocusOut);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      v2ChecklistStore.disposeRepeatProcessingTimer();
-      v2ChecklistStore.disposeWidgetRefreshTimer();
+      checklistStore.disposeRepeatProcessingTimer();
+      checklistStore.disposeWidgetRefreshTimer();
       if (nativeDockSupported) {
-        void v2NativeDockApi.configureNativeDock(buildNativeDockRequest(false));
+        void nativeDockApi.configureNativeDock(buildNativeDockRequest(false));
       }
     };
   });
 </script>
 
-<V2ChecklistScreen
-  categories={v2ChecklistStore.categories}
-  selectedCategoryId={v2ChecklistStore.selectedCategoryId}
-  items={v2ChecklistStore.items}
-  availableTags={v2ChecklistStore.tags}
-  errorMessage={v2ChecklistStore.errorMessage}
-  onSelectCategory={v2ChecklistStore.selectCategory}
-  onAddCategory={v2ChecklistStore.addCategory}
-  onUpdateCategory={v2ChecklistStore.updateCategory}
-  onDeleteCategory={v2ChecklistStore.deleteCategory}
-  onReorderCategories={v2ChecklistStore.reorderCategories}
-  onAddItem={v2ChecklistStore.addItem}
-  onToggleItem={v2ChecklistStore.toggleItem}
-  onUpdateItemDetails={v2ChecklistStore.updateItemDetails}
-  onDeleteItem={v2ChecklistStore.deleteItem}
-  onReorderItems={v2ChecklistStore.reorderItems}
-  onSearchItems={v2ChecklistStore.searchItems}
+<ChecklistScreen
+  categories={checklistStore.categories}
+  selectedCategoryId={checklistStore.selectedCategoryId}
+  items={checklistStore.items}
+  availableTags={checklistStore.tags}
+  errorMessage={checklistStore.errorMessage}
+  onSelectCategory={checklistStore.selectCategory}
+  onAddCategory={checklistStore.addCategory}
+  onUpdateCategory={checklistStore.updateCategory}
+  onDeleteCategory={checklistStore.deleteCategory}
+  onReorderCategories={checklistStore.reorderCategories}
+  onAddItem={checklistStore.addItem}
+  onToggleItem={checklistStore.toggleItem}
+  onUpdateItemDetails={checklistStore.updateItemDetails}
+  onDeleteItem={checklistStore.deleteItem}
+  onReorderItems={checklistStore.reorderItems}
+  onSearchItems={checklistStore.searchItems}
   {archiveRequestToken}
-  onArchiveCompletedItems={v2ChecklistStore.archiveCompletedItems}
+  onArchiveCompletedItems={checklistStore.archiveCompletedItems}
   {nativeDockVisible}
   onNativeDockVisibilityChange={setNativeDockRequestedVisible}
 />
 
-<V2StreakOverlay
+<StreakOverlay
   show={showStreakOverlay}
   heatmaps={streakHeatmaps}
   isLoading={isLoadingStreakHeatmaps}
@@ -349,7 +349,7 @@
   onClose={closeStreakOverlay}
 />
 
-<V2GraphOverlay
+<GraphOverlay
   show={showGraphOverlay}
   data={graphData}
   isLoading={isLoadingGraphData}
@@ -360,10 +360,10 @@
   onClose={closeGraphOverlay}
 />
 
-<V2ItemDetailSheet
+<ItemDetailSheet
   show={graphItemPendingEdit !== null}
   item={graphItemPendingEdit}
-  availableTags={v2ChecklistStore.tags}
+  availableTags={checklistStore.tags}
   isSaving={isSavingGraphItemEdit}
   onSaveDetails={saveGraphItemDetails}
   onClose={cancelGraphItemEdit}

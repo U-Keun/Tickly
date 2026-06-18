@@ -14,9 +14,9 @@ flowchart LR
   Update --> Todo["v2_todos.track_streak / streak_started_on"]
   Toggle["Checkbox toggle"] --> Logs["v2_completion_logs"]
   Dock["Native Dock Streak"] --> Route["/ route shell"]
-  Route --> Store["v2ChecklistStore.getStreakHeatmaps"]
+  Route --> Store["checklistStore.getStreakHeatmaps"]
   Store --> Command["v2_get_streak_heatmaps"]
-  Command --> Overlay["V2StreakOverlay"]
+  Command --> Overlay["StreakOverlay"]
 ```
 
 ## Boundaries
@@ -30,7 +30,7 @@ flowchart LR
 
 ## UI
 
-`V2StreakOverlay` is a web overlay opened by the native iOS Dock. It hides the Dock while open. The overlay lists one Soft Leaf card per tracked item, with item title, category, repeat cadence, total completions, current streak, longest streak, and a compact 365-day heatmap.
+`StreakOverlay` is a web overlay opened by the native iOS Dock. It hides the Dock while open. The overlay lists one Soft Leaf card per tracked item, with item title, category, repeat cadence, total completions, current streak, longest streak, and a compact 365-day heatmap.
 
 Storybook and browser environments use the same web overlay. iOS uses the existing Swift native item-detail sheet with a native toggle field for editing.
 

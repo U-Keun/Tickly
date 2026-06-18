@@ -81,7 +81,7 @@ export interface FontSettings {
   size: FontSize;
 }
 
-export interface V2Category {
+export interface Category {
   id: number;
   name: string;
   display_order: number;
@@ -89,15 +89,15 @@ export interface V2Category {
   updated_at: string;
 }
 
-export type V2RepeatType = 'none' | 'daily' | 'weekly' | 'monthly';
+export type RepeatType = 'none' | 'daily' | 'weekly' | 'monthly';
 
-export interface V2TodoItem {
+export interface TodoItem {
   id: number;
   category_id: number;
   text: string;
   memo: string | null;
-  tags: V2Tag[];
-  repeat_type: V2RepeatType;
+  tags: Tag[];
+  repeat_type: RepeatType;
   repeat_detail: string | null;
   next_due_at: string | null;
   last_completed_at: string | null;
@@ -111,50 +111,50 @@ export interface V2TodoItem {
   updated_at: string;
 }
 
-export interface V2Tag {
+export interface Tag {
   id: number;
   name: string;
   created_at: string;
   updated_at: string;
 }
 
-export interface V2TagSummary {
-  tag: V2Tag;
+export interface TagSummary {
+  tag: Tag;
   item_count: number;
 }
 
-export interface V2ItemSearchResult {
-  item: V2TodoItem;
-  category: V2Category;
+export interface ItemSearchResult {
+  item: TodoItem;
+  category: Category;
 }
 
-export interface V2ArchivedItem {
-  item: V2TodoItem;
-  category: V2Category;
+export interface ArchivedItem {
+  item: TodoItem;
+  category: Category;
 }
 
-export interface V2GraphTagEdge {
+export interface GraphTagEdge {
   tag_id: number;
   item_id: number;
 }
 
-export interface V2GraphData {
-  categories: V2Category[];
-  items: V2TodoItem[];
-  tags: V2Tag[];
-  tag_edges: V2GraphTagEdge[];
+export interface GraphData {
+  categories: Category[];
+  items: TodoItem[];
+  tags: Tag[];
+  tag_edges: GraphTagEdge[];
 }
 
-export interface V2StreakLog {
+export interface StreakLog {
   completed_on: string;
   completed_count: number;
   combo_intensity: number;
 }
 
-export interface V2StreakHeatmap {
-  item: V2TodoItem;
-  category: V2Category;
-  logs: V2StreakLog[];
+export interface StreakHeatmap {
+  item: TodoItem;
+  category: Category;
+  logs: StreakLog[];
   combo_intensity: number;
   total_days: number;
   current_streak: number;

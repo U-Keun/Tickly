@@ -8,13 +8,13 @@ The current v2 direction is more focused: the first visible interaction should b
 
 ## Design Checkpoint
 
-`V2LeafCommandBar` is now the first major surface in the v2 checklist screen.
+`LeafCommandBar` is now the first major surface in the v2 checklist screen.
 
 ```mermaid
 flowchart TB
-  Top["safe-area top spacing"] --> Command["V2LeafCommandBar"]
+  Top["safe-area top spacing"] --> Command["LeafCommandBar"]
   Command --> Error["optional error banner"]
-  Error --> Category["V2CategoryRail"]
+  Error --> Category["CategoryRail"]
   Category --> List["item list"]
 ```
 

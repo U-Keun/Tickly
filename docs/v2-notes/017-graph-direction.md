@@ -7,9 +7,9 @@ v2 graph is a relationship overlay opened from the native Dock. It uses local v2
 ```mermaid
 flowchart LR
   Dock["Native Dock Graph"] --> Root["/ route shell"]
-  Root --> Overlay["V2GraphOverlay"]
+  Root --> Overlay["GraphOverlay"]
   Overlay --> Canvas["PixiJS + d3-force canvas"]
-  Store["v2ChecklistStore"] --> Api["v2_get_graph_data"]
+  Store["checklistStore"] --> Api["v2_get_graph_data"]
   Api --> Sqlite["v2_categories + v2_todos + v2_tags + v2_todo_tags"]
 ```
 

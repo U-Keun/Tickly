@@ -6,10 +6,10 @@
 
   import ColorPicker from '../../../components/ColorPicker.svelte';
   import ThemePreview from '../../../components/ThemePreview.svelte';
-  import V2SettingsActionFooter from '../../../components/settings/V2SettingsActionFooter.svelte';
-  import V2SettingsChoiceCard from '../../../components/settings/V2SettingsChoiceCard.svelte';
-  import V2SettingsGroup from '../../../components/settings/V2SettingsGroup.svelte';
-  import V2SettingsShell from '../../../components/settings/V2SettingsShell.svelte';
+  import SettingsActionFooter from '../../../components/settings/SettingsActionFooter.svelte';
+  import SettingsChoiceCard from '../../../components/settings/SettingsChoiceCard.svelte';
+  import SettingsGroup from '../../../components/settings/SettingsGroup.svelte';
+  import SettingsShell from '../../../components/settings/SettingsShell.svelte';
   import {
     applyTheme,
     getDefaultColors,
@@ -104,13 +104,13 @@
   }
 </script>
 
-<V2SettingsShell title={i18n.t('themeTitle')} onBack={handleBack}>
+<SettingsShell title={i18n.t('themeTitle')} onBack={handleBack}>
   <div class="flex flex-col gap-5">
     <section class="space-y-2">
       <h2 class="px-1 text-[13px] font-semibold leading-5 text-ink-muted">{i18n.t('presetTheme')}</h2>
       <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {#each themePresets as preset}
-          <V2SettingsChoiceCard
+          <SettingsChoiceCard
             label={getThemePresetName(preset.id, translateLabel)}
             selected={selectedPresetId === preset.id && !isCustomMode}
             onSelect={() => selectPreset(preset)}
@@ -120,10 +120,10 @@
                 <span class="h-full flex-1" style="background-color: {swatch}"></span>
               {/each}
             </span>
-          </V2SettingsChoiceCard>
+          </SettingsChoiceCard>
         {/each}
 
-        <V2SettingsChoiceCard
+        <SettingsChoiceCard
           label={i18n.t('custom')}
           selected={isCustomMode}
           onSelect={enableCustomMode}
@@ -131,7 +131,7 @@
           <span class="flex h-12 items-center justify-center rounded-[5px_14px_5px_14px] border border-stroke bg-canvas text-ink-muted">
             <Palette size={24} strokeWidth={2.2} aria-hidden="true" />
           </span>
-        </V2SettingsChoiceCard>
+        </SettingsChoiceCard>
       </div>
     </section>
 
@@ -141,7 +141,7 @@
     </section>
 
     {#if isCustomMode}
-      <V2SettingsGroup title={i18n.t('customColors')}>
+      <SettingsGroup title={i18n.t('customColors')}>
         {#each themeColorKeys as key}
           <ColorPicker
             label={getThemeColorLabel(key, translateLabel)}
@@ -149,11 +149,11 @@
             onChange={(value) => handleColorChange(key, value)}
           />
         {/each}
-      </V2SettingsGroup>
+      </SettingsGroup>
     {/if}
   </div>
 
   {#snippet footer()}
-    <V2SettingsActionFooter onSave={handleSave} />
+    <SettingsActionFooter onSave={handleSave} />
   {/snippet}
-</V2SettingsShell>
+</SettingsShell>

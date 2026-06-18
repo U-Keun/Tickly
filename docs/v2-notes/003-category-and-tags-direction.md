@@ -23,8 +23,8 @@ The selected UI treatment is `Segmented Spaces`: a compact segmented control bet
 
 ```mermaid
 flowchart TB
-  Header["v2 header"] --> Tools["V2LeafCommandBar"]
-  Tools --> Rail["V2CategoryRail: segmented spaces"]
+  Header["v2 header"] --> Tools["LeafCommandBar"]
+  Tools --> Rail["CategoryRail: segmented spaces"]
   Rail --> List["Displayed item list"]
   Rail --> Add["Create category text sheet"]
   Rail --> Manage["Manage category actions"]
@@ -58,12 +58,12 @@ References:
 - Naming stays `Category / 카테고리 / カテゴリ`.
 - Categories are required primary spaces. Every v2 item belongs to exactly one category.
 - Tags are optional cross-cutting metadata on items. They support inline `#tag` entry, item display, detail editing, and search.
-- The category rail sits between `V2LeafCommandBar` and the item list, not in a separate framed page section.
+- The category rail sits between `LeafCommandBar` and the item list, not in a separate framed page section.
 - The category rail is outside the item scroll container. Like the command bar, it stays fixed while only the item list scrolls.
 - Category buttons are grouped as a segmented control, so they read as space switching rather than independent tag chips.
 - The selected segment is rendered by a separate measured indicator, not by putting background/border styles on each selected button.
 - Add and manage live inside the same category rail box as a fixed right tool area, separated from the scrollable segments by a thin divider.
-- Create and rename use text-entry sheets. On iOS app runtime they use the generic Swift native sheet with a `text` request; Storybook, desktop, and browser keep using the Svelte `V2CategoryDetailSheet` fallback.
+- Create and rename use text-entry sheets. On iOS app runtime they use the generic Swift native sheet with a `text` request; Storybook, desktop, and browser keep using the Svelte `CategoryDetailSheet` fallback.
 - Category management uses the same native sheet bridge with an `actions` request on iOS. The native result is emitted after dismissal completes, then Svelte selects the next flow: rename opens the native text sheet, edit order enters category reorder mode, and delete opens the existing confirm modal.
 - Delete uses the v2 confirm modal because it also deletes the category's items.
 - Category order uses a deliberate iOS-style reorder mode: long press enters the mode, categories wiggle lightly, and the full segment can be dragged.
@@ -94,10 +94,10 @@ References:
 
 This slice now adds:
 
-- `V2CategoryRail` as the inline segmented category switcher.
-- `V2CategoryDetailSheet` as the web fallback for category create and rename.
+- `CategoryRail` as the inline segmented category switcher.
+- `CategoryDetailSheet` as the web fallback for category create and rename.
 - Swift native sheet text requests for iOS category create and rename.
-- Swift native sheet action requests for iOS category manage, with `V2CategoryManageSheet` retained for Storybook, desktop, and browser fallback.
+- Swift native sheet action requests for iOS category manage, with `CategoryManageSheet` retained for Storybook, desktop, and browser fallback.
 - Category delete confirmation through the existing v2 confirm modal style.
 - Long-press category reorder with light wiggle, a `Done` control, and full-segment drag.
 - Store error propagation so sheets close only after successful mutations.

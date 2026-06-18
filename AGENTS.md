@@ -13,21 +13,21 @@ This file guides AI agents working on the Tickly codebase.
 
 - Build small, flexible, verified slices. A slice is not complete until the data contract, behavior, UI surface, verification, and explanation are all handled.
 - Prefer progressive rebuilds and clear boundaries over broad rewrites.
-- Treat Tickly as a v2-only runtime. v1 runtime, sync, auth, and legacy feature code have been removed from the active app surface.
-- Document the reasoning for architectural decisions in `docs/development-principles.md` or `docs/v2-notes/`.
+- Treat Tickly as a single current-app runtime. Legacy runtime, sync, auth, and old feature code have been removed from the active app surface.
+- Document the reasoning for architectural decisions in `docs/development-principles.md` or the historical rebuild notes under `docs/v2-notes/`.
 - Do not move to a larger feature until the current small unit has a clear verification story.
 
-## v2 Rebuild Boundary
+## Current App Boundary
 
-- v2 is the canonical main UI at `/`.
+- The current app is the canonical main UI at `/`.
 - Removed compatibility routes such as `/v1`, `/v2`, and legacy `/graph` should not be reintroduced unless a task explicitly asks for migration or legacy compatibility.
-- v1 source and v1 command/store surfaces should not be reintroduced unless a task explicitly starts a legacy recovery or migration slice.
-- v2 backend commands use the `v2_` prefix.
-- v2 local persistence uses `v2_` SQLite tables.
-- v2 must not implicitly depend on removed v1 stores, v1 tables, sync, widget, tag, repeat, streak, reminder, linked-app, or graph flows.
-- v2 scope now includes the local checklist, tags, repeat, reminders, archive, streak, graph, settings, and the iOS widget flow.
-- Cloud sync is deferred and should not run from v2 runtime unless a future task explicitly reintroduces it.
-- Do not migrate or copy user data into v2 unless a task explicitly asks for a migration.
+- Legacy source and legacy command/store surfaces should not be reintroduced unless a task explicitly starts a recovery or migration slice.
+- Backend commands still use the `v2_` prefix as a stable Tauri command contract.
+- Local persistence still uses `v2_` SQLite tables as a stable storage contract.
+- Current app code must not implicitly depend on removed legacy stores, legacy tables, sync, widget, tag, repeat, streak, reminder, linked-app, or graph flows.
+- Current scope includes the local checklist, tags, repeat, reminders, archive, streak, graph, settings, and the iOS widget flow.
+- Cloud sync is deferred and should not run from the current runtime unless a future task explicitly reintroduces it.
+- Do not migrate or copy legacy user data unless a task explicitly asks for a migration.
 
 ## Build / Lint / Test Commands
 
@@ -78,11 +78,11 @@ When adding or changing app-level Swift sources, update the repo-owned template 
 **API Layer Usage:**
 - NEVER call `invoke()` directly from components
 - Always import and use API modules from `$lib/api/`
-- Example: `import * as v2ChecklistApi from '$lib/api/v2ChecklistApi'; await v2ChecklistApi.v2CreateItem(categoryId, 'text', [])`
+- Example: `import * as checklistApi from '$lib/api/checklistApi'; await checklistApi.createItem(categoryId, 'text', [])`
 
 **Stores:**
-- v2 runtime should use v2-specific stores from `$lib/v2`.
-- Legacy `$lib/stores` modules have been removed. Do not recreate a broad app/global store layer without a clear v2 reason.
+- Checklist runtime should use stores from `$lib/checklist`.
+- Legacy `$lib/stores` modules have been removed. Do not recreate a broad app/global store layer without a clear current-app reason.
 - Don't create new stores unless necessary
 - Store methods update reactive state and call API functions
 
@@ -142,7 +142,7 @@ When adding or changing app-level Swift sources, update the repo-owned template 
 - Cloud sync is currently deferred. When a future cloud-sync slice explicitly reintroduces remote persistence, define the new remote contract before adding schema files or sync metadata.
 
 **Sync Fields:**
-- Cloud sync is currently deferred. Do not add sync metadata or remote-schema fields to v2 local entities unless a future sync slice explicitly defines that contract.
+- Cloud sync is currently deferred. Do not add sync metadata or remote-schema fields to local entities unless a future sync slice explicitly defines that contract.
 
 ### General
 
@@ -176,7 +176,7 @@ When adding or changing app-level Swift sources, update the repo-owned template 
 ## Forbidden Rules
 
 - Do not perform a big-bang rewrite.
-- Do not blur v1 and v2 data or state boundaries.
+- Do not blur legacy and current-app data or state boundaries.
 - Do not introduce direct SQL string concatenation for user-provided values.
 - Do not add new stores, dependencies, migrations, or architecture patterns without a clear reason.
 - Do not run destructive git commands unless the user explicitly requests them.

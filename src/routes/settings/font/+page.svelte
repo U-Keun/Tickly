@@ -4,11 +4,11 @@
   import { onMount } from 'svelte';
 
   import FontPreview from '../../../components/FontPreview.svelte';
-  import V2SettingsActionFooter from '../../../components/settings/V2SettingsActionFooter.svelte';
-  import V2SettingsChoiceCard from '../../../components/settings/V2SettingsChoiceCard.svelte';
-  import V2SettingsChoiceRow from '../../../components/settings/V2SettingsChoiceRow.svelte';
-  import V2SettingsGroup from '../../../components/settings/V2SettingsGroup.svelte';
-  import V2SettingsShell from '../../../components/settings/V2SettingsShell.svelte';
+  import SettingsActionFooter from '../../../components/settings/SettingsActionFooter.svelte';
+  import SettingsChoiceCard from '../../../components/settings/SettingsChoiceCard.svelte';
+  import SettingsChoiceRow from '../../../components/settings/SettingsChoiceRow.svelte';
+  import SettingsGroup from '../../../components/settings/SettingsGroup.svelte';
+  import SettingsShell from '../../../components/settings/SettingsShell.svelte';
   import {
     applyFonts,
     fontPresets,
@@ -63,11 +63,11 @@
   }
 </script>
 
-<V2SettingsShell title={i18n.t('fontTitle')} onBack={handleBack}>
+<SettingsShell title={i18n.t('fontTitle')} onBack={handleBack}>
   <div class="flex flex-col gap-5">
-    <V2SettingsGroup title={i18n.t('fontPreset')}>
+    <SettingsGroup title={i18n.t('fontPreset')}>
       {#each fontPresets as preset}
-        <V2SettingsChoiceRow
+        <SettingsChoiceRow
           label={getFontPresetName(preset.id, translateLabel)}
           selected={currentSettings.presetId === preset.id}
           onSelect={() => selectPreset(preset.id)}
@@ -80,21 +80,21 @@
               Aa
             </span>
           {/snippet}
-        </V2SettingsChoiceRow>
+        </SettingsChoiceRow>
       {/each}
-    </V2SettingsGroup>
+    </SettingsGroup>
 
     <section class="space-y-2">
       <h2 class="px-1 text-[13px] font-semibold leading-5 text-ink-muted">{i18n.t('fontSize')}</h2>
       <div class="grid grid-cols-3 gap-2">
         {#each Object.entries(fontSizes) as [size, config]}
-          <V2SettingsChoiceCard
+          <SettingsChoiceCard
             label={getFontSizeName(size as FontSize, translateLabel)}
             selected={currentSettings.size === size}
             onSelect={() => selectSize(size as FontSize)}
           >
             <span class="block text-[22px] font-semibold leading-7 text-ink">{config.base}px</span>
-          </V2SettingsChoiceCard>
+          </SettingsChoiceCard>
         {/each}
       </div>
     </section>
@@ -106,6 +106,6 @@
   </div>
 
   {#snippet footer()}
-    <V2SettingsActionFooter onSave={handleSave} />
+    <SettingsActionFooter onSave={handleSave} />
   {/snippet}
-</V2SettingsShell>
+</SettingsShell>

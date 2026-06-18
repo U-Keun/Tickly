@@ -7,9 +7,9 @@
   import { i18n } from '$lib/i18n';
   import * as settingsApi from '$lib/api/settingsApi';
   import { getSettingsReturnTo, settingsPathWithReturnTo } from '$lib/settings/returnTo';
-  import V2SettingsActionFooter from '../../../components/settings/V2SettingsActionFooter.svelte';
-  import V2SettingsGroup from '../../../components/settings/V2SettingsGroup.svelte';
-  import V2SettingsShell from '../../../components/settings/V2SettingsShell.svelte';
+  import SettingsActionFooter from '../../../components/settings/SettingsActionFooter.svelte';
+  import SettingsGroup from '../../../components/settings/SettingsGroup.svelte';
+  import SettingsShell from '../../../components/settings/SettingsShell.svelte';
 
   const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
   const minutes = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
@@ -39,11 +39,11 @@
   }
 </script>
 
-<V2SettingsShell
+<SettingsShell
   title={i18n.t('resetTimeTitle')}
   onBack={() => void goto(settingsPathWithReturnTo('/settings', returnTo))}
 >
-  <V2SettingsGroup title={i18n.t('resetTimeChange')} description={i18n.t('resetTimeDescription')}>
+  <SettingsGroup title={i18n.t('resetTimeChange')} description={i18n.t('resetTimeDescription')}>
     <div class="px-4 py-4">
       <div
         class="flex min-h-[96px] items-center gap-4 rounded-[6px_20px_6px_20px] border border-stroke bg-canvas px-4 py-4"
@@ -86,9 +86,9 @@
         {i18n.t('resetTimeRepeatHint')}
       </p>
     </div>
-  </V2SettingsGroup>
+  </SettingsGroup>
 
   {#snippet footer()}
-    <V2SettingsActionFooter onSave={saveResetTime} disabled={!hasChanges} />
+    <SettingsActionFooter onSave={saveResetTime} disabled={!hasChanges} />
   {/snippet}
-</V2SettingsShell>
+</SettingsShell>

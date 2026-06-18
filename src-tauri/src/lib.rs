@@ -58,7 +58,7 @@ pub fn run() {
             // Settings commands
             get_setting,
             set_setting,
-            // v2 local checklist commands
+            // Checklist commands
             v2_get_categories,
             v2_create_category,
             v2_update_category,

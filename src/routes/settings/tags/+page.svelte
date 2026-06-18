@@ -5,23 +5,23 @@
   import { fade, slide } from 'svelte/transition';
   import { Hash, Pencil, Trash2 } from '@lucide/svelte';
 
-  import type { V2TagSummary } from '../../../types';
-  import V2SettingsGroup from '../../../components/settings/V2SettingsGroup.svelte';
-  import V2SettingsShell from '../../../components/settings/V2SettingsShell.svelte';
-  import V2BottomSheet from '../../../components/v2/V2BottomSheet.svelte';
-  import V2ConfirmModal from '../../../components/v2/V2ConfirmModal.svelte';
+  import type { TagSummary } from '../../../types';
+  import SettingsGroup from '../../../components/settings/SettingsGroup.svelte';
+  import SettingsShell from '../../../components/settings/SettingsShell.svelte';
+  import BottomSheet from '../../../components/checklist/BottomSheet.svelte';
+  import ConfirmModal from '../../../components/checklist/ConfirmModal.svelte';
   import { i18n } from '$lib/i18n';
   import { getSettingsReturnTo, settingsPathWithReturnTo } from '$lib/settings/returnTo';
-  import * as v2ChecklistApi from '$lib/api/v2ChecklistApi';
+  import * as checklistApi from '$lib/api/checklistApi';
 
   let returnTo = $derived(getSettingsReturnTo($page.url.searchParams));
-  let tagSummaries = $state<V2TagSummary[]>([]);
+  let tagSummaries = $state<TagSummary[]>([]);
   let isLoading = $state(true);
   let errorMessage = $state<string | null>(null);
-  let tagPendingRename = $state<V2TagSummary | null>(null);
+  let tagPendingRename = $state<TagSummary | null>(null);
   let renameDraft = $state('');
   let isRenaming = $state(false);
-  let tagPendingDeletion = $state<V2TagSummary | null>(null);
+  let tagPendingDeletion = $state<TagSummary | null>(null);
   let deletingTagId = $state<number | null>(null);
   let trimmedRenameDraft = $derived(renameDraft.trim());
   let canSaveRename = $derived(
@@ -36,17 +36,17 @@
     errorMessage = null;
 
     try {
-      tagSummaries = await v2ChecklistApi.v2GetTagSummaries();
+      tagSummaries = await checklistApi.getTagSummaries();
     } catch (error) {
       const nextError = error instanceof Error ? error : new Error(String(error));
       errorMessage = nextError.message;
-      console.error('Failed to load v2 tag summaries.', error);
+      console.error('Failed to load tag summaries.', error);
     } finally {
       isLoading = false;
     }
   }
 
-  function openRenameSheet(summary: V2TagSummary): void {
+  function openRenameSheet(summary: TagSummary): void {
     if (isRenaming || deletingTagId !== null) return;
 
     tagPendingRename = summary;
@@ -68,20 +68,20 @@
     errorMessage = null;
 
     try {
-      await v2ChecklistApi.v2RenameTag(tagPendingRename.tag.id, trimmedRenameDraft);
+      await checklistApi.renameTag(tagPendingRename.tag.id, trimmedRenameDraft);
       await loadTagSummaries();
       tagPendingRename = null;
       renameDraft = '';
     } catch (error) {
       const nextError = error instanceof Error ? error : new Error(String(error));
       errorMessage = nextError.message;
-      console.error('Failed to rename v2 tag.', error);
+      console.error('Failed to rename tag.', error);
     } finally {
       isRenaming = false;
     }
   }
 
-  function requestDeleteTag(summary: V2TagSummary): void {
+  function requestDeleteTag(summary: TagSummary): void {
     if (isRenaming || deletingTagId !== null) return;
 
     tagPendingDeletion = summary;
@@ -101,13 +101,13 @@
     errorMessage = null;
 
     try {
-      await v2ChecklistApi.v2DeleteTag(tagId);
+      await checklistApi.deleteTag(tagId);
       tagSummaries = tagSummaries.filter((summary) => summary.tag.id !== tagId);
       tagPendingDeletion = null;
     } catch (error) {
       const nextError = error instanceof Error ? error : new Error(String(error));
       errorMessage = nextError.message;
-      console.error('Failed to delete v2 tag.', error);
+      console.error('Failed to delete tag.', error);
     } finally {
       deletingTagId = null;
     }
@@ -118,8 +118,8 @@
   });
 </script>
 
-<V2SettingsShell
-  title={i18n.t('v2TagManageTitle')}
+<SettingsShell
+  title={i18n.t('checklistTagManageTitle')}
   onBack={() => void goto(settingsPathWithReturnTo('/settings', returnTo))}
 >
   <div class="flex flex-col gap-5">
@@ -129,18 +129,18 @@
       </div>
     {/if}
 
-    <V2SettingsGroup
-      title={i18n.t('v2TagManageGroupTitle')}
-      description={i18n.t('v2TagManageDescription')}
+    <SettingsGroup
+      title={i18n.t('checklistTagManageGroupTitle')}
+      description={i18n.t('checklistTagManageDescription')}
     >
       {#if isLoading}
         <div class="flex min-h-24 items-center px-4 py-4 text-sm font-medium text-ink-muted">
-          {i18n.t('v2Loading')}
+          {i18n.t('checklistLoading')}
         </div>
       {:else if tagSummaries.length === 0}
         <div class="px-4 py-6 text-sm leading-6 text-ink-muted">
-          <p class="font-semibold text-ink">{i18n.t('v2TagManageEmptyTitle')}</p>
-          <p class="mt-1">{i18n.t('v2TagManageEmptyDescription')}</p>
+          <p class="font-semibold text-ink">{i18n.t('checklistTagManageEmptyTitle')}</p>
+          <p class="mt-1">{i18n.t('checklistTagManageEmptyDescription')}</p>
         </div>
       {:else}
         <div class="divide-y divide-stroke">
@@ -163,7 +163,7 @@
                       <span
                         class="shrink-0 rounded-full bg-canvas px-2.5 py-1 text-[11px] font-semibold leading-4 text-ink-muted"
                       >
-                        {i18n.t('v2TagItemCountTemplate')(summary.item_count)}
+                        {i18n.t('checklistTagItemCountTemplate')(summary.item_count)}
                       </span>
                     </div>
                   </div>
@@ -172,7 +172,7 @@
                     <button
                       type="button"
                       class="flex h-11 w-11 items-center justify-center rounded-[12px] text-ink-muted transition-colors hover:bg-accent-sky hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
-                      aria-label={i18n.t('v2RenameTag')}
+                      aria-label={i18n.t('checklistRenameTag')}
                       disabled={isRenaming || deletingTagId !== null}
                       onclick={() => openRenameSheet(summary)}
                     >
@@ -181,7 +181,7 @@
                     <button
                       type="button"
                       class="flex h-11 w-11 items-center justify-center rounded-[12px] text-ink-muted transition-colors hover:bg-accent-peach hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
-                      aria-label={i18n.t('v2DeleteTag')}
+                      aria-label={i18n.t('checklistDeleteTag')}
                       disabled={isRenaming || deletingTagId !== null}
                       onclick={() => requestDeleteTag(summary)}
                     >
@@ -194,24 +194,24 @@
           {/each}
         </div>
       {/if}
-    </V2SettingsGroup>
+    </SettingsGroup>
   </div>
-</V2SettingsShell>
+</SettingsShell>
 
-<V2BottomSheet
+<BottomSheet
   show={tagPendingRename !== null}
-  title={i18n.t('v2RenameTagTitle')}
+  title={i18n.t('checklistRenameTagTitle')}
   onClose={closeRenameSheet}
 >
   {#snippet footer()}
     <div class="flex gap-[10px]">
       <button
         type="submit"
-        form="v2-tag-rename-form"
+        form="tag-rename-form"
         class="min-h-12 flex-1 rounded-[14px] bg-accent-sky-strong px-4 text-sm font-semibold text-ink transition-colors hover:bg-accent-sky disabled:cursor-not-allowed disabled:opacity-50"
         disabled={!canSaveRename}
       >
-        {isRenaming ? i18n.t('v2RenamingTag') : i18n.t('v2SaveTag')}
+        {isRenaming ? i18n.t('checklistRenamingTag') : i18n.t('checklistSaveTag')}
       </button>
       <button
         type="button"
@@ -224,30 +224,30 @@
     </div>
   {/snippet}
 
-  <form id="v2-tag-rename-form" class="flex flex-col gap-3" onsubmit={submitRename}>
+  <form id="tag-rename-form" class="flex flex-col gap-3" onsubmit={submitRename}>
     <label class="flex flex-col gap-2">
-      <span class="text-sm font-semibold leading-5 text-ink">{i18n.t('v2TagNameLabel')}</span>
+      <span class="text-sm font-semibold leading-5 text-ink">{i18n.t('checklistTagNameLabel')}</span>
       <input
         bind:value={renameDraft}
         class="min-h-[52px] rounded-[14px] border-2 border-ink bg-paper px-[14px] text-base text-ink outline-none transition-colors focus:bg-canvas"
-        placeholder={i18n.t('v2TagNamePlaceholder')}
-        aria-label={i18n.t('v2TagNameLabel')}
+        placeholder={i18n.t('checklistTagNamePlaceholder')}
+        aria-label={i18n.t('checklistTagNameLabel')}
         disabled={isRenaming}
       />
     </label>
   </form>
-</V2BottomSheet>
+</BottomSheet>
 
-<V2ConfirmModal
+<ConfirmModal
   show={tagPendingDeletion !== null}
-  title={i18n.t('v2DeleteTagConfirmTitle')}
+  title={i18n.t('checklistDeleteTagConfirmTitle')}
   message={tagPendingDeletion
-    ? i18n.t('v2DeleteTagConfirmMessageTemplate')(
+    ? i18n.t('checklistDeleteTagConfirmMessageTemplate')(
         tagPendingDeletion.tag.name,
         tagPendingDeletion.item_count
       )
     : ''}
-  confirmLabel={deletingTagId === null ? i18n.t('v2DeleteTag') : i18n.t('v2DeletingTag')}
+  confirmLabel={deletingTagId === null ? i18n.t('checklistDeleteTag') : i18n.t('checklistDeletingTag')}
   tone="danger"
   isBusy={deletingTagId !== null}
   onConfirm={confirmDeleteTag}

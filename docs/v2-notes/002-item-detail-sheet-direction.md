@@ -23,7 +23,7 @@ flowchart TB
 
 - Drawer trigger: tapping the text row toggles the inline drawer. The checkbox keeps its own complete/restore action.
 - Drawer role: quick actions plus lightweight reading detail. The opened drawer shows the item title first, then memo and tag previews when present. Direct edit inputs do not live inside the drawer.
-- Edit role: the Edit action opens the item detail sheet. On iOS app runtime this uses the generic Swift native sheet with a `form` request, including text, memo, tag, and repeat fields. Storybook, desktop, and browser keep using the Svelte `V2ItemDetailSheet` fallback.
+- Edit role: the Edit action opens the item detail sheet. On iOS app runtime this uses the generic Swift native sheet with a `form` request, including text, memo, tag, and repeat fields. Storybook, desktop, and browser keep using the Svelte `ItemDetailSheet` fallback.
 - Form style: item detail editing is placeholder-first. Visible field labels are hidden, while accessibility labels remain attached to the name, memo, and tag fields.
 - Delete role: the Delete action opens the confirm modal without forcing the drawer closed, so canceling returns to the same row context.
 - Reorder role: Move Up and Move Down appear inside the drawer only while reorder mode is active.

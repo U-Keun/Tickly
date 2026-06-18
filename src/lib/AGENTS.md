@@ -19,7 +19,8 @@ Apply the root and `src/AGENTS.md` first. This file adds rules for `src/lib/`.
 - Utility modules should be pure where practical.
 - Platform or browser side effects should be explicit and easy to test manually.
 
-## v2
+## Checklist Runtime
 
-- v2 lib modules should be named clearly, such as `v2ChecklistApi` and `v2ChecklistStore`.
-- v2 stores must not import v1 app, modal, auth, sync, tag, repeat, widget, or notification stores.
+- Checklist runtime modules live in `src/lib/checklist/`.
+- The API wrappers may still call `v2_` Tauri commands and local SQLite tables; do not rename those contracts without an explicit migration slice.
+- Checklist stores must not import legacy app, modal, auth, sync, tag, repeat, widget, or notification stores.

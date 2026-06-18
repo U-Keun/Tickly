@@ -23,7 +23,7 @@ v2 uses parallel names and tables:
 ```mermaid
 flowchart TB
   V1["removed v1 runtime"] -. "not used" .-> V1Tables["old categories / todos / sync tables"]
-  V2["/ app route"] --> V2Api["v2ChecklistApi"]
+  V2["/ app route"] --> V2Api["checklistApi"]
   V2Api --> V2Commands["v2_* commands"]
   V2Commands --> V2Tables["v2_categories / v2_todos"]
 ```

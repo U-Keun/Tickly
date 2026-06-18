@@ -7,8 +7,8 @@ impl WidgetService {
         conn: &Connection,
         max_items: Option<usize>,
     ) -> Result<WidgetSnapshot, rusqlite::Error> {
-        V2ChecklistRepository::ensure_default_category(conn)?;
-        let categories = V2ChecklistRepository::get_categories(conn)?;
+        ChecklistRepository::ensure_default_category(conn)?;
+        let categories = ChecklistRepository::get_categories(conn)?;
         let category_name_map: HashMap<i64, String> = categories
             .iter()
             .map(|cat| (cat.id, cat.name.clone()))
@@ -21,7 +21,7 @@ impl WidgetService {
         let mut category_counts: HashMap<i64, (usize, usize)> = HashMap::new();
 
         for category in &categories {
-            let category_items = V2ChecklistRepository::get_items(conn, category.id)?;
+            let category_items = ChecklistRepository::get_items(conn, category.id)?;
             let entry = category_counts.entry(category.id).or_insert((0, 0));
             entry.0 = category_items.len();
             entry.1 = category_items.iter().filter(|item| !item.done).count();

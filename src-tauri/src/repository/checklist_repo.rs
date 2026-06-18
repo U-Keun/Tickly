@@ -1,0 +1,1771 @@
+use rusqlite::{params, Connection, OptionalExtension};
+
+use crate::models::{
+    ChecklistArchivedItem, ChecklistCategory, ChecklistGraphData, ChecklistGraphTagEdge,
+    ChecklistItemSearchResult, ChecklistRepeatType, ChecklistStreakLog, ChecklistTag,
+    ChecklistTagSummary, ChecklistTodoItem,
+};
+
+pub struct ChecklistRepository;
+
+impl ChecklistRepository {
+    const ORDER_STEP: i64 = 1000;
+    const CATEGORY_COLUMNS: &'static str = "id, name, display_order, created_at, updated_at";
+    const TAG_COLUMNS: &'static str = "id, name, created_at, updated_at";
+    const ITEM_COLUMNS: &'static str = "id, category_id, text, memo, repeat_type, repeat_detail, next_due_at, last_completed_at, reminder_at, archived_at, track_streak, streak_started_on, done, display_order, created_at, updated_at";
+
+    pub fn create_tables(conn: &Connection) -> Result<(), rusqlite::Error> {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS v2_categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                display_order INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS v2_todos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category_id INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                memo TEXT,
+                repeat_type TEXT NOT NULL DEFAULT 'none',
+                repeat_detail TEXT,
+                next_due_at TEXT,
+                last_completed_at TEXT,
+                reminder_at TEXT,
+                archived_at TEXT,
+                track_streak BOOLEAN NOT NULL DEFAULT 0,
+                streak_started_on TEXT,
+                done BOOLEAN NOT NULL DEFAULT 0,
+                display_order INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (category_id) REFERENCES v2_categories(id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_v2_todos_category_order
+                ON v2_todos(category_id, done, display_order);
+
+            CREATE TABLE IF NOT EXISTS v2_tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS v2_todo_tags (
+                todo_id INTEGER NOT NULL,
+                tag_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (todo_id, tag_id),
+                FOREIGN KEY (todo_id) REFERENCES v2_todos(id) ON DELETE CASCADE,
+                FOREIGN KEY (tag_id) REFERENCES v2_tags(id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_v2_todo_tags_tag_id
+                ON v2_todo_tags(tag_id);
+
+            CREATE TABLE IF NOT EXISTS v2_completion_logs (
+                item_id INTEGER NOT NULL,
+                completed_on TEXT NOT NULL,
+                completed_count INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (item_id, completed_on),
+                FOREIGN KEY (item_id) REFERENCES v2_todos(id) ON DELETE CASCADE
+            );",
+        )?;
+        Self::ensure_todo_columns(conn)?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_v2_todos_archive_category_order
+             ON v2_todos(archived_at, category_id, done, display_order)",
+            [],
+        )?;
+
+        Ok(())
+    }
+
+    fn ensure_todo_columns(conn: &Connection) -> Result<(), rusqlite::Error> {
+        if !Self::todos_has_column(conn, "memo")? {
+            conn.execute("ALTER TABLE v2_todos ADD COLUMN memo TEXT", [])?;
+        }
+        if !Self::todos_has_column(conn, "repeat_type")? {
+            conn.execute(
+                "ALTER TABLE v2_todos ADD COLUMN repeat_type TEXT NOT NULL DEFAULT 'none'",
+                [],
+            )?;
+        }
+        if !Self::todos_has_column(conn, "repeat_detail")? {
+            conn.execute("ALTER TABLE v2_todos ADD COLUMN repeat_detail TEXT", [])?;
+        }
+        if !Self::todos_has_column(conn, "next_due_at")? {
+            conn.execute("ALTER TABLE v2_todos ADD COLUMN next_due_at TEXT", [])?;
+        }
+        if !Self::todos_has_column(conn, "last_completed_at")? {
+            conn.execute("ALTER TABLE v2_todos ADD COLUMN last_completed_at TEXT", [])?;
+        }
+        if !Self::todos_has_column(conn, "reminder_at")? {
+            conn.execute("ALTER TABLE v2_todos ADD COLUMN reminder_at TEXT", [])?;
+        }
+        if !Self::todos_has_column(conn, "archived_at")? {
+            conn.execute("ALTER TABLE v2_todos ADD COLUMN archived_at TEXT", [])?;
+        }
+        if !Self::todos_has_column(conn, "track_streak")? {
+            conn.execute(
+                "ALTER TABLE v2_todos ADD COLUMN track_streak BOOLEAN NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
+        if !Self::todos_has_column(conn, "streak_started_on")? {
+            conn.execute("ALTER TABLE v2_todos ADD COLUMN streak_started_on TEXT", [])?;
+        }
+        Ok(())
+    }
+
+    fn todos_has_column(conn: &Connection, column_name: &str) -> Result<bool, rusqlite::Error> {
+        let mut stmt = conn.prepare("PRAGMA table_info(v2_todos)")?;
+        let columns = stmt.query_map([], |row| row.get::<_, String>(1))?;
+
+        for column in columns {
+            if column? == column_name {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
+    }
+
+    pub fn ensure_default_category(conn: &Connection) -> Result<(), rusqlite::Error> {
+        let category_count: i64 =
+            conn.query_row("SELECT COUNT(*) FROM v2_categories", [], |row| row.get(0))?;
+
+        if category_count == 0 {
+            let now = Self::now_iso();
+            conn.execute(
+                "INSERT INTO v2_categories (name, display_order, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params!["Home", Self::ORDER_STEP, &now, &now],
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn now_iso() -> String {
+        chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string()
+    }
+
+    fn row_to_category(row: &rusqlite::Row) -> Result<ChecklistCategory, rusqlite::Error> {
+        Ok(ChecklistCategory {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            display_order: row.get(2)?,
+            created_at: row.get(3)?,
+            updated_at: row.get(4)?,
+        })
+    }
+
+    fn row_to_item(row: &rusqlite::Row) -> Result<ChecklistTodoItem, rusqlite::Error> {
+        let repeat_type: String = row.get(4)?;
+        Ok(ChecklistTodoItem {
+            id: row.get(0)?,
+            category_id: row.get(1)?,
+            text: row.get(2)?,
+            memo: row.get(3)?,
+            tags: Vec::new(),
+            repeat_type: ChecklistRepeatType::from_str(&repeat_type),
+            repeat_detail: row.get(5)?,
+            next_due_at: row.get(6)?,
+            last_completed_at: row.get(7)?,
+            reminder_at: row.get(8)?,
+            archived_at: row.get(9)?,
+            track_streak: row.get(10)?,
+            streak_started_on: row.get(11)?,
+            done: row.get(12)?,
+            display_order: row.get(13)?,
+            created_at: row.get(14)?,
+            updated_at: row.get(15)?,
+        })
+    }
+
+    fn row_to_tag(row: &rusqlite::Row) -> Result<ChecklistTag, rusqlite::Error> {
+        Ok(ChecklistTag {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            created_at: row.get(2)?,
+            updated_at: row.get(3)?,
+        })
+    }
+
+    fn row_to_tag_summary(row: &rusqlite::Row) -> Result<ChecklistTagSummary, rusqlite::Error> {
+        Ok(ChecklistTagSummary {
+            tag: ChecklistTag {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                created_at: row.get(2)?,
+                updated_at: row.get(3)?,
+            },
+            item_count: row.get(4)?,
+        })
+    }
+
+    fn row_to_search_result(
+        row: &rusqlite::Row,
+    ) -> Result<ChecklistItemSearchResult, rusqlite::Error> {
+        let repeat_type: String = row.get(4)?;
+        Ok(ChecklistItemSearchResult {
+            item: ChecklistTodoItem {
+                id: row.get(0)?,
+                category_id: row.get(1)?,
+                text: row.get(2)?,
+                memo: row.get(3)?,
+                tags: Vec::new(),
+                repeat_type: ChecklistRepeatType::from_str(&repeat_type),
+                repeat_detail: row.get(5)?,
+                next_due_at: row.get(6)?,
+                last_completed_at: row.get(7)?,
+                reminder_at: row.get(8)?,
+                archived_at: row.get(9)?,
+                track_streak: row.get(10)?,
+                streak_started_on: row.get(11)?,
+                done: row.get(12)?,
+                display_order: row.get(13)?,
+                created_at: row.get(14)?,
+                updated_at: row.get(15)?,
+            },
+            category: ChecklistCategory {
+                id: row.get(16)?,
+                name: row.get(17)?,
+                display_order: row.get(18)?,
+                created_at: row.get(19)?,
+                updated_at: row.get(20)?,
+            },
+        })
+    }
+
+    fn row_to_archived_item(row: &rusqlite::Row) -> Result<ChecklistArchivedItem, rusqlite::Error> {
+        let search_result = Self::row_to_search_result(row)?;
+        Ok(ChecklistArchivedItem {
+            item: search_result.item,
+            category: search_result.category,
+        })
+    }
+
+    fn like_pattern(query: &str) -> String {
+        let mut pattern = String::from("%");
+        for character in query.chars() {
+            if matches!(character, '%' | '_' | '\\') {
+                pattern.push('\\');
+            }
+            pattern.push(character);
+        }
+        pattern.push('%');
+        pattern
+    }
+
+    fn attach_tags_to_items(
+        conn: &Connection,
+        mut items: Vec<ChecklistTodoItem>,
+    ) -> Result<Vec<ChecklistTodoItem>, rusqlite::Error> {
+        for item in items.iter_mut() {
+            item.tags = Self::get_tags_for_item(conn, item.id)?;
+        }
+
+        Ok(items)
+    }
+
+    fn attach_tags_to_search_results(
+        conn: &Connection,
+        mut results: Vec<ChecklistItemSearchResult>,
+    ) -> Result<Vec<ChecklistItemSearchResult>, rusqlite::Error> {
+        for result in results.iter_mut() {
+            result.item.tags = Self::get_tags_for_item(conn, result.item.id)?;
+        }
+
+        Ok(results)
+    }
+
+    fn get_tag_by_name(
+        conn: &Connection,
+        name: &str,
+    ) -> Result<Option<ChecklistTag>, rusqlite::Error> {
+        let sql = format!(
+            "SELECT {} FROM v2_tags WHERE name = ?1 COLLATE NOCASE",
+            Self::TAG_COLUMNS
+        );
+        conn.query_row(&sql, params![name], Self::row_to_tag)
+            .optional()
+    }
+
+    fn get_tag_by_id(conn: &Connection, id: i64) -> Result<Option<ChecklistTag>, rusqlite::Error> {
+        let sql = format!("SELECT {} FROM v2_tags WHERE id = ?1", Self::TAG_COLUMNS);
+        conn.query_row(&sql, params![id], Self::row_to_tag)
+            .optional()
+    }
+
+    fn get_or_create_tag(conn: &Connection, name: &str) -> Result<ChecklistTag, rusqlite::Error> {
+        if let Some(tag) = Self::get_tag_by_name(conn, name)? {
+            return Ok(tag);
+        }
+
+        let now = Self::now_iso();
+        conn.execute(
+            "INSERT OR IGNORE INTO v2_tags (name, created_at, updated_at)
+             VALUES (?1, ?2, ?3)",
+            params![name, &now, &now],
+        )?;
+
+        Self::get_tag_by_name(conn, name)?.ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
+    fn replace_item_tags(
+        conn: &Connection,
+        item_id: i64,
+        tag_names: &[String],
+    ) -> Result<(), rusqlite::Error> {
+        conn.execute(
+            "DELETE FROM v2_todo_tags WHERE todo_id = ?1",
+            params![item_id],
+        )?;
+
+        let now = Self::now_iso();
+        for tag_name in tag_names {
+            let tag = Self::get_or_create_tag(conn, tag_name)?;
+            conn.execute(
+                "INSERT OR IGNORE INTO v2_todo_tags (todo_id, tag_id, created_at)
+                 VALUES (?1, ?2, ?3)",
+                params![item_id, tag.id, &now],
+            )?;
+        }
+
+        Self::cleanup_unused_tags(conn)?;
+        Ok(())
+    }
+
+    fn cleanup_unused_tags(conn: &Connection) -> Result<(), rusqlite::Error> {
+        conn.execute(
+            "DELETE FROM v2_tags
+             WHERE id NOT IN (SELECT DISTINCT tag_id FROM v2_todo_tags)",
+            [],
+        )?;
+        Ok(())
+    }
+
+    pub fn count_categories(conn: &Connection) -> Result<i64, rusqlite::Error> {
+        conn.query_row("SELECT COUNT(*) FROM v2_categories", [], |row| row.get(0))
+    }
+
+    pub fn get_categories(conn: &Connection) -> Result<Vec<ChecklistCategory>, rusqlite::Error> {
+        let sql = format!(
+            "SELECT {} FROM v2_categories ORDER BY display_order ASC",
+            Self::CATEGORY_COLUMNS
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let categories = stmt
+            .query_map([], Self::row_to_category)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(categories)
+    }
+
+    pub fn get_category_by_id(
+        conn: &Connection,
+        id: i64,
+    ) -> Result<Option<ChecklistCategory>, rusqlite::Error> {
+        let sql = format!(
+            "SELECT {} FROM v2_categories WHERE id = ?1",
+            Self::CATEGORY_COLUMNS
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let mut rows = stmt.query_map(params![id], Self::row_to_category)?;
+
+        if let Some(category) = rows.next() {
+            Ok(Some(category?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn create_category(
+        conn: &Connection,
+        name: &str,
+    ) -> Result<ChecklistCategory, rusqlite::Error> {
+        let max_order: i64 = conn
+            .query_row(
+                "SELECT COALESCE(MAX(display_order), 0) FROM v2_categories",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+        let display_order = max_order + Self::ORDER_STEP;
+        let now = Self::now_iso();
+
+        conn.execute(
+            "INSERT INTO v2_categories (name, display_order, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![name, display_order, &now, &now],
+        )?;
+
+        Ok(ChecklistCategory {
+            id: conn.last_insert_rowid(),
+            name: name.to_string(),
+            display_order,
+            created_at: now.clone(),
+            updated_at: now,
+        })
+    }
+
+    pub fn update_category(conn: &Connection, id: i64, name: &str) -> Result<(), rusqlite::Error> {
+        let now = Self::now_iso();
+        let updated = conn.execute(
+            "UPDATE v2_categories SET name = ?1, updated_at = ?2 WHERE id = ?3",
+            params![name, now, id],
+        )?;
+        if updated == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        Ok(())
+    }
+
+    pub fn delete_category(conn: &Connection, id: i64) -> Result<(), rusqlite::Error> {
+        conn.execute("BEGIN TRANSACTION", [])?;
+
+        if let Err(error) = conn.execute(
+            "DELETE FROM v2_todo_tags
+             WHERE todo_id IN (SELECT id FROM v2_todos WHERE category_id = ?1)",
+            params![id],
+        ) {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+
+        if let Err(error) = conn.execute(
+            "DELETE FROM v2_completion_logs
+             WHERE item_id IN (SELECT id FROM v2_todos WHERE category_id = ?1)",
+            params![id],
+        ) {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+
+        if let Err(error) = conn.execute("DELETE FROM v2_todos WHERE category_id = ?1", params![id])
+        {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+
+        match conn.execute("DELETE FROM v2_categories WHERE id = ?1", params![id]) {
+            Ok(0) => {
+                let _ = conn.execute("ROLLBACK", []);
+                Err(rusqlite::Error::QueryReturnedNoRows)
+            }
+            Ok(_) => {
+                if let Err(error) = Self::cleanup_unused_tags(conn) {
+                    let _ = conn.execute("ROLLBACK", []);
+                    return Err(error);
+                }
+                conn.execute("COMMIT", [])?;
+                Ok(())
+            }
+            Err(error) => {
+                let _ = conn.execute("ROLLBACK", []);
+                Err(error)
+            }
+        }
+    }
+
+    pub fn reorder_categories(
+        conn: &Connection,
+        category_ids: &[i64],
+    ) -> Result<(), rusqlite::Error> {
+        conn.execute("BEGIN TRANSACTION", [])?;
+        let now = Self::now_iso();
+
+        for (index, category_id) in category_ids.iter().enumerate() {
+            let display_order = (index as i64 + 1) * Self::ORDER_STEP;
+            match conn.execute(
+                "UPDATE v2_categories
+                 SET display_order = ?1, updated_at = ?2
+                 WHERE id = ?3",
+                params![display_order, &now, category_id],
+            ) {
+                Ok(1) => {}
+                Ok(_) => {
+                    let _ = conn.execute("ROLLBACK", []);
+                    return Err(rusqlite::Error::QueryReturnedNoRows);
+                }
+                Err(error) => {
+                    let _ = conn.execute("ROLLBACK", []);
+                    return Err(error);
+                }
+            }
+        }
+
+        conn.execute("COMMIT", [])?;
+        Ok(())
+    }
+
+    pub fn get_tags(conn: &Connection) -> Result<Vec<ChecklistTag>, rusqlite::Error> {
+        let sql = format!(
+            "SELECT {} FROM v2_tags ORDER BY name COLLATE NOCASE ASC",
+            Self::TAG_COLUMNS
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let tags = stmt
+            .query_map([], Self::row_to_tag)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(tags)
+    }
+
+    pub fn get_tag_summaries(
+        conn: &Connection,
+    ) -> Result<Vec<ChecklistTagSummary>, rusqlite::Error> {
+        let sql = "\
+            SELECT
+                tg.id,
+                tg.name,
+                tg.created_at,
+                tg.updated_at,
+                COUNT(DISTINCT CASE
+                    WHEN t.archived_at IS NULL THEN tt.todo_id
+                    ELSE NULL
+                END) AS item_count
+            FROM v2_tags tg
+            LEFT JOIN v2_todo_tags tt ON tt.tag_id = tg.id
+            LEFT JOIN v2_todos t ON t.id = tt.todo_id
+            GROUP BY tg.id, tg.name, tg.created_at, tg.updated_at
+            ORDER BY tg.name COLLATE NOCASE ASC";
+        let mut stmt = conn.prepare(sql)?;
+        let tags = stmt
+            .query_map([], Self::row_to_tag_summary)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(tags)
+    }
+
+    pub fn rename_tag(
+        conn: &Connection,
+        id: i64,
+        name: &str,
+    ) -> Result<ChecklistTag, rusqlite::Error> {
+        let source_tag =
+            Self::get_tag_by_id(conn, id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        let existing_tag = Self::get_tag_by_name(conn, name)?;
+        let now = Self::now_iso();
+
+        conn.execute("BEGIN TRANSACTION", [])?;
+
+        let operation = (|| -> Result<Option<ChecklistTag>, rusqlite::Error> {
+            if let Some(target_tag) = existing_tag {
+                if target_tag.id != source_tag.id {
+                    conn.execute(
+                        "INSERT OR IGNORE INTO v2_todo_tags (todo_id, tag_id, created_at)
+                         SELECT todo_id, ?1, ?2
+                         FROM v2_todo_tags
+                         WHERE tag_id = ?3",
+                        params![target_tag.id, &now, source_tag.id],
+                    )?;
+                    conn.execute(
+                        "DELETE FROM v2_todo_tags WHERE tag_id = ?1",
+                        params![source_tag.id],
+                    )?;
+                    conn.execute("DELETE FROM v2_tags WHERE id = ?1", params![source_tag.id])?;
+                    conn.execute(
+                        "UPDATE v2_tags SET updated_at = ?1 WHERE id = ?2",
+                        params![&now, target_tag.id],
+                    )?;
+                    return Self::get_tag_by_id(conn, target_tag.id);
+                }
+
+                conn.execute(
+                    "UPDATE v2_tags SET name = ?1, updated_at = ?2 WHERE id = ?3",
+                    params![name, &now, source_tag.id],
+                )?;
+                Self::get_tag_by_id(conn, source_tag.id)
+            } else {
+                let updated = conn.execute(
+                    "UPDATE v2_tags SET name = ?1, updated_at = ?2 WHERE id = ?3",
+                    params![name, &now, source_tag.id],
+                )?;
+                if updated == 0 {
+                    return Err(rusqlite::Error::QueryReturnedNoRows);
+                }
+                Self::get_tag_by_id(conn, source_tag.id)
+            }
+        })();
+
+        match operation {
+            Ok(Some(tag)) => {
+                conn.execute("COMMIT", [])?;
+                Ok(tag)
+            }
+            Ok(None) => {
+                let _ = conn.execute("ROLLBACK", []);
+                Err(rusqlite::Error::QueryReturnedNoRows)
+            }
+            Err(error) => {
+                let _ = conn.execute("ROLLBACK", []);
+                Err(error)
+            }
+        }
+    }
+
+    pub fn delete_tag(conn: &Connection, id: i64) -> Result<(), rusqlite::Error> {
+        conn.execute("BEGIN TRANSACTION", [])?;
+        let operation = (|| -> Result<usize, rusqlite::Error> {
+            conn.execute("DELETE FROM v2_todo_tags WHERE tag_id = ?1", params![id])?;
+            conn.execute("DELETE FROM v2_tags WHERE id = ?1", params![id])
+        })();
+
+        match operation {
+            Ok(0) => {
+                let _ = conn.execute("ROLLBACK", []);
+                Err(rusqlite::Error::QueryReturnedNoRows)
+            }
+            Ok(_) => {
+                conn.execute("COMMIT", [])?;
+                Ok(())
+            }
+            Err(error) => {
+                let _ = conn.execute("ROLLBACK", []);
+                Err(error)
+            }
+        }
+    }
+
+    pub fn get_tags_for_item(
+        conn: &Connection,
+        item_id: i64,
+    ) -> Result<Vec<ChecklistTag>, rusqlite::Error> {
+        let sql = "SELECT tg.id, tg.name, tg.created_at, tg.updated_at FROM v2_tags tg
+             INNER JOIN v2_todo_tags tt ON tt.tag_id = tg.id
+             WHERE tt.todo_id = ?1
+             ORDER BY tg.name COLLATE NOCASE ASC";
+        let mut stmt = conn.prepare(&sql)?;
+        let tags = stmt
+            .query_map(params![item_id], Self::row_to_tag)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(tags)
+    }
+
+    pub fn get_items(
+        conn: &Connection,
+        category_id: i64,
+    ) -> Result<Vec<ChecklistTodoItem>, rusqlite::Error> {
+        let sql = format!(
+            "SELECT {} FROM v2_todos
+             WHERE category_id = ?1
+               AND archived_at IS NULL
+             ORDER BY done ASC, display_order ASC",
+            Self::ITEM_COLUMNS
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let items = stmt
+            .query_map(params![category_id], Self::row_to_item)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Self::attach_tags_to_items(conn, items)
+    }
+
+    pub fn search_items(
+        conn: &Connection,
+        query: &str,
+        limit: i64,
+    ) -> Result<Vec<ChecklistItemSearchResult>, rusqlite::Error> {
+        let pattern = Self::like_pattern(query);
+        let sql = "\
+            SELECT
+                t.id,
+                t.category_id,
+                t.text,
+                t.memo,
+                t.repeat_type,
+                t.repeat_detail,
+                t.next_due_at,
+                t.last_completed_at,
+                t.reminder_at,
+                t.archived_at,
+                t.track_streak,
+                t.streak_started_on,
+                t.done,
+                t.display_order,
+                t.created_at,
+                t.updated_at,
+                c.id,
+                c.name,
+                c.display_order,
+                c.created_at,
+                c.updated_at
+             FROM v2_todos t
+             INNER JOIN v2_categories c ON c.id = t.category_id
+             WHERE t.archived_at IS NULL
+               AND (
+                t.text LIKE ?1 ESCAPE '\\'
+                OR COALESCE(t.memo, '') LIKE ?2 ESCAPE '\\'
+                OR EXISTS (
+                    SELECT 1
+                    FROM v2_todo_tags tt
+                    INNER JOIN v2_tags tg ON tg.id = tt.tag_id
+                    WHERE tt.todo_id = t.id
+                      AND tg.name LIKE ?3 ESCAPE '\\'
+                )
+               )
+            ORDER BY c.display_order ASC, t.done ASC, t.display_order ASC
+             LIMIT ?4";
+        let mut stmt = conn.prepare(&sql)?;
+        let results = stmt
+            .query_map(
+                params![pattern, pattern, pattern, limit],
+                Self::row_to_search_result,
+            )?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Self::attach_tags_to_search_results(conn, results)
+    }
+
+    pub fn get_item_by_id(
+        conn: &Connection,
+        id: i64,
+    ) -> Result<Option<ChecklistTodoItem>, rusqlite::Error> {
+        let sql = format!("SELECT {} FROM v2_todos WHERE id = ?1", Self::ITEM_COLUMNS);
+        let mut stmt = conn.prepare(&sql)?;
+        let mut rows = stmt.query_map(params![id], Self::row_to_item)?;
+
+        if let Some(item) = rows.next() {
+            let item = item?;
+            Ok(Some(
+                Self::attach_tags_to_items(conn, vec![item])?
+                    .into_iter()
+                    .next()
+                    .ok_or(rusqlite::Error::QueryReturnedNoRows)?,
+            ))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn get_active_reminder_items(
+        conn: &Connection,
+    ) -> Result<Vec<ChecklistTodoItem>, rusqlite::Error> {
+        let sql = format!(
+            "SELECT {} FROM v2_todos
+             WHERE done = 0
+               AND reminder_at IS NOT NULL
+               AND archived_at IS NULL
+             ORDER BY category_id ASC, display_order ASC",
+            Self::ITEM_COLUMNS
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let items = stmt
+            .query_map([], Self::row_to_item)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Self::attach_tags_to_items(conn, items)
+    }
+
+    pub fn get_streak_items(
+        conn: &Connection,
+    ) -> Result<Vec<ChecklistItemSearchResult>, rusqlite::Error> {
+        let sql = "\
+            SELECT
+                t.id,
+                t.category_id,
+                t.text,
+                t.memo,
+                t.repeat_type,
+                t.repeat_detail,
+                t.next_due_at,
+                t.last_completed_at,
+                t.reminder_at,
+                t.archived_at,
+                t.track_streak,
+                t.streak_started_on,
+                t.done,
+                t.display_order,
+                t.created_at,
+                t.updated_at,
+                c.id,
+                c.name,
+                c.display_order,
+                c.created_at,
+                c.updated_at
+             FROM v2_todos t
+             INNER JOIN v2_categories c ON c.id = t.category_id
+             WHERE t.track_streak = 1
+               AND t.repeat_type != 'none'
+               AND t.archived_at IS NULL
+             ORDER BY c.display_order ASC, t.display_order ASC";
+        let mut stmt = conn.prepare(sql)?;
+        let results = stmt
+            .query_map([], Self::row_to_search_result)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Self::attach_tags_to_search_results(conn, results)
+    }
+
+    pub fn get_graph_data(conn: &Connection) -> Result<ChecklistGraphData, rusqlite::Error> {
+        let item_sql = format!(
+            "SELECT {} FROM v2_todos
+             WHERE archived_at IS NULL
+             ORDER BY category_id ASC, done ASC, display_order ASC",
+            Self::ITEM_COLUMNS
+        );
+        let mut item_stmt = conn.prepare(&item_sql)?;
+        let items = item_stmt
+            .query_map([], Self::row_to_item)?
+            .collect::<Result<Vec<_>, _>>()?;
+        let items = Self::attach_tags_to_items(conn, items)?;
+
+        let category_sql = "\
+            SELECT DISTINCT c.id, c.name, c.display_order, c.created_at, c.updated_at
+            FROM v2_categories c
+            INNER JOIN v2_todos t ON t.category_id = c.id
+            WHERE t.archived_at IS NULL
+            ORDER BY c.display_order ASC";
+        let mut category_stmt = conn.prepare(&category_sql)?;
+        let categories = category_stmt
+            .query_map([], Self::row_to_category)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let tag_sql = "\
+            SELECT DISTINCT tg.id, tg.name, tg.created_at, tg.updated_at
+            FROM v2_tags tg
+            INNER JOIN v2_todo_tags tt ON tt.tag_id = tg.id
+            INNER JOIN v2_todos t ON t.id = tt.todo_id
+            WHERE t.archived_at IS NULL
+            ORDER BY tg.name COLLATE NOCASE ASC";
+        let mut tag_stmt = conn.prepare(tag_sql)?;
+        let tags = tag_stmt
+            .query_map([], Self::row_to_tag)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let edge_sql = "\
+            SELECT tt.tag_id, tt.todo_id
+            FROM v2_todo_tags tt
+            INNER JOIN v2_todos t ON t.id = tt.todo_id
+            WHERE t.archived_at IS NULL
+            ORDER BY tt.tag_id ASC, t.category_id ASC, t.display_order ASC";
+        let mut edge_stmt = conn.prepare(edge_sql)?;
+        let tag_edges = edge_stmt
+            .query_map([], |row| {
+                Ok(ChecklistGraphTagEdge {
+                    tag_id: row.get(0)?,
+                    item_id: row.get(1)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(ChecklistGraphData {
+            categories,
+            items,
+            tags,
+            tag_edges,
+        })
+    }
+
+    pub fn get_completion_logs_for_item(
+        conn: &Connection,
+        item_id: i64,
+        start_date: &str,
+    ) -> Result<Vec<ChecklistStreakLog>, rusqlite::Error> {
+        let mut stmt = conn.prepare(
+            "SELECT completed_on, completed_count
+             FROM v2_completion_logs
+             WHERE item_id = ?1
+               AND completed_on >= ?2
+               AND completed_count > 0
+             ORDER BY completed_on ASC",
+        )?;
+
+        let logs = stmt
+            .query_map(params![item_id, start_date], |row| {
+                Ok(ChecklistStreakLog {
+                    completed_on: row.get(0)?,
+                    completed_count: row.get(1)?,
+                    combo_intensity: 0,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(logs)
+    }
+
+    pub fn create_item(
+        conn: &Connection,
+        category_id: i64,
+        text: &str,
+        tag_names: &[String],
+    ) -> Result<ChecklistTodoItem, rusqlite::Error> {
+        conn.execute("BEGIN TRANSACTION", [])?;
+
+        let max_order: i64 = conn
+            .query_row(
+                "SELECT COALESCE(MAX(display_order), 0)
+                 FROM v2_todos
+                 WHERE category_id = ?1",
+                params![category_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+        let display_order = max_order + Self::ORDER_STEP;
+        let now = Self::now_iso();
+
+        if let Err(error) = conn.execute(
+            "INSERT INTO v2_todos
+                (category_id, text, memo, repeat_type, repeat_detail, next_due_at, last_completed_at, reminder_at, track_streak, streak_started_on, done, display_order, created_at, updated_at)
+             VALUES (?1, ?2, NULL, 'none', NULL, NULL, NULL, NULL, 0, NULL, 0, ?3, ?4, ?5)",
+            params![category_id, text, display_order, &now, &now],
+        ) {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+        let item_id = conn.last_insert_rowid();
+
+        if let Err(error) = Self::replace_item_tags(conn, item_id, tag_names) {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+
+        conn.execute("COMMIT", [])?;
+
+        let item = ChecklistTodoItem {
+            id: item_id,
+            category_id,
+            text: text.to_string(),
+            memo: None,
+            tags: Vec::new(),
+            repeat_type: ChecklistRepeatType::None,
+            repeat_detail: None,
+            next_due_at: None,
+            last_completed_at: None,
+            reminder_at: None,
+            archived_at: None,
+            track_streak: false,
+            streak_started_on: None,
+            done: false,
+            display_order,
+            created_at: now.clone(),
+            updated_at: now,
+        };
+
+        Ok(Self::attach_tags_to_items(conn, vec![item])?
+            .into_iter()
+            .next()
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)?)
+    }
+
+    pub fn update_item_text(conn: &Connection, id: i64, text: &str) -> Result<(), rusqlite::Error> {
+        let now = Self::now_iso();
+        let updated = conn.execute(
+            "UPDATE v2_todos SET text = ?1, updated_at = ?2 WHERE id = ?3",
+            params![text, now, id],
+        )?;
+        if updated == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        Ok(())
+    }
+
+    pub fn update_item_details(
+        conn: &Connection,
+        id: i64,
+        text: &str,
+        memo: Option<&str>,
+        tag_names: &[String],
+        repeat_type: &ChecklistRepeatType,
+        repeat_detail: Option<&str>,
+        next_due_at: Option<&str>,
+        reminder_at: Option<&str>,
+        track_streak: bool,
+        streak_started_on: Option<&str>,
+    ) -> Result<ChecklistTodoItem, rusqlite::Error> {
+        conn.execute("BEGIN TRANSACTION", [])?;
+        let now = Self::now_iso();
+        let repeat_type_value = repeat_type.to_str();
+        let updated = match conn.execute(
+            "UPDATE v2_todos
+             SET text = ?1,
+                 memo = ?2,
+                 repeat_type = ?3,
+                 repeat_detail = ?4,
+                 next_due_at = ?5,
+                 reminder_at = ?6,
+                 track_streak = ?7,
+                 streak_started_on = ?8,
+                 updated_at = ?9
+             WHERE id = ?10",
+            params![
+                text,
+                memo,
+                repeat_type_value,
+                repeat_detail,
+                next_due_at,
+                reminder_at,
+                track_streak,
+                streak_started_on,
+                now,
+                id
+            ],
+        ) {
+            Ok(updated) => updated,
+            Err(error) => {
+                let _ = conn.execute("ROLLBACK", []);
+                return Err(error);
+            }
+        };
+        if updated == 0 {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+
+        if let Err(error) = Self::replace_item_tags(conn, id, tag_names) {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+
+        conn.execute("COMMIT", [])?;
+
+        Self::get_item_by_id(conn, id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
+    pub fn complete_item(
+        conn: &Connection,
+        id: i64,
+        completed_on: &str,
+        next_due_at: Option<&str>,
+    ) -> Result<(), rusqlite::Error> {
+        conn.execute("BEGIN TRANSACTION", [])?;
+        let now = Self::now_iso();
+
+        let updated = match conn.execute(
+            "UPDATE v2_todos
+             SET done = 1,
+                 last_completed_at = ?1,
+                 next_due_at = ?2,
+                 updated_at = ?3
+             WHERE id = ?4",
+            params![completed_on, next_due_at, &now, id],
+        ) {
+            Ok(updated) => updated,
+            Err(error) => {
+                let _ = conn.execute("ROLLBACK", []);
+                return Err(error);
+            }
+        };
+        if updated == 0 {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+
+        if let Err(error) = Self::increment_completion_log(conn, id, completed_on, &now) {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+
+        conn.execute("COMMIT", [])?;
+        Ok(())
+    }
+
+    pub fn restore_item(
+        conn: &Connection,
+        id: i64,
+        completed_on: &str,
+    ) -> Result<(), rusqlite::Error> {
+        conn.execute("BEGIN TRANSACTION", [])?;
+        let now = Self::now_iso();
+
+        let updated = match conn.execute(
+            "UPDATE v2_todos
+             SET done = 0,
+                 last_completed_at = NULL,
+                 next_due_at = NULL,
+                 updated_at = ?1
+             WHERE id = ?2",
+            params![&now, id],
+        ) {
+            Ok(updated) => updated,
+            Err(error) => {
+                let _ = conn.execute("ROLLBACK", []);
+                return Err(error);
+            }
+        };
+        if updated == 0 {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+
+        if let Err(error) = Self::decrement_completion_log(conn, id, completed_on, &now) {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+
+        conn.execute("COMMIT", [])?;
+        Ok(())
+    }
+
+    pub fn reactivate_due_repeats(
+        conn: &Connection,
+        logical_date: &str,
+    ) -> Result<i64, rusqlite::Error> {
+        let now = Self::now_iso();
+        let updated = conn.execute(
+            "UPDATE v2_todos
+             SET done = 0,
+                 next_due_at = NULL,
+                 updated_at = ?1
+             WHERE done = 1
+               AND repeat_type != 'none'
+               AND next_due_at IS NOT NULL
+               AND next_due_at <= ?2
+               AND archived_at IS NULL",
+            params![now, logical_date],
+        )?;
+
+        Ok(updated as i64)
+    }
+
+    pub fn archive_completed_items(
+        conn: &Connection,
+        category_id: i64,
+    ) -> Result<i64, rusqlite::Error> {
+        let now = Self::now_iso();
+        let updated = conn.execute(
+            "UPDATE v2_todos
+             SET archived_at = ?1,
+                 updated_at = ?2
+             WHERE category_id = ?3
+               AND done = 1
+               AND repeat_type = 'none'
+               AND archived_at IS NULL",
+            params![&now, &now, category_id],
+        )?;
+
+        Ok(updated as i64)
+    }
+
+    pub fn get_archived_items(
+        conn: &Connection,
+    ) -> Result<Vec<ChecklistArchivedItem>, rusqlite::Error> {
+        let sql = "\
+            SELECT
+                t.id,
+                t.category_id,
+                t.text,
+                t.memo,
+                t.repeat_type,
+                t.repeat_detail,
+                t.next_due_at,
+                t.last_completed_at,
+                t.reminder_at,
+                t.archived_at,
+                t.track_streak,
+                t.streak_started_on,
+                t.done,
+                t.display_order,
+                t.created_at,
+                t.updated_at,
+                c.id,
+                c.name,
+                c.display_order,
+                c.created_at,
+                c.updated_at
+             FROM v2_todos t
+             INNER JOIN v2_categories c ON c.id = t.category_id
+             WHERE t.archived_at IS NOT NULL
+             ORDER BY t.archived_at DESC, c.display_order ASC, t.display_order ASC";
+        let mut stmt = conn.prepare(sql)?;
+        let mut archived_items = stmt
+            .query_map([], Self::row_to_archived_item)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        for archived_item in archived_items.iter_mut() {
+            archived_item.item.tags = Self::get_tags_for_item(conn, archived_item.item.id)?;
+        }
+
+        Ok(archived_items)
+    }
+
+    pub fn restore_archived_item(
+        conn: &Connection,
+        id: i64,
+    ) -> Result<ChecklistTodoItem, rusqlite::Error> {
+        let now = Self::now_iso();
+        let updated = conn.execute(
+            "UPDATE v2_todos
+             SET archived_at = NULL,
+                 done = 1,
+                 updated_at = ?1
+             WHERE id = ?2
+               AND archived_at IS NOT NULL",
+            params![&now, id],
+        )?;
+        if updated == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+
+        Self::get_item_by_id(conn, id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
+    pub fn delete_archived_item(conn: &Connection, id: i64) -> Result<(), rusqlite::Error> {
+        conn.execute("BEGIN TRANSACTION", [])?;
+
+        if let Err(error) = conn.execute("DELETE FROM v2_todo_tags WHERE todo_id = ?1", params![id])
+        {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+
+        if let Err(error) = conn.execute(
+            "DELETE FROM v2_completion_logs WHERE item_id = ?1",
+            params![id],
+        ) {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+
+        let updated = match conn.execute(
+            "DELETE FROM v2_todos
+             WHERE id = ?1
+               AND archived_at IS NOT NULL",
+            params![id],
+        ) {
+            Ok(updated) => updated,
+            Err(error) => {
+                let _ = conn.execute("ROLLBACK", []);
+                return Err(error);
+            }
+        };
+        if updated == 0 {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+
+        if let Err(error) = Self::cleanup_unused_tags(conn) {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+
+        conn.execute("COMMIT", [])?;
+        Ok(())
+    }
+
+    fn increment_completion_log(
+        conn: &Connection,
+        item_id: i64,
+        completed_on: &str,
+        now: &str,
+    ) -> Result<(), rusqlite::Error> {
+        conn.execute(
+            "INSERT INTO v2_completion_logs
+                (item_id, completed_on, completed_count, created_at, updated_at)
+             VALUES (?1, ?2, 1, ?3, ?4)
+             ON CONFLICT(item_id, completed_on)
+             DO UPDATE SET
+                completed_count = completed_count + 1,
+                updated_at = excluded.updated_at",
+            params![item_id, completed_on, now, now],
+        )?;
+        Ok(())
+    }
+
+    fn decrement_completion_log(
+        conn: &Connection,
+        item_id: i64,
+        completed_on: &str,
+        now: &str,
+    ) -> Result<(), rusqlite::Error> {
+        conn.execute(
+            "UPDATE v2_completion_logs
+             SET completed_count = MAX(completed_count - 1, 0),
+                 updated_at = ?3
+             WHERE item_id = ?1 AND completed_on = ?2",
+            params![item_id, completed_on, now],
+        )?;
+        conn.execute(
+            "DELETE FROM v2_completion_logs
+             WHERE item_id = ?1 AND completed_on = ?2 AND completed_count <= 0",
+            params![item_id, completed_on],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_item(conn: &Connection, id: i64) -> Result<(), rusqlite::Error> {
+        conn.execute("BEGIN TRANSACTION", [])?;
+
+        if let Err(error) = conn.execute("DELETE FROM v2_todo_tags WHERE todo_id = ?1", params![id])
+        {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+
+        if let Err(error) = conn.execute(
+            "DELETE FROM v2_completion_logs WHERE item_id = ?1",
+            params![id],
+        ) {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+
+        let updated = match conn.execute("DELETE FROM v2_todos WHERE id = ?1", params![id]) {
+            Ok(updated) => updated,
+            Err(error) => {
+                let _ = conn.execute("ROLLBACK", []);
+                return Err(error);
+            }
+        };
+        if updated == 0 {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+
+        if let Err(error) = Self::cleanup_unused_tags(conn) {
+            let _ = conn.execute("ROLLBACK", []);
+            return Err(error);
+        }
+
+        conn.execute("COMMIT", [])?;
+        Ok(())
+    }
+
+    pub fn reorder_items(
+        conn: &Connection,
+        category_id: i64,
+        item_ids: &[i64],
+    ) -> Result<(), rusqlite::Error> {
+        conn.execute("BEGIN TRANSACTION", [])?;
+        let now = Self::now_iso();
+
+        for (index, item_id) in item_ids.iter().enumerate() {
+            let display_order = (index as i64 + 1) * Self::ORDER_STEP;
+            match conn.execute(
+                "UPDATE v2_todos
+                 SET display_order = ?1, updated_at = ?2
+                 WHERE id = ?3 AND category_id = ?4",
+                params![display_order, &now, item_id, category_id],
+            ) {
+                Ok(1) => {}
+                Ok(_) => {
+                    let _ = conn.execute("ROLLBACK", []);
+                    return Err(rusqlite::Error::QueryReturnedNoRows);
+                }
+                Err(error) => {
+                    let _ = conn.execute("ROLLBACK", []);
+                    return Err(error);
+                }
+            }
+        }
+
+        conn.execute("COMMIT", [])?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn setup_conn() -> Connection {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        ChecklistRepository::create_tables(&conn).expect("checklist schema");
+        ChecklistRepository::ensure_default_category(&conn).expect("default category");
+        conn
+    }
+
+    #[test]
+    fn creates_default_home_category() {
+        let conn = setup_conn();
+        let categories = ChecklistRepository::get_categories(&conn).expect("categories");
+
+        assert_eq!(categories.len(), 1);
+        assert_eq!(categories[0].name, "Home");
+        assert_eq!(categories[0].display_order, 1000);
+    }
+
+    #[test]
+    fn migrates_existing_checklist_todos_with_detail_columns_and_completion_logs() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE v2_categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                display_order INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE v2_todos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category_id INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                done BOOLEAN NOT NULL DEFAULT 0,
+                display_order INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );",
+        )
+        .expect("old checklist schema");
+
+        ChecklistRepository::create_tables(&conn).expect("migrated checklist schema");
+        let has_memo = ChecklistRepository::todos_has_column(&conn, "memo").unwrap();
+        let has_repeat_type = ChecklistRepository::todos_has_column(&conn, "repeat_type").unwrap();
+        let has_next_due_at = ChecklistRepository::todos_has_column(&conn, "next_due_at").unwrap();
+        let has_reminder_at = ChecklistRepository::todos_has_column(&conn, "reminder_at").unwrap();
+        let has_archived_at = ChecklistRepository::todos_has_column(&conn, "archived_at").unwrap();
+        let completion_log_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'v2_completion_logs'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        assert!(has_memo);
+        assert!(has_repeat_type);
+        assert!(has_next_due_at);
+        assert!(has_reminder_at);
+        assert!(has_archived_at);
+        assert_eq!(completion_log_count, 1);
+    }
+
+    #[test]
+    fn keeps_done_items_after_pending_items() {
+        let conn = setup_conn();
+        let category_id = ChecklistRepository::get_categories(&conn).unwrap()[0].id;
+        let first = ChecklistRepository::create_item(&conn, category_id, "First", &[]).unwrap();
+        let second = ChecklistRepository::create_item(&conn, category_id, "Second", &[]).unwrap();
+
+        ChecklistRepository::complete_item(&conn, first.id, "2026-06-16", None).unwrap();
+        let items = ChecklistRepository::get_items(&conn, category_id).unwrap();
+
+        assert_eq!(items[0].id, second.id);
+        assert_eq!(items[1].id, first.id);
+    }
+
+    #[test]
+    fn reorders_categories_with_order_step() {
+        let conn = setup_conn();
+        let home = ChecklistRepository::get_categories(&conn).unwrap()[0].clone();
+        let work = ChecklistRepository::create_category(&conn, "Work").unwrap();
+
+        ChecklistRepository::reorder_categories(&conn, &[work.id, home.id]).unwrap();
+        let categories = ChecklistRepository::get_categories(&conn).unwrap();
+
+        assert_eq!(categories[0].id, work.id);
+        assert_eq!(categories[0].display_order, 1000);
+        assert_eq!(categories[1].id, home.id);
+        assert_eq!(categories[1].display_order, 2000);
+    }
+
+    #[test]
+    fn creates_items_with_tags_and_returns_them() {
+        let conn = setup_conn();
+        let category_id = ChecklistRepository::get_categories(&conn).unwrap()[0].id;
+        let item = ChecklistRepository::create_item(
+            &conn,
+            category_id,
+            "Read",
+            &["church".to_string(), "morning".to_string()],
+        )
+        .unwrap();
+
+        assert_eq!(item.tags.len(), 2);
+        assert_eq!(item.tags[0].name, "church");
+        assert_eq!(item.tags[1].name, "morning");
+
+        let items = ChecklistRepository::get_items(&conn, category_id).unwrap();
+        assert_eq!(items[0].tags.len(), 2);
+    }
+
+    #[test]
+    fn replaces_item_tags_and_cleans_unused_tags() {
+        let conn = setup_conn();
+        let category_id = ChecklistRepository::get_categories(&conn).unwrap()[0].id;
+        let item = ChecklistRepository::create_item(
+            &conn,
+            category_id,
+            "Read",
+            &["church".to_string(), "morning".to_string()],
+        )
+        .unwrap();
+
+        let updated = ChecklistRepository::update_item_details(
+            &conn,
+            item.id,
+            "Read",
+            None,
+            &["home".to_string()],
+            &ChecklistRepeatType::None,
+            None,
+            None,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(updated.tags.len(), 1);
+        assert_eq!(updated.tags[0].name, "home");
+
+        let tags = ChecklistRepository::get_tags(&conn).unwrap();
+        assert_eq!(tags.len(), 1);
+        assert_eq!(tags[0].name, "home");
+    }
+
+    #[test]
+    fn returns_tag_summaries_with_active_item_counts() {
+        let conn = setup_conn();
+        let category_id = ChecklistRepository::get_categories(&conn).unwrap()[0].id;
+        let first =
+            ChecklistRepository::create_item(&conn, category_id, "Read", &["study".to_string()])
+                .unwrap();
+        ChecklistRepository::create_item(&conn, category_id, "Pray", &["study".to_string()])
+            .unwrap();
+
+        ChecklistRepository::complete_item(&conn, first.id, "2026-06-16", None).unwrap();
+        ChecklistRepository::archive_completed_items(&conn, category_id).unwrap();
+
+        let summaries = ChecklistRepository::get_tag_summaries(&conn).unwrap();
+
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].tag.name, "study");
+        assert_eq!(summaries[0].item_count, 1);
+    }
+
+    #[test]
+    fn renames_tag_and_merges_when_target_exists() {
+        let conn = setup_conn();
+        let category_id = ChecklistRepository::get_categories(&conn).unwrap()[0].id;
+        let source_item =
+            ChecklistRepository::create_item(&conn, category_id, "Wallet", &["work".to_string()])
+                .unwrap();
+        let target_item = ChecklistRepository::create_item(
+            &conn,
+            category_id,
+            "Passport",
+            &["personal".to_string()],
+        )
+        .unwrap();
+        let source_tag = ChecklistRepository::get_tags(&conn)
+            .unwrap()
+            .into_iter()
+            .find(|tag| tag.name == "work")
+            .unwrap();
+
+        let renamed = ChecklistRepository::rename_tag(&conn, source_tag.id, "personal").unwrap();
+        let tags = ChecklistRepository::get_tags(&conn).unwrap();
+        let items = ChecklistRepository::get_items(&conn, category_id).unwrap();
+        let source_item = items.iter().find(|item| item.id == source_item.id).unwrap();
+        let target_item = items.iter().find(|item| item.id == target_item.id).unwrap();
+
+        assert_eq!(renamed.name, "personal");
+        assert_eq!(tags.len(), 1);
+        assert_eq!(source_item.tags[0].name, "personal");
+        assert_eq!(target_item.tags[0].name, "personal");
+    }
+
+    #[test]
+    fn deletes_tag_without_deleting_items() {
+        let conn = setup_conn();
+        let category_id = ChecklistRepository::get_categories(&conn).unwrap()[0].id;
+        let item =
+            ChecklistRepository::create_item(&conn, category_id, "Wallet", &["travel".to_string()])
+                .unwrap();
+        let tag = ChecklistRepository::get_tags(&conn).unwrap()[0].clone();
+
+        ChecklistRepository::delete_tag(&conn, tag.id).unwrap();
+        let items = ChecklistRepository::get_items(&conn, category_id).unwrap();
+        let tags = ChecklistRepository::get_tags(&conn).unwrap();
+
+        assert!(tags.is_empty());
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].id, item.id);
+        assert!(items[0].tags.is_empty());
+    }
+
+    #[test]
+    fn archives_only_completed_non_repeating_items_in_category() {
+        let conn = setup_conn();
+        let home = ChecklistRepository::get_categories(&conn).unwrap()[0].clone();
+        let work = ChecklistRepository::create_category(&conn, "Work").unwrap();
+        let completed = ChecklistRepository::create_item(&conn, home.id, "Completed", &[]).unwrap();
+        let pending = ChecklistRepository::create_item(&conn, home.id, "Pending", &[]).unwrap();
+        let repeating = ChecklistRepository::create_item(&conn, home.id, "Repeat", &[]).unwrap();
+        let other_category =
+            ChecklistRepository::create_item(&conn, work.id, "Other", &[]).unwrap();
+
+        ChecklistRepository::complete_item(&conn, completed.id, "2026-06-16", None).unwrap();
+        ChecklistRepository::complete_item(&conn, pending.id, "2026-06-16", None).unwrap();
+        ChecklistRepository::restore_item(&conn, pending.id, "2026-06-16").unwrap();
+        ChecklistRepository::update_item_details(
+            &conn,
+            repeating.id,
+            "Repeat",
+            None,
+            &[],
+            &ChecklistRepeatType::Daily,
+            None,
+            Some("2026-06-17"),
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+        ChecklistRepository::complete_item(&conn, repeating.id, "2026-06-16", Some("2026-06-17"))
+            .unwrap();
+        ChecklistRepository::complete_item(&conn, other_category.id, "2026-06-16", None).unwrap();
+
+        let archived_count = ChecklistRepository::archive_completed_items(&conn, home.id).unwrap();
+        let archived = ChecklistRepository::get_archived_items(&conn).unwrap();
+        let remaining_home = ChecklistRepository::get_items(&conn, home.id).unwrap();
+        let remaining_work = ChecklistRepository::get_items(&conn, work.id).unwrap();
+
+        assert_eq!(archived_count, 1);
+        assert_eq!(archived.len(), 1);
+        assert_eq!(archived[0].item.id, completed.id);
+        assert!(remaining_home.iter().any(|item| item.id == pending.id));
+        assert!(remaining_home.iter().any(|item| item.id == repeating.id));
+        assert!(remaining_work
+            .iter()
+            .any(|item| item.id == other_category.id));
+    }
+
+    #[test]
+    fn archived_items_are_hidden_from_lists_and_search_until_restored() {
+        let conn = setup_conn();
+        let category_id = ChecklistRepository::get_categories(&conn).unwrap()[0].id;
+        let item = ChecklistRepository::create_item(
+            &conn,
+            category_id,
+            "Archive candidate",
+            &["hidden".to_string()],
+        )
+        .unwrap();
+
+        ChecklistRepository::complete_item(&conn, item.id, "2026-06-16", None).unwrap();
+        ChecklistRepository::archive_completed_items(&conn, category_id).unwrap();
+
+        let visible_items = ChecklistRepository::get_items(&conn, category_id).unwrap();
+        let search_results = ChecklistRepository::search_items(&conn, "Archive", 10).unwrap();
+        let archived_items = ChecklistRepository::get_archived_items(&conn).unwrap();
+
+        assert!(visible_items.is_empty());
+        assert!(search_results.is_empty());
+        assert_eq!(archived_items.len(), 1);
+        assert_eq!(archived_items[0].item.tags[0].name, "hidden");
+
+        let restored = ChecklistRepository::restore_archived_item(&conn, item.id).unwrap();
+        let visible_items = ChecklistRepository::get_items(&conn, category_id).unwrap();
+
+        assert_eq!(restored.archived_at, None);
+        assert!(restored.done);
+        assert_eq!(visible_items.len(), 1);
+        assert_eq!(visible_items[0].id, item.id);
+    }
+
+    #[test]
+    fn graph_data_uses_active_items_and_tag_edges() {
+        let conn = setup_conn();
+        let home = ChecklistRepository::get_categories(&conn).unwrap()[0].clone();
+        let work = ChecklistRepository::create_category(&conn, "Work").unwrap();
+        let home_item = ChecklistRepository::create_item(
+            &conn,
+            home.id,
+            "Home tagged",
+            &["shared".to_string(), "home".to_string()],
+        )
+        .unwrap();
+        let work_item = ChecklistRepository::create_item(
+            &conn,
+            work.id,
+            "Work tagged",
+            &["shared".to_string()],
+        )
+        .unwrap();
+        let archived_item = ChecklistRepository::create_item(
+            &conn,
+            home.id,
+            "Archived tagged",
+            &["hidden".to_string()],
+        )
+        .unwrap();
+
+        ChecklistRepository::update_item_details(
+            &conn,
+            home_item.id,
+            "Home tagged",
+            None,
+            &["shared".to_string(), "home".to_string()],
+            &ChecklistRepeatType::Daily,
+            None,
+            Some("2026-06-17"),
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+        ChecklistRepository::complete_item(&conn, home_item.id, "2026-06-16", None).unwrap();
+        ChecklistRepository::complete_item(&conn, archived_item.id, "2026-06-16", None).unwrap();
+        ChecklistRepository::archive_completed_items(&conn, home.id).unwrap();
+
+        let graph_data = ChecklistRepository::get_graph_data(&conn).unwrap();
+        let item_ids = graph_data
+            .items
+            .iter()
+            .map(|item| item.id)
+            .collect::<Vec<_>>();
+        let tag_names = graph_data
+            .tags
+            .iter()
+            .map(|tag| tag.name.as_str())
+            .collect::<Vec<_>>();
+        let shared_tag = graph_data
+            .tags
+            .iter()
+            .find(|tag| tag.name == "shared")
+            .expect("shared tag");
+
+        assert!(item_ids.contains(&home_item.id));
+        assert!(item_ids.contains(&work_item.id));
+        assert!(!item_ids.contains(&archived_item.id));
+        assert!(graph_data
+            .items
+            .iter()
+            .any(|item| item.id == home_item.id && item.done));
+        assert_eq!(graph_data.categories.len(), 2);
+        assert!(tag_names.contains(&"shared"));
+        assert!(!tag_names.contains(&"hidden"));
+        assert!(graph_data
+            .tag_edges
+            .iter()
+            .any(|edge| edge.tag_id == shared_tag.id && edge.item_id == home_item.id));
+        assert!(graph_data
+            .tag_edges
+            .iter()
+            .any(|edge| edge.tag_id == shared_tag.id && edge.item_id == work_item.id));
+    }
+
+    #[test]
+    fn deletes_only_archived_items_permanently() {
+        let conn = setup_conn();
+        let category_id = ChecklistRepository::get_categories(&conn).unwrap()[0].id;
+        let active = ChecklistRepository::create_item(&conn, category_id, "Active", &[]).unwrap();
+        let archived =
+            ChecklistRepository::create_item(&conn, category_id, "Archived", &[]).unwrap();
+
+        ChecklistRepository::complete_item(&conn, archived.id, "2026-06-16", None).unwrap();
+        ChecklistRepository::archive_completed_items(&conn, category_id).unwrap();
+
+        let active_delete_result = ChecklistRepository::delete_archived_item(&conn, active.id);
+        assert!(active_delete_result.is_err());
+
+        ChecklistRepository::delete_archived_item(&conn, archived.id).unwrap();
+        let archived_items = ChecklistRepository::get_archived_items(&conn).unwrap();
+        let visible_items = ChecklistRepository::get_items(&conn, category_id).unwrap();
+
+        assert!(archived_items.is_empty());
+        assert_eq!(visible_items.len(), 1);
+        assert_eq!(visible_items[0].id, active.id);
+    }
+}

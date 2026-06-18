@@ -2,9 +2,9 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
 
-  import V2SettingsChoiceRow from '../../../components/settings/V2SettingsChoiceRow.svelte';
-  import V2SettingsGroup from '../../../components/settings/V2SettingsGroup.svelte';
-  import V2SettingsShell from '../../../components/settings/V2SettingsShell.svelte';
+  import SettingsChoiceRow from '../../../components/settings/SettingsChoiceRow.svelte';
+  import SettingsGroup from '../../../components/settings/SettingsGroup.svelte';
+  import SettingsShell from '../../../components/settings/SettingsShell.svelte';
   import { i18n, type Locale } from '$lib/i18n';
   import { getSettingsReturnTo, settingsPathWithReturnTo } from '$lib/settings/returnTo';
 
@@ -22,18 +22,18 @@
   }
 </script>
 
-<V2SettingsShell
+<SettingsShell
   title={i18n.t('languageTitle')}
   onBack={() => void goto(settingsPathWithReturnTo('/settings', returnTo))}
 >
-  <V2SettingsGroup title={i18n.t('languageTitle')}>
+  <SettingsGroup title={i18n.t('languageTitle')}>
     {#each languages as lang}
-      <V2SettingsChoiceRow
+      <SettingsChoiceRow
         label={lang.nativeName}
         description={lang.name}
         selected={i18n.locale === lang.id}
         onSelect={() => selectLanguage(lang.id)}
       />
     {/each}
-  </V2SettingsGroup>
-</V2SettingsShell>
+  </SettingsGroup>
+</SettingsShell>

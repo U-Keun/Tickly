@@ -5,27 +5,27 @@ Tickly development now follows a small-slice rebuild model: understand the curre
 ## Core Working Rules
 
 - A unit of work is complete only when the data contract, behavior, UI surface, verification, and explanation are all handled.
-- Keep v2 as the only app runtime. Removed v1 runtime code should not be reintroduced without a dedicated recovery or migration slice.
+- Keep the current app as the only runtime. Removed legacy runtime code should not be reintroduced without a dedicated recovery or migration slice.
 - Prefer explicit boundaries over broad rewrites.
 - Use the existing architecture unless there is a concrete reason to change it.
 - Let tests and stories grow with the risk of the change.
-- When native platform UI is introduced, keep the slice narrow, keep Svelte/web fallback behavior, and keep data mutations in the existing v2 store/API flow unless a task explicitly changes that boundary.
+- When native platform UI is introduced, keep the slice narrow, keep Svelte/web fallback behavior, and keep data mutations in the existing checklist store/API flow unless a task explicitly changes that boundary.
 
-## v2 Rebuild Rules
+## Current App Rules
 
-- v2 is the only app route at `/`; old compatibility routes are removed.
-- v2 uses `v2_` Tauri commands and `v2_` SQLite tables.
-- v2 starts empty except for a default `Home` category.
-- v2 does not use v1 stores or v1 data tables.
+- The current app is the only app route at `/`; old compatibility routes are removed.
+- The current app still uses `v2_` Tauri commands and `v2_` SQLite tables as stable contracts.
+- The app starts empty except for a default `Home` category.
+- The app does not use legacy stores or legacy data tables.
 - `/v1`, `/v2`, and legacy `/graph` are removed from the route surface.
-- v2 now owns the rebuilt local features: checklist, tags, repeat, reminders, archive, streak, graph, settings, and widget behavior.
-- Cloud sync is deferred and should not run in the v2 runtime.
-- v1 data migration is intentionally skipped because there are no existing users for this rebuild.
-- iOS native UI is currently limited to v2 bottom-sheet surfaces: text-entry sheets and category management actions. Item/category save, delete, and reorder behavior still belongs to the existing v2 store/API layer.
+- The current app owns the rebuilt local features: checklist, tags, repeat, reminders, archive, streak, graph, settings, and widget behavior.
+- Cloud sync is deferred and should not run in the current runtime.
+- Legacy data migration is intentionally skipped because there are no existing users for this rebuild.
+- iOS native UI is currently limited to bottom-sheet surfaces: text-entry sheets and category management actions. Item/category save, delete, and reorder behavior still belongs to the existing checklist store/API layer.
 
 ## Understanding Track
 
-Each v2 stage should leave a short note under `docs/v2-notes/` that answers:
+Each meaningful stage should leave a short note under `docs/v2-notes/` or another current decision-note location that answers:
 
 - What existing structure did we inspect?
 - What boundary did we choose?

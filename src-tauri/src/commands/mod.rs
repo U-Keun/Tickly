@@ -3,10 +3,10 @@ use tauri::State;
 
 use crate::AppState;
 
+mod checklist_commands;
+mod native_dock_commands;
+mod native_sheet_commands;
 mod settings_commands;
-mod v2_checklist_commands;
-mod v2_native_dock_commands;
-mod v2_native_sheet_commands;
 mod widget_commands;
 
 pub(super) fn with_db<T, E, F>(state: &State<'_, AppState>, action: F) -> Result<T, String>
@@ -18,8 +18,8 @@ where
     action(&db).map_err(|e| e.to_string())
 }
 
+pub use checklist_commands::*;
+pub use native_dock_commands::*;
+pub use native_sheet_commands::*;
 pub use settings_commands::*;
-pub use v2_checklist_commands::*;
-pub use v2_native_dock_commands::*;
-pub use v2_native_sheet_commands::*;
 pub use widget_commands::*;

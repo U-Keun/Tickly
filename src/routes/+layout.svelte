@@ -7,7 +7,7 @@
   import { onMount } from 'svelte';
   import type { Snippet } from 'svelte';
   import { ensurePermission } from '$lib/notification';
-  import { v2ChecklistStore } from '$lib/v2/v2ChecklistStore.svelte';
+  import { checklistStore } from '$lib/checklist/checklistStore.svelte';
 
   let { children }: { children: Snippet } = $props();
 
@@ -28,7 +28,7 @@
         return true;
       }
 
-      await v2ChecklistStore.toggleItemFromWidget(itemId);
+      await checklistStore.toggleItemFromWidget(itemId);
       await goto('/');
       return true;
     }
@@ -46,11 +46,11 @@
         return true;
       }
 
-      await v2ChecklistStore.load();
-      const categoryExists = v2ChecklistStore.categories.some(category => category.id === categoryId);
+      await checklistStore.load();
+      const categoryExists = checklistStore.categories.some(category => category.id === categoryId);
 
       if (categoryExists) {
-        await v2ChecklistStore.selectCategory(categoryId);
+        await checklistStore.selectCategory(categoryId);
       } else {
         console.error('Widget category id does not exist:', categoryId);
       }
@@ -79,8 +79,8 @@
   onMount(async () => {
     await ensurePermission();
 
-    // Apply widget-only check actions queued in app group storage to the v2 checklist.
-    await v2ChecklistStore.processWidgetActions();
+    // Apply widget-only check actions queued in app group storage to the checklist.
+    await checklistStore.processWidgetActions();
 
     try {
       const { getCurrent, onOpenUrl } = await import('@tauri-apps/plugin-deep-link');

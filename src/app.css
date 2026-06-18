@@ -96,8 +96,8 @@ html, body {
   font-size: var(--font-size-base);
 }
 
-html.v2-bottom-sheet-open,
-html.v2-bottom-sheet-open body {
+html.bottom-sheet-open,
+html.bottom-sheet-open body {
   background-color: var(--color-white);
 }
 
@@ -117,7 +117,7 @@ html.v2-bottom-sheet-open body {
   box-sizing: border-box;
 }
 
-.v2-app-container {
+.full-bleed-app-container {
   padding: 0;
 }
 
