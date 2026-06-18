@@ -70,6 +70,10 @@ targets:
           - group.com.u-keunsong.tickly
         com.apple.developer.applesignin:
           - Default
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.u-keunsong.tickly
+        com.apple.developer.icloud-services:
+          - CloudKit
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full
@@ -87,6 +91,7 @@ targets:
     dependencies:
       - framework: libapp.a
         embed: false
+      - sdk: CloudKit.framework
       - sdk: CoreGraphics.framework
       - sdk: Metal.framework
       - sdk: MetalKit.framework

@@ -2,6 +2,8 @@ mod commands;
 #[cfg(target_os = "ios")]
 mod ios_fullscreen;
 #[cfg(target_os = "ios")]
+mod ios_icloud_sync;
+#[cfg(target_os = "ios")]
 mod ios_native_dock;
 #[cfg(target_os = "ios")]
 mod ios_native_sheet;
@@ -168,6 +170,9 @@ pub fn run() {
             v2_get_graph_data,
             v2_delete_item,
             v2_reorder_items,
+            v2_get_icloud_sync_status,
+            v2_set_icloud_sync_enabled,
+            v2_trigger_icloud_sync,
             v2_configure_native_dock,
             v2_show_native_sheet
         ])

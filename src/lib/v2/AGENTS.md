@@ -11,5 +11,6 @@ Apply the root, `src/AGENTS.md`, and `src/lib/AGENTS.md` first.
 - v2 local archive may use v2 API/store helpers only. Do not import v1 archive, history, or deletion flows.
 - v2 local streak may use v2 API/store helpers and v2 completion logs only. Do not import v1 streak stores, commands, or heatmap helpers.
 - v2 local graph may use v2 API/store helpers only. Do not import v1 graph stores, commands, or canvas data contracts.
-- Do not import sync, widget, auth, or v1 tag stores here.
+- v2 iCloud sync is now in scope as an opt-in foreground pilot. Keep it backed by v2 sync API/store helpers and v2 SQLite metadata only.
+- Do not import v1 sync, Supabase auth, widget, account, or v1 tag stores here.
 - Keep methods mapped to one local checklist intent at a time.

@@ -5,7 +5,7 @@ use crate::models::{
     V2ArchivedItem, V2Category, V2GraphData, V2ItemSearchResult, V2RepeatType, V2StreakHeatmap,
     V2StreakLog, V2Tag, V2TagSummary, V2TodoItem,
 };
-use crate::repository::{SettingsRepository, V2ChecklistRepository};
+use crate::repository::{SettingsRepository, V2ChecklistRepository, V2ICloudSyncRepository};
 
 pub struct V2ChecklistService;
 
@@ -112,6 +112,8 @@ impl V2ChecklistService {
             return Err("At least one category is required.".to_string());
         }
 
+        V2ICloudSyncRepository::tombstone_category_tree(conn, id)
+            .map_err(|error| error.to_string())?;
         V2ChecklistRepository::delete_category(conn, id).map_err(|error| error.to_string())
     }
 
@@ -148,6 +150,7 @@ impl V2ChecklistService {
     }
 
     pub fn delete_tag(conn: &Connection, id: i64) -> Result<(), String> {
+        V2ICloudSyncRepository::tombstone_tag(conn, id).map_err(|error| error.to_string())?;
         V2ChecklistRepository::delete_tag(conn, id).map_err(|error| error.to_string())
     }
 
@@ -300,6 +303,7 @@ impl V2ChecklistService {
     }
 
     pub fn delete_archived_item(conn: &Connection, id: i64) -> Result<(), String> {
+        V2ICloudSyncRepository::tombstone_item_tree(conn, id).map_err(|error| error.to_string())?;
         V2ChecklistRepository::delete_archived_item(conn, id).map_err(|error| error.to_string())
     }
 
@@ -362,6 +366,7 @@ impl V2ChecklistService {
     }
 
     pub fn delete_item(conn: &Connection, id: i64) -> Result<(), String> {
+        V2ICloudSyncRepository::tombstone_item_tree(conn, id).map_err(|error| error.to_string())?;
         V2ChecklistRepository::delete_item(conn, id).map_err(|error| error.to_string())
     }
 

@@ -24,4 +24,9 @@ impl SettingsRepository {
         )?;
         Ok(())
     }
+
+    pub fn delete(conn: &Connection, key: &str) -> Result<(), rusqlite::Error> {
+        conn.execute("DELETE FROM settings WHERE key = ?1", params![key])?;
+        Ok(())
+    }
 }

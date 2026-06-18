@@ -11,6 +11,7 @@ mod sync_service;
 mod tag_service;
 mod todo_service;
 mod v2_checklist_service;
+mod v2_icloud_sync_service;
 mod widget_service;
 
 pub use auth_service::AuthService;
@@ -25,4 +26,5 @@ pub use sync_service::SyncService;
 pub use tag_service::TagService;
 pub use todo_service::TodoService;
 pub use v2_checklist_service::V2ChecklistService;
+pub use v2_icloud_sync_service::V2ICloudSyncService;
 pub use widget_service::WidgetService;

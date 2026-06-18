@@ -2,17 +2,17 @@
 
 ## Summary
 
-The v2 settings entry screen uses its own v2 shell while preserving the existing settings sub-routes. This keeps the main app flow visually aligned with v2 without forcing a broad rewrite of theme, font, language, sync, or legacy tag screens.
+The v2 settings entry screen uses its own v2 shell while preserving the existing settings sub-routes. This keeps the main app flow visually aligned with v2 without forcing a broad rewrite of theme, font, language, or remaining legacy screens.
 
 ## Decision
 
 - `/settings` is the v2 settings entry screen.
 - Settings groups use a Soft Leaf surface, matching the v2 checklist language while staying quiet enough for repeated utility use.
 - Frequently used app-wide preferences are grouped first: appearance, font, language, and reset time.
-- Features that still rely on v1-era stores or flows remain accessible under a Legacy group.
+- v1-era cloud sync remains available only through legacy `/v1` flows and is not linked from the v2 settings entry.
 - Appearance sub-routes (`theme`, `font`, `language`) now share the v2 settings shell and Soft Leaf choice surfaces.
 - Reset time also uses the v2 settings shell, but keeps the existing `reset_time` setting contract so repeat logic reads the same daily boundary.
-- Remaining legacy sub-routes keep their current implementation and `returnTo` behavior until they are rebuilt in focused slices.
+- Remaining legacy sub-routes keep their current implementation and `returnTo` behavior until they are rebuilt in focused slices, but the v2 settings entry should not promote v1 cloud sync.
 
 ```mermaid
 flowchart TD
@@ -21,8 +21,8 @@ flowchart TD
   Appearance --> AppearanceScreens["v2 Soft Leaf sub-screens"]
   Settings --> Daily["Daily rhythm: reset time"]
   Daily --> ResetTime["v2 Soft Leaf time picker"]
-  Settings --> Legacy["Legacy features: tags, cloud sync"]
-  Legacy --> V1Flows["Existing v1-era stores and screens"]
+  Settings --> Data["v2 data: tags, archive, iCloud pilot"]
+  Data --> V2Flows["v2 stores and local-first screens"]
 ```
 
 ## Verification

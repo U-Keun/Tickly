@@ -60,15 +60,11 @@
         label={i18n.t('v2ArchiveManageTitle')}
         onSelect={() => goToSetting('/settings/archive')}
       />
-    </V2SettingsGroup>
-
-    <V2SettingsGroup title={i18n.t('settingsGroupLegacy')}>
       <V2SettingsRow
         icon="cloud"
-        tone="sky"
-        label={i18n.t('cloudSync')}
-        badge={i18n.t('settingsLegacyBadge')}
-        onSelect={() => goToSetting('/settings/account')}
+        tone="peach"
+        label={i18n.t('v2ICloudSyncTitle')}
+        onSelect={() => goToSetting('/settings/icloud')}
       />
     </V2SettingsGroup>
   </div>

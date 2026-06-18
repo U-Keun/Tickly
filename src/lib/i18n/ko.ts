@@ -361,6 +361,36 @@ export const ko = {
   v2DeleteArchivedConfirmTitle: '보관 항목을 완전히 삭제할까요?',
   v2DeleteArchivedConfirmMessageTemplate: (text: string) =>
     `"${text}" 항목이 보관함에서도 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`,
+  v2ICloudSyncTitle: 'iCloud 동기화',
+  v2ICloudSyncGroupTitle: 'v2 iCloud',
+  v2ICloudSyncDescription:
+    'v2 카테고리, 항목, 태그, 완료 기록을 같은 Apple ID의 기기 사이에서 병합합니다. iOS 17 이상에서만 사용할 수 있습니다.',
+  v2ICloudSyncToggleTitle: 'iCloud 동기화 사용',
+  v2ICloudSyncToggleDescription:
+    '기본값은 꺼짐입니다. 켜면 로컬 데이터와 iCloud 데이터를 먼저 병합한 뒤, 앱 실행/복귀와 변경 후에 동기화합니다.',
+  v2ICloudSyncStatusTitle: '동기화 상태',
+  v2ICloudSyncStatusLabel: '상태',
+  v2ICloudSyncAvailabilityLabel: '사용 가능',
+  v2ICloudSyncLastSyncedLabel: '마지막 동기화',
+  v2ICloudSyncAvailable: '가능',
+  v2ICloudSyncUnavailable: '불가',
+  v2ICloudSyncNever: '아직 없음',
+  v2ICloudSyncNow: '지금 동기화',
+  v2ICloudSyncSyncing: '동기화 중...',
+  v2ICloudSyncStatusIdle: '대기 중',
+  v2ICloudSyncStatusAvailable: '사용 가능',
+  v2ICloudSyncStatusSyncing: '동기화 중',
+  v2ICloudSyncStatusSynced: '동기화됨',
+  v2ICloudSyncStatusDisabled: '꺼짐',
+  v2ICloudSyncStatusUnavailable: '사용할 수 없음',
+  v2ICloudSyncStatusUnsupportedOs: 'iOS 17 이상 필요',
+  v2ICloudSyncStatusNoAccount: 'iCloud 계정 없음',
+  v2ICloudSyncStatusRestricted: 'iCloud 제한됨',
+  v2ICloudSyncStatusTemporarilyUnavailable: '일시적으로 사용할 수 없음',
+  v2ICloudSyncStatusCouldNotDetermine: '상태 확인 불가',
+  v2ICloudSyncStatusTimeout: '시간 초과',
+  v2ICloudSyncStatusError: '오류',
+  v2ICloudSyncStatusUnknown: '알 수 없음',
 };
 
 export type Translations = typeof ko;

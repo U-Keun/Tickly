@@ -10,6 +10,7 @@ import type {
 import * as settingsApi from '../api/settingsApi';
 import * as v2ChecklistApi from '../api/v2ChecklistApi';
 import * as v2ReminderNotificationApi from '../api/v2ReminderNotificationApi';
+import { v2ICloudSyncStore } from './v2ICloudSyncStore.svelte';
 
 const MIN_REPEAT_TIMER_DELAY_MS = 1000;
 
@@ -176,6 +177,7 @@ async function addCategory(name: string): Promise<void> {
     categories = sortCategories([...categories, category]);
     selectedCategoryId = category.id;
     items = [];
+    v2ICloudSyncStore.scheduleSync();
   } catch (error) {
     throw setError(error, 'Failed to add v2 category.');
   }
@@ -190,6 +192,7 @@ async function updateCategory(id: number, name: string): Promise<void> {
     categories = categories.map((category) =>
       category.id === id ? { ...category, name: trimmedName } : category
     );
+    v2ICloudSyncStore.scheduleSync();
   } catch (error) {
     throw setError(error, 'Failed to update v2 category.');
   }
@@ -221,6 +224,7 @@ async function deleteCategory(id: number): Promise<void> {
       reminderItemIds.map((itemId) => v2ReminderNotificationApi.cancelReminderForItem(itemId))
     );
     await syncReminderNotifications();
+    v2ICloudSyncStore.scheduleSync();
   } catch (error) {
     throw setError(error, 'Failed to delete v2 category.');
   }
@@ -245,6 +249,7 @@ async function reorderCategories(categoryIds: number[]): Promise<void> {
   try {
     await v2ChecklistApi.v2ReorderCategories(moved.map((category) => category.id));
     categories = moved;
+    v2ICloudSyncStore.scheduleSync();
   } catch (error) {
     await load();
     throw setError(error, 'Failed to reorder v2 categories.');
@@ -263,6 +268,7 @@ async function addItem(text: string, tagNames: string[] = []): Promise<void> {
     const item = await v2ChecklistApi.v2CreateItem(selectedCategoryId, text, tagNames);
     items = sortItems([...items, item]);
     await refreshTags();
+    v2ICloudSyncStore.scheduleSync();
   } catch (error) {
     throw setError(error, 'Failed to add v2 item.');
   }
@@ -285,6 +291,7 @@ async function updateItemText(id: number, text: string): Promise<void> {
     await v2ChecklistApi.v2UpdateItemText(id, text);
     const trimmedText = text.trim();
     items = items.map((item) => (item.id === id ? { ...item, text: trimmedText } : item));
+    v2ICloudSyncStore.scheduleSync();
   } catch (error) {
     throw setError(error, 'Failed to update v2 item.');
   }
@@ -319,6 +326,7 @@ async function updateItemDetails(
     items = sortItems(items.map((item) => (item.id === id ? updatedItem : item)));
     await refreshTags();
     await v2ReminderNotificationApi.syncReminderForItem(updatedItem);
+    v2ICloudSyncStore.scheduleSync();
   } catch (error) {
     throw setError(error, 'Failed to update v2 item details.');
   }
@@ -351,6 +359,7 @@ async function toggleItem(id: number): Promise<V2TodoItem> {
     const updatedItem = await v2ChecklistApi.v2ToggleItem(id);
     items = sortItems(items.map((item) => (item.id === id ? updatedItem : item)));
     await v2ReminderNotificationApi.syncReminderForItem(updatedItem);
+    v2ICloudSyncStore.scheduleSync();
     return updatedItem;
   } catch (error) {
     throw setError(error, 'Failed to toggle v2 item.');
@@ -364,6 +373,7 @@ async function processRepeatsAndReload(): Promise<number> {
     const reactivatedCount = await v2ChecklistApi.v2ProcessRepeats();
     if (reactivatedCount > 0) {
       await loadItemsForSelectedCategory();
+      v2ICloudSyncStore.scheduleSync();
     }
     await syncReminderNotifications();
     return reactivatedCount;
@@ -379,6 +389,9 @@ async function archiveCompletedItems(categoryId: number): Promise<number> {
     const archivedCount = await v2ChecklistApi.v2ArchiveCompletedItems(categoryId);
     if (archivedCount > 0 && selectedCategoryId === categoryId) {
       await loadItemsForSelectedCategory();
+    }
+    if (archivedCount > 0) {
+      v2ICloudSyncStore.scheduleSync();
     }
     return archivedCount;
   } catch (error) {
@@ -426,6 +439,7 @@ async function deleteItem(id: number): Promise<void> {
     items = items.filter((item) => item.id !== id);
     await refreshTags();
     await v2ReminderNotificationApi.cancelReminderForItem(id);
+    v2ICloudSyncStore.scheduleSync();
   } catch (error) {
     throw setError(error, 'Failed to delete v2 item.');
   }
@@ -457,6 +471,7 @@ async function reorderItems(itemIds: number[]): Promise<void> {
       moved.map((item) => item.id)
     );
     items = sortItems(moved);
+    v2ICloudSyncStore.scheduleSync();
   } catch (error) {
     await loadItemsForSelectedCategory();
     throw setError(error, 'Failed to reorder v2 items.');

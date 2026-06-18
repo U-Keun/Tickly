@@ -1,6 +1,6 @@
 use rusqlite::Connection;
 
-use super::V2ChecklistRepository;
+use super::{V2ChecklistRepository, V2ICloudSyncRepository};
 
 pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
     migrate_add_category_id(conn)?;
@@ -24,6 +24,7 @@ pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
     migrate_add_v2_archived_at(conn)?;
     migrate_create_v2_tags(conn)?;
     migrate_create_v2_completion_logs(conn)?;
+    migrate_create_v2_sync_metadata(conn)?;
     Ok(())
 }
 
@@ -393,4 +394,8 @@ fn migrate_create_v2_completion_logs(conn: &Connection) -> Result<(), rusqlite::
     )?;
 
     Ok(())
+}
+
+fn migrate_create_v2_sync_metadata(conn: &Connection) -> Result<(), rusqlite::Error> {
+    V2ICloudSyncRepository::create_tables(conn)
 }

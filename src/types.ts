@@ -237,6 +237,23 @@ export interface V2StreakHeatmap {
   longest_streak_dates: string[];
 }
 
+export interface V2ICloudSyncStatus {
+  enabled: boolean;
+  available: boolean;
+  status: string;
+  last_synced_at: string | null;
+  error: string | null;
+}
+
+export interface V2ICloudSyncResult {
+  available: boolean;
+  status: string;
+  pushed: number;
+  pulled: number;
+  last_synced_at: string | null;
+  error: string | null;
+}
+
 // Auth types
 export type AuthProvider = 'apple' | 'google';
 
