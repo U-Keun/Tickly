@@ -9,10 +9,10 @@ v2 reached a point where the rebuilt local checklist, tags, repeat rules, remind
 - `/` is now the canonical v2 checklist route.
 - `/v2` compatibility alias was removed after v2 became the only app surface.
 - `/v1` no longer exists as a route.
-- Legacy `/graph`, account, and cloud sync settings routes were removed instead of redirected.
+- Legacy `/graph`, account, and Supabase-era cloud sync settings routes were removed instead of redirected.
 - v1 data migration is intentionally skipped because there are no existing users for this rebuild.
-- v1 cloud auth/realtime and v2 iCloud foreground sync are not started by the main runtime.
-- v1 Svelte components, v1 stores/API wrappers, v1 Rust commands/repositories/services/models, and iCloud bridge sources are removed from the active source tree.
+- v1 cloud auth/realtime is not started by the main runtime. Current iCloud sync is a separate opt-in checklist sync surface.
+- v1 Svelte components, v1 stores/API wrappers, and v1 Rust commands/repositories/services/models are removed from the active source tree.
 - New SQLite setup creates only settings and v2 tables. Existing old tables may remain in an existing local database file, but no supported runtime code reads or writes them.
 - iOS v2 bottom-sheet surfaces can use the Swift native sheet bridge, but route ownership and data persistence still stay in the v2 Svelte/store layer.
 

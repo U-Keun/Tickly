@@ -24,9 +24,9 @@ This file guides AI agents working on the Tickly codebase.
 - Legacy source and legacy command/store surfaces should not be reintroduced unless a task explicitly starts a recovery or migration slice.
 - Backend commands use `checklist_` names for checklist behavior.
 - Local persistence uses `checklist_` SQLite tables to avoid collisions with removed legacy tables.
-- Current app code must not implicitly depend on removed legacy stores, legacy tables, sync, widget, tag, repeat, streak, reminder, linked-app, or graph flows.
-- Current scope includes the local checklist, tags, repeat, reminders, archive, streak, graph, settings, and the iOS widget flow.
-- Cloud sync is deferred and should not run from the current runtime unless a future task explicitly reintroduces it.
+- Current app code must not implicitly depend on removed legacy stores, legacy tables, legacy sync, widget, tag, repeat, streak, reminder, linked-app, or graph flows.
+- Current scope includes the local checklist, tags, repeat, reminders, archive, streak, graph, settings, iOS widget flow, and iPhone/iPad iCloud sync.
+- iCloud sync is current-app scope only. Keep it independent from removed legacy sync/auth flows and from any Supabase-era contracts.
 - Do not migrate or copy legacy user data unless a task explicitly asks for a migration.
 
 ## Build / Lint / Test Commands
@@ -139,10 +139,12 @@ When adding or changing app-level Swift sources, update the repo-owned template 
 - Use transactions for multi-step operations
 - Use prepared statements (no string concatenation for queries)
 - Timestamps: ISO 8601 format using `chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ")`
-- Cloud sync is currently deferred. When a future cloud-sync slice explicitly reintroduces remote persistence, define the new remote contract before adding schema files or sync metadata.
+- Current iCloud sync uses checklist sync metadata tables rather than adding sync columns to every checklist row.
+- Cloud sync schema changes must define the remote record contract, merge rules, tombstones, and local migration path before modifying persistence.
 
 **Sync Fields:**
-- Cloud sync is currently deferred. Do not add sync metadata or remote-schema fields to local entities unless a future sync slice explicitly defines that contract.
+- Do not add Supabase-era sync fields to local checklist entities.
+- Current iCloud sync metadata belongs in `checklist_sync_metadata` and `checklist_sync_state`.
 
 ### General
 

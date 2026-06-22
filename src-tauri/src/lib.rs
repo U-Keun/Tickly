@@ -2,6 +2,8 @@ mod commands;
 #[cfg(target_os = "ios")]
 mod ios_fullscreen;
 #[cfg(target_os = "ios")]
+mod ios_icloud_sync;
+#[cfg(target_os = "ios")]
 mod ios_native_dock;
 #[cfg(target_os = "ios")]
 mod ios_native_sheet;
@@ -58,6 +60,14 @@ pub fn run() {
             // Settings commands
             get_setting,
             set_setting,
+            // iCloud sync commands
+            checklist_sync_get_status,
+            checklist_sync_set_enabled,
+            checklist_sync_export_records,
+            checklist_sync_apply_remote_records,
+            checklist_sync_mark_records_synced,
+            checklist_sync_set_last_error,
+            checklist_icloud_exchange,
             // Checklist commands
             checklist_get_categories,
             checklist_create_category,

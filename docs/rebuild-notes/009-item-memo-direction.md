@@ -25,7 +25,7 @@ flowchart TB
 - Drawer shows the item title first, then memo as a read-only preview when present.
 - Drawer title and memo preview are each capped at 4 lines to keep the list context stable.
 - Editing happens in the item detail sheet together with the item name.
-- Search matches item name, memo, and tag names. Local repeat and reminder metadata are shown in item detail surfaces but are not part of search; linked apps and sync metadata remain out of scope.
+- Search matches item name, memo, and tag names. Local repeat and reminder metadata are shown in item detail surfaces but are not part of search; linked apps remain out of scope, and sync metadata stays internal rather than appearing in item UI/search.
 - Empty memo input is stored as `null`.
 
 ## Verification Target

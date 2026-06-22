@@ -49,6 +49,12 @@
 
     <SettingsGroup title={i18n.t('settingsGroupData')}>
       <SettingsRow
+        icon="cloud"
+        tone="sky"
+        label={i18n.t('icloudSyncTitle')}
+        onSelect={() => goToSetting('/settings/icloud')}
+      />
+      <SettingsRow
         icon="tags"
         tone="mint"
         label={i18n.t('checklistTagManageTitle')}

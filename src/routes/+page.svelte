@@ -12,6 +12,7 @@
   import { initializeTheme } from '../lib/themes';
   import { openNativeItemDetailSheet } from '../lib/checklist/itemDetailLauncher';
   import { checklistStore } from '../lib/checklist/checklistStore.svelte';
+  import { icloudSyncStore } from '../lib/checklist/icloudSyncStore.svelte';
   import type { GraphData, RepeatType, StreakHeatmap, TodoItem } from '../types';
 
   let nativeDockSupported = $state(false);
@@ -246,17 +247,32 @@
     syncNativeDock();
   }
 
-  onMount(() => {
-    initializeTheme();
-    initializeFonts();
-    void checklistStore
+  async function loadChecklistAfterICloudIdle(isCancelled: () => boolean): Promise<void> {
+    await icloudSyncStore.waitUntilIdle();
+    if (isCancelled()) return;
+
+    await checklistStore
       .load()
       .catch(() => undefined)
       .finally(() => {
-        if (document.visibilityState === 'visible') {
+        if (!isCancelled() && document.visibilityState === 'visible') {
           void checklistStore.scheduleRepeatProcessing();
         }
       });
+  }
+
+  onMount(() => {
+    let isUnmounted = false;
+    initializeTheme();
+    initializeFonts();
+    void loadChecklistAfterICloudIdle(() => isUnmounted);
+    void icloudSyncStore
+      .loadStatus()
+      .then(() => {
+        icloudSyncStore.scheduleAutoSync();
+        icloudSyncStore.scheduleForegroundPull();
+      })
+      .catch(() => undefined);
     nativeDockSupported = nativeDockApi.shouldUseNativeDock();
     const removeNativeDockActionListener =
       nativeDockApi.addNativeDockActionListener(handleNativeDockAction);
@@ -278,6 +294,7 @@
     const handleVisibilityChange = (): void => {
       if (document.visibilityState !== 'visible') {
         checklistStore.disposeRepeatProcessingTimer();
+        icloudSyncStore.disposeForegroundPull();
         return;
       }
 
@@ -290,10 +307,23 @@
         .catch(() => undefined)
         .finally(() => {
           void checklistStore.scheduleRepeatProcessing();
+          icloudSyncStore.scheduleAutoSync();
+          icloudSyncStore.scheduleForegroundPull();
+        });
+    };
+    const handleICloudSyncCompleted = (event: Event): void => {
+      const detail = (event as CustomEvent<{ appliedCount?: number }>).detail;
+      if ((detail?.appliedCount ?? 0) <= 0) return;
+      void checklistStore
+        .load()
+        .catch(() => undefined)
+        .finally(() => {
+          void checklistStore.scheduleRepeatProcessing();
         });
     };
 
     window.addEventListener('tickly:nativeSheetState', handleNativeSheetState);
+    window.addEventListener('tickly:iCloudSyncCompleted', handleICloudSyncCompleted);
     document.addEventListener('focusin', handleFocusIn);
     document.addEventListener('focusout', handleFocusOut);
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -303,13 +333,16 @@
     });
 
     return () => {
+      isUnmounted = true;
       removeNativeDockActionListener();
       window.removeEventListener('tickly:nativeSheetState', handleNativeSheetState);
+      window.removeEventListener('tickly:iCloudSyncCompleted', handleICloudSyncCompleted);
       document.removeEventListener('focusin', handleFocusIn);
       document.removeEventListener('focusout', handleFocusOut);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       checklistStore.disposeRepeatProcessingTimer();
       checklistStore.disposeWidgetRefreshTimer();
+      icloudSyncStore.dispose();
       if (nativeDockSupported) {
         void nativeDockApi.configureNativeDock(buildNativeDockRequest(false));
       }

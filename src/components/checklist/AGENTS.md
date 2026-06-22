@@ -12,7 +12,7 @@ Apply parent component rules first.
 - Local archive is in scope as a cleanup surface for completed non-repeating items. Keep archive UI local to checklist props/API/store data.
 - Local streak is in scope for opt-in item tracking and the Streak overlay. Keep it backed by completion logs and checklist props/API/store data.
 - Local graph is in scope as a relationship overlay. Keep graph data backed by category/item/tag props or checklist API/store helpers, not legacy graph flows.
-- Cloud sync is deferred. Do not add cloud sync surfaces to checklist components unless a future task explicitly reintroduces sync.
+- iCloud sync UI belongs in settings and route/store orchestration. Checklist components should not call sync APIs directly.
 - iOS widget behavior is in scope through checklist props/API/store data. Do not import legacy widget, todo, repeat, tag, or app stores for widget behavior.
 
 ## Storybook

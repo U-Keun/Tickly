@@ -116,6 +116,8 @@ private final class TicklyLiquidGlassDockView: UIView {
     private weak var parentViewController: UIViewController?
     private var glassHostingController: UIViewController?
     private var fallbackToolbar: UIToolbar?
+    private var bottomConstraint: NSLayoutConstraint?
+    private var latestRequest: TicklyLiquidGlassDockRequest?
     private let streakItem = UIBarButtonItem(
         image: UIImage(systemName: "flame.fill"),
         style: .plain,
@@ -143,6 +145,12 @@ private final class TicklyLiquidGlassDockView: UIView {
     )
     private var requestedVisible = true
     private var keyboardHidden = false
+    private var usesPadDockLayout: Bool {
+        traitCollection.userInterfaceIdiom == .pad || UIDevice.current.userInterfaceIdiom == .pad
+    }
+    private var glassDockBottomOffset: CGFloat {
+        usesPadDockLayout ? -18 : 26
+    }
 
     init(webView: WKWebView, parentViewController: UIViewController? = nil) {
         self.webView = webView
@@ -174,31 +182,36 @@ private final class TicklyLiquidGlassDockView: UIView {
 
     func activateLayout(in hostView: UIView) {
         if #available(iOS 26.0, *) {
+            let bottomConstraint = bottomAnchor.constraint(
+                equalTo: hostView.safeAreaLayoutGuide.bottomAnchor,
+                constant: glassDockBottomOffset
+            )
+            self.bottomConstraint = bottomConstraint
             NSLayoutConstraint.activate([
                 centerXAnchor.constraint(equalTo: hostView.centerXAnchor),
-                bottomAnchor.constraint(
-                    equalTo: hostView.safeAreaLayoutGuide.bottomAnchor,
-                    constant: 26
-                ),
-                leadingAnchor.constraint(greaterThanOrEqualTo: hostView.leadingAnchor, constant: 18),
-                trailingAnchor.constraint(lessThanOrEqualTo: hostView.trailingAnchor, constant: -18)
+                bottomConstraint,
+                leadingAnchor.constraint(greaterThanOrEqualTo: hostView.leadingAnchor, constant: usesPadDockLayout ? 28 : 18),
+                trailingAnchor.constraint(lessThanOrEqualTo: hostView.trailingAnchor, constant: usesPadDockLayout ? -28 : -18)
             ])
         } else {
+            let bottomConstraint = bottomAnchor.constraint(
+                equalTo: hostView.safeAreaLayoutGuide.bottomAnchor,
+                constant: usesPadDockLayout ? -18 : -10
+            )
+            self.bottomConstraint = bottomConstraint
             NSLayoutConstraint.activate([
                 centerXAnchor.constraint(equalTo: hostView.centerXAnchor),
-                bottomAnchor.constraint(
-                    equalTo: hostView.safeAreaLayoutGuide.bottomAnchor,
-                    constant: -10
-                ),
+                bottomConstraint,
                 leadingAnchor.constraint(greaterThanOrEqualTo: hostView.leadingAnchor, constant: 18),
                 trailingAnchor.constraint(lessThanOrEqualTo: hostView.trailingAnchor, constant: -18),
-                heightAnchor.constraint(equalToConstant: 56),
-                widthAnchor.constraint(equalToConstant: 244)
+                heightAnchor.constraint(equalToConstant: usesPadDockLayout ? 64 : 56),
+                widthAnchor.constraint(equalToConstant: usesPadDockLayout ? 320 : 244)
             ])
         }
     }
 
     func update(request: TicklyLiquidGlassDockRequest) {
+        latestRequest = request
         requestedVisible = request.visible
         if #available(iOS 26.0, *) {
             updateGlassDock(request: request)
@@ -206,6 +219,22 @@ private final class TicklyLiquidGlassDockView: UIView {
             updateFallbackToolbar(request: request)
         }
         updateVisibility(animated: true)
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        guard previousTraitCollection?.userInterfaceIdiom != traitCollection.userInterfaceIdiom else {
+            return
+        }
+
+        if #available(iOS 26.0, *) {
+            bottomConstraint?.constant = glassDockBottomOffset
+            if let latestRequest {
+                updateGlassDock(request: latestRequest)
+            }
+        } else {
+            bottomConstraint?.constant = usesPadDockLayout ? -18 : -10
+        }
     }
 
     private func setupView() {
@@ -238,6 +267,7 @@ private final class TicklyLiquidGlassDockView: UIView {
 
     @available(iOS 26.0, *)
     private func updateGlassDock(request: TicklyLiquidGlassDockRequest) {
+        let metrics = TicklyGlassDockMetrics.current(isPad: usesPadDockLayout)
         let content = TicklyGlassDockContent(
             streakLabel: request.streakLabel,
             graphLabel: request.graphLabel,
@@ -247,6 +277,7 @@ private final class TicklyLiquidGlassDockView: UIView {
             graphEnabled: request.graphEnabled,
             archiveEnabled: request.archiveEnabled,
             settingsEnabled: request.settingsEnabled,
+            metrics: metrics,
             performAction: { [weak self] actionId in
                 self?.performAction(actionId)
             }
@@ -492,16 +523,49 @@ private enum TicklyGlassDockStyle {
     static let buttonTreatment: TicklyGlassDockButtonTreatment = .plain
     static let containerGlass: Glass = .clear
     static let inkTreatment = Color(red: 91 / 255, green: 88 / 255, blue: 82 / 255)
-    static let groupSpacing: CGFloat = 64
-    static let featureButtonSpacing: CGFloat = 18
-    static let iconSize: CGFloat = 20
-    static let buttonSize: CGFloat = 44
-    static let surfaceInset: CGFloat = 7
     static let surfaceUnderlayOpacity = 0.09
     static let surfaceVeilOpacity = 0.0
     static let surfaceStrokeOpacity = 0.14
     static let surfaceStrokeWidth = 0.75
     static let surfaceShadowOpacity = 0.10
+}
+
+@available(iOS 26.0, *)
+private struct TicklyGlassDockMetrics {
+    let groupSpacing: CGFloat
+    let featureButtonSpacing: CGFloat
+    let iconSize: CGFloat
+    let buttonSize: CGFloat
+    let surfaceInset: CGFloat
+    let featureHorizontalInset: CGFloat
+    let featureShadowRadius: CGFloat
+    let settingsShadowRadius: CGFloat
+
+    static func current(isPad: Bool) -> TicklyGlassDockMetrics {
+        if isPad {
+            return TicklyGlassDockMetrics(
+                groupSpacing: 88,
+                featureButtonSpacing: 24,
+                iconSize: 23,
+                buttonSize: 52,
+                surfaceInset: 9,
+                featureHorizontalInset: 16,
+                featureShadowRadius: 14,
+                settingsShadowRadius: 12
+            )
+        }
+
+        return TicklyGlassDockMetrics(
+            groupSpacing: 64,
+            featureButtonSpacing: 18,
+            iconSize: 20,
+            buttonSize: 44,
+            surfaceInset: 7,
+            featureHorizontalInset: 12,
+            featureShadowRadius: 12,
+            settingsShadowRadius: 10
+        )
+    }
 }
 
 @available(iOS 26.0, *)
@@ -514,12 +578,13 @@ private struct TicklyGlassDockContent: View {
     let graphEnabled: Bool
     let archiveEnabled: Bool
     let settingsEnabled: Bool
+    let metrics: TicklyGlassDockMetrics
     let performAction: (String) -> Void
 
     var body: some View {
-        GlassEffectContainer(spacing: TicklyGlassDockStyle.groupSpacing) {
-            HStack(spacing: TicklyGlassDockStyle.groupSpacing) {
-                HStack(spacing: TicklyGlassDockStyle.featureButtonSpacing) {
+        GlassEffectContainer(spacing: metrics.groupSpacing) {
+            HStack(spacing: metrics.groupSpacing) {
+                HStack(spacing: metrics.featureButtonSpacing) {
                     dockButton(
                         actionId: "streak",
                         label: streakLabel,
@@ -539,8 +604,8 @@ private struct TicklyGlassDockContent: View {
                         isEnabled: archiveEnabled
                     )
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, TicklyGlassDockStyle.surfaceInset)
+                .padding(.horizontal, metrics.featureHorizontalInset)
+                .padding(.vertical, metrics.surfaceInset)
                 .background(
                     TicklyGlassDockStyle.inkTreatment.opacity(TicklyGlassDockStyle.surfaceUnderlayOpacity),
                     in: Capsule()
@@ -554,7 +619,7 @@ private struct TicklyGlassDockContent: View {
                 }
                 .shadow(
                     color: TicklyGlassDockStyle.inkTreatment.opacity(TicklyGlassDockStyle.surfaceShadowOpacity),
-                    radius: 12,
+                    radius: metrics.featureShadowRadius,
                     x: 0,
                     y: 4
                 )
@@ -571,7 +636,7 @@ private struct TicklyGlassDockContent: View {
                     systemImageName: "gearshape.fill",
                     isEnabled: settingsEnabled
                 )
-                .padding(TicklyGlassDockStyle.surfaceInset)
+                .padding(metrics.surfaceInset)
                 .background(
                     TicklyGlassDockStyle.inkTreatment.opacity(TicklyGlassDockStyle.surfaceUnderlayOpacity),
                     in: Circle()
@@ -585,7 +650,7 @@ private struct TicklyGlassDockContent: View {
                 }
                 .shadow(
                     color: TicklyGlassDockStyle.inkTreatment.opacity(TicklyGlassDockStyle.surfaceShadowOpacity),
-                    radius: 10,
+                    radius: metrics.settingsShadowRadius,
                     x: 0,
                     y: 4
                 )
@@ -625,15 +690,15 @@ private struct TicklyGlassDockContent: View {
     private func dockIcon(_ systemImageName: String) -> some View {
         Group {
             if systemImageName == "graph.connected" {
-                TicklyGraphDockIcon()
+                TicklyGraphDockIcon(size: metrics.iconSize)
             } else {
                 Image(systemName: systemImageName)
-                    .font(.system(size: TicklyGlassDockStyle.iconSize, weight: .medium))
+                    .font(.system(size: metrics.iconSize, weight: .medium))
             }
         }
         .frame(
-            width: TicklyGlassDockStyle.buttonSize,
-            height: TicklyGlassDockStyle.buttonSize
+            width: metrics.buttonSize,
+            height: metrics.buttonSize
         )
         .foregroundStyle(TicklyGlassDockStyle.inkTreatment)
     }
@@ -641,6 +706,8 @@ private struct TicklyGlassDockContent: View {
 
 @available(iOS 26.0, *)
 private struct TicklyGraphDockIcon: View {
+    let size: CGFloat
+
     var body: some View {
         ZStack {
             Path { path in
@@ -663,6 +730,8 @@ private struct TicklyGraphDockIcon: View {
             node(at: CGPoint(x: 16.0, y: 15.8))
         }
         .frame(width: 20, height: 20)
+        .scaleEffect(size / 20)
+        .frame(width: size, height: size)
     }
 
     private func node(at point: CGPoint) -> some View {

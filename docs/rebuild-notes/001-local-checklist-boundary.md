@@ -55,7 +55,7 @@ erDiagram
 
 ## Excluded From First Slice
 
-Search, tags, local repeat rules, local reminder times, archive, streak, graph, settings, and the iOS widget cache/action flow are now part of v2. Linked apps, cloud sync, and data migration remain intentionally excluded.
+Search, tags, local repeat rules, local reminder times, archive, streak, graph, settings, the iOS widget cache/action flow, and opt-in iPhone/iPad iCloud sync are now part of the current app. Linked apps and legacy data migration remain intentionally excluded.
 
 ## Verification Target
 

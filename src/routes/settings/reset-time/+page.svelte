@@ -10,6 +10,7 @@
   import SettingsActionFooter from '../../../components/settings/SettingsActionFooter.svelte';
   import SettingsGroup from '../../../components/settings/SettingsGroup.svelte';
   import SettingsShell from '../../../components/settings/SettingsShell.svelte';
+  import { icloudSyncStore } from '$lib/checklist/icloudSyncStore.svelte';
 
   const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
   const minutes = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
@@ -35,6 +36,7 @@
   async function saveResetTime() {
     const time = `${hour}:${minute}`;
     await settingsApi.setSetting('reset_time', time);
+    icloudSyncStore.scheduleSync();
     await goto(settingsPathWithReturnTo('/settings', returnTo));
   }
 </script>

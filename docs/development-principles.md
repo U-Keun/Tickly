@@ -18,8 +18,8 @@ Tickly development now follows a small-slice rebuild model: understand the curre
 - The app starts empty except for a default `Home` category.
 - The app does not use legacy stores or legacy data tables.
 - Compatibility and legacy routes are removed from the route surface.
-- The current app owns the rebuilt local features: checklist, tags, repeat, reminders, archive, streak, graph, settings, and widget behavior.
-- Cloud sync is deferred and should not run in the current runtime.
+- The current app owns the rebuilt features: checklist, tags, repeat, reminders, archive, streak, graph, settings, widget behavior, and iPhone/iPad iCloud sync.
+- iCloud sync is opt-in, iOS-only, and independent from removed legacy sync/auth flows.
 - Legacy data migration is intentionally skipped because there are no existing users for this rebuild.
 - iOS native UI is currently limited to bottom-sheet surfaces: text-entry sheets and category management actions. Item/category save, delete, and reorder behavior still belongs to the existing checklist store/API layer.
 

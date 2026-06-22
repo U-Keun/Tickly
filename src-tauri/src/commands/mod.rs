@@ -7,6 +7,7 @@ mod checklist_commands;
 mod native_dock_commands;
 mod native_sheet_commands;
 mod settings_commands;
+mod sync_commands;
 mod widget_commands;
 
 pub(super) fn with_db<T, E, F>(state: &State<'_, AppState>, action: F) -> Result<T, String>
@@ -22,4 +23,5 @@ pub use checklist_commands::*;
 pub use native_dock_commands::*;
 pub use native_sheet_commands::*;
 pub use settings_commands::*;
+pub use sync_commands::*;
 pub use widget_commands::*;

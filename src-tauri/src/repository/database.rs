@@ -1,7 +1,7 @@
 use rusqlite::Connection;
 use tauri::{AppHandle, Manager};
 
-use super::ChecklistRepository;
+use super::{ChecklistRepository, SyncRepository};
 
 pub fn init_database(app: &AppHandle) -> Result<Connection, rusqlite::Error> {
     let app_dir = app
@@ -28,6 +28,7 @@ fn create_tables(conn: &Connection) -> Result<(), rusqlite::Error> {
     )?;
 
     ChecklistRepository::create_tables(conn)?;
+    SyncRepository::create_tables(conn)?;
     ChecklistRepository::ensure_default_category(conn)?;
     Ok(())
 }

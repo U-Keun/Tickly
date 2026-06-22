@@ -162,3 +162,17 @@ export interface StreakHeatmap {
   current_streak_dates: string[];
   longest_streak_dates: string[];
 }
+
+export interface ChecklistSyncRecord {
+  entityType: string;
+  syncId: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  payload: Record<string, unknown>;
+}
+
+export interface ChecklistSyncStatus {
+  enabled: boolean;
+  lastSyncedAt: string | null;
+  lastError: string | null;
+}

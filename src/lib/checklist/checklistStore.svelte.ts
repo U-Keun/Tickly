@@ -11,6 +11,7 @@ import * as settingsApi from '../api/settingsApi';
 import * as checklistApi from '../api/checklistApi';
 import * as reminderNotificationApi from '../api/reminderNotificationApi';
 import * as widgetApi from '../api/widgetApi';
+import { icloudSyncStore } from './icloudSyncStore.svelte';
 
 const MIN_REPEAT_TIMER_DELAY_MS = 1000;
 const WIDGET_REFRESH_DEBOUNCE_MS = 300;
@@ -129,6 +130,7 @@ function scheduleWidgetRefresh(): void {
 
 function finalizeLocalMutation(): void {
   scheduleWidgetRefresh();
+  icloudSyncStore.scheduleSync();
 }
 
 async function loadItemsForSelectedCategory(): Promise<void> {
@@ -177,7 +179,7 @@ async function load(): Promise<void> {
     }
 
     await loadItemsForSelectedCategory();
-    await syncReminderNotifications();
+    void syncReminderNotifications();
     scheduleWidgetRefresh();
   } catch (error) {
     throw setError(error, 'Failed to load checklist.');

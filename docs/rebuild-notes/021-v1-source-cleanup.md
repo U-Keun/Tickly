@@ -10,12 +10,12 @@ Tickly is now a v2-only runtime. Because there are no existing users or migratio
 - v1 frontend API wrappers and home orchestration helpers.
 - v1 Rust commands, models, repositories, and services.
 - v1 cloud auth/sync/realtime runtime code.
-- The parked iCloud/CloudKit prototype bridge, commands, store, entitlements, and Xcode project references.
+- The parked iCloud/CloudKit prototype was removed during cleanup, then a fresh current-app iCloud sync pilot was reintroduced later as an opt-in checklist sync surface.
 
 ## Kept Surface
 
 - v2 route shell at `/`.
-- v2 local checklist, tags, repeat, reminders, archive, streak, graph, settings, notifications, and widget behavior.
+- v2 local checklist, tags, repeat, reminders, archive, streak, graph, settings, notifications, widget behavior, and current-app iCloud sync.
 - Existing v2 SQLite tables and settings.
 
 ## Follow-up Route Cleanup

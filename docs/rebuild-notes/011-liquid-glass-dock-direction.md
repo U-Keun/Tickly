@@ -40,7 +40,7 @@ The current direction uses `Glass.clear.interactive()` with only a very weak ink
 
 Additional backdrop content is intentionally deferred. While the Dock may still read pale over sparse content, the current polish keeps the native glass body and adds only Tickly-shaped cues: a weak ink outline, soft ink shadow, and split-group spacing. This makes the Dock feel intentional without turning it into a custom painted panel.
 
-The Dock sits slightly lower than the safe-area baseline so it belongs to the bottom system layer rather than floating in the middle of the checklist. Its icon targets use a 44pt base, and the feature pill and settings circle keep a generous gap so the 3+1 grouping reads as two related but distinct glass surfaces.
+The Dock uses device-specific sizing. On iPhone it sits slightly lower than the safe-area baseline so it belongs to the bottom system layer rather than floating in the middle of the checklist. Its icon targets use a 44pt base, and the feature pill and settings circle keep a generous gap so the 3+1 grouping reads as two related but distinct glass surfaces. On iPad, the same Dock is intentionally larger and sits above the safe-area baseline: wider screens make the iPhone-sized 44pt cluster read too small and too low. The iPad Dock uses larger icon targets, roomier spacing, and a slightly higher bottom placement while keeping the same split glass language.
 
 When the native Dock is visible, the web list does not reserve a separate bottom safe-area band and does not render the old bottom fade. The native Dock itself owns the bottom layer; the checklist only keeps scroll clearance so the final item can move above the Dock.
 

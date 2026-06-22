@@ -11,7 +11,7 @@ Apply the root, `src/AGENTS.md`, and `src/lib/AGENTS.md` first.
 - Local archive may use checklist API/store helpers only. Do not import legacy archive, history, or deletion flows.
 - Local streak may use checklist API/store helpers and completion logs only. Do not import legacy streak stores, commands, or heatmap helpers.
 - Local graph may use checklist API/store helpers only. Do not import legacy graph stores, commands, or canvas data contracts.
-- Cloud sync is deferred. Checklist stores should not schedule cloud sync unless a future task explicitly reintroduces sync.
+- iCloud sync is in scope through `icloudSyncStore` and `src/lib/api/icloudSyncApi.ts`. Checklist mutations may schedule its debounce sync after local persistence succeeds.
 - iOS widget cache refresh and queued widget action processing are in scope through `src/lib/api/widgetApi.ts`, backed by checklist SQLite data.
 - Do not import legacy sync, cloud auth, widget stores, account, or tag stores here.
 - Keep methods mapped to one local checklist intent at a time.

@@ -2,65 +2,90 @@
 
 ## Summary
 
-This pilot is parked. v2 briefly explored iCloud/CloudKit as a future sync direction, but the current app runtime is local-first and does not expose or execute cloud sync. The prototype command, store, Rust sync ledger, Swift bridge, and CloudKit entitlements have been removed from the active source tree.
+iCloud sync is reintroduced as an opt-in iPhone/iPad sync surface for devices using the same Apple ID.
+
+The current implementation is a foreground CloudKit pilot: sync runs when the app starts, returns to foreground, the user taps Sync Now, local checklist mutations schedule a short debounce sync, and the visible main screen keeps a low-frequency one-shot pull timer for changes made on another device. The pilot favors correctness over minimal traffic by exporting local records and fetching the whole CloudKit zone during foreground exchanges. Background push and full automatic sync are deferred.
 
 This note uses `019` because `018` is already used by tag management.
 
 ## Boundary
 
-- v2 sync must remain independent from removed v1 sync, v1 auth/account flows, and v1 sync stores if it is reintroduced later.
-- v2 remains local-first. A future sync slice must define a fresh remote identity and conflict contract before adding metadata back to the local schema.
-- iOS app support remains iOS 15.0. Any future iCloud plan should separately decide its minimum supported OS and entitlement requirements.
-- This is same-Apple-ID device sync only. CloudKit Sharing/collaboration is out of scope.
-- Settings such as theme, font, language, and reset time are not synced in this slice.
-- The v2 settings entry no longer links to iCloud or v1 cloud sync.
-- The main route no longer runs iCloud status checks, foreground sync, or debounce sync after local mutations.
+- iOS app support remains iOS 15.0, but iCloud sync is available only on iOS 17+.
+- The feature is off by default and must be enabled from `/settings/icloud`.
+- Sync is same-Apple-ID personal device sync only. CloudKit Sharing/collaboration is out of scope.
+- Sync covers checklist categories, todos, tags, todo-tag relationships, completion logs, and `reset_time`.
+- Theme, font, and language remain per-device settings.
+- Supabase-era auth/sync/account flows remain removed and are not part of this design.
 
-## Parked Data Contract
+## Data Contract
 
-The removed prototype used a sync ledger table, `v2_sync_metadata`, instead of mixing sync columns into every v2 table. This is not part of the current runtime, but the design is retained here as reference if cloud sync is reintroduced.
+Current checklist rows do not get sync columns directly. Sync state lives in:
 
-- Entities: `category`, `todo`, `tag`, `todo_tag`, `completion_log`.
-- Each entity has `sync_id`, `sync_status`, `deleted_at`, and `last_synced_at`.
-- Simple entities receive UUID sync IDs.
-- Relationship/log entities use deterministic IDs:
-  - `todo_tag:{todo_sync_id}:{tag_sync_id}`
-  - `completion_log:{item_sync_id}:{completed_on}`
-- Deletes write tombstones before hard delete so another device can receive the deletion.
+- `checklist_sync_metadata`: entity type, local id, CloudKit-safe sync id, sync status, tombstone time, last synced time, and last local update time.
+- `checklist_sync_state`: user enablement, last sync time, and last error.
+
+Synced entity types:
+
+- `category`
+- `todo`
+- `tag`
+- `todo_tag`
+- `completion_log`
+- `setting` for `reset_time`
+
+Deletes are exported as tombstones before local hard deletion is allowed. Relationships use sync IDs rather than local SQLite IDs.
+
+## CloudKit Contract
+
+Swift owns CloudKit communication through the private database and custom zone `TicklyChecklist`.
+
+Record types:
+
+- `TicklyCategory`
+- `TicklyTodo`
+- `TicklyTag`
+- `TicklyTodoTag`
+- `TicklyCompletionLog`
+- `TicklySetting`
+
+Rust owns SQLite export/import, local merge application, tombstones, and metadata updates. The frontend sync store coordinates the foreground exchange:
+
+```mermaid
+sequenceDiagram
+  participant Store as "icloudSyncStore"
+  participant Rust as "Rust sync commands"
+  participant Swift as "Swift CloudKit bridge"
+  participant CK as "CloudKit private DB"
+
+  Store->>Rust: export checklist sync records
+  Rust-->>Store: local records
+  Store->>Swift: exchange local records
+  Swift->>CK: full zone fetch, then save newer local records
+  CK-->>Swift: remote records
+  Swift-->>Store: remote records + synced ids
+  Store->>Rust: apply remote records
+  Store->>Rust: mark records synced
+```
 
 ## Merge Rules
 
-- Categories, todos, tags, and relationships use record-level latest `updated_at` wins.
+- Categories, todos, tags, relationships, and settings use record-level latest `updated_at` wins.
 - Completion logs merge by item/date. If both sides wrote the same day, the larger `completed_count` is preserved.
-- Archived, repeat, reminder, and streak fields are included in the todo record payload.
+- Archived, repeat, reminder, and streak fields are included in the todo payload.
+- Same-name category or tag records can attach to the existing local row during remote apply to avoid duplicate first-sync surfaces where practical.
 
-## Parked Native Bridge
+## Runtime Policy
 
-The removed prototype made Swift own CloudKit communication:
+- Sync off stops future sync only. It does not delete local data or CloudKit data.
+- If iCloud account status, CloudKit, or OS support is unavailable, settings show an unavailable/error state and the app remains local-only.
+- Local checklist mutations schedule a short debounce sync after persistence succeeds.
+- While the main screen is visible, a single low-frequency foreground pull timer keeps iPhone/iPad peers from requiring a manual foreground bounce just to see changes made on another open device.
+- Foreground exchanges currently use full-zone fetch/export rather than a persisted CloudKit change token. This avoids dropping records when a first-sync category mapping or dependency record is not applied on the first pass.
+- Foreground resume runs repeat processing, sync, notification/widget refresh, and current screen reload in the route shell.
 
-- Private database.
-- Custom zone: `TicklyV2`.
-- Record types:
-  - `TicklyV2Category`
-  - `TicklyV2Todo`
-  - `TicklyV2Tag`
-  - `TicklyV2TodoTag`
-  - `TicklyV2CompletionLog`
+## Verification Target
 
-Rust owned SQLite export/import and merge. The Swift bridge received local records, fetched CloudKit records, saved local records that were newer or missing remotely, and returned the merged remote records to Rust.
-
-## Parked Foreground Pilot
-
-The previous foreground pilot design is retained here only as reference. It should not run unless a future task explicitly restores cloud sync. The old design ran when:
-
-- the user enables iCloud sync,
-- the app loads or returns to foreground,
-- the user taps Sync Now,
-- v2 mutations succeed and the debounce timer fires.
-
-The enable switch and Sync Now screen are hidden in the current runtime.
-
-## Verification
-
-- Current verification is that `/settings` has no cloud sync entry, local v2 mutations do not schedule cloud sync, the iCloud Swift source is not included in the generated Xcode project, and the app entitlements do not request CloudKit.
-- If sync is reintroduced, restore the pilot tests for migration, merge, settings states, and iOS availability.
+- Rust tests for sync metadata, baseline sync IDs, tombstones, remote apply, conflict handling, todo-tag relationships, completion log count merge, and `reset_time`.
+- Frontend checks for settings states and debounce scheduling through `icloudSyncStore`.
+- iOS build after syncing repo-owned Swift sources with `src-tauri/scripts/setup-ios-widget.sh`.
+- Real-device QA is still needed for same-Apple-ID iPhone/iPad sync because simulator account availability depends on the local simulator state.

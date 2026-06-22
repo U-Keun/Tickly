@@ -1,4 +1,5 @@
 mod checklist;
+mod sync;
 mod widget;
 
 pub use checklist::{
@@ -6,6 +7,7 @@ pub use checklist::{
     ChecklistItemSearchResult, ChecklistRepeatType, ChecklistStreakHeatmap, ChecklistStreakLog,
     ChecklistTag, ChecklistTagSummary, ChecklistTodoItem,
 };
+pub use sync::{ChecklistSyncRecord, ChecklistSyncStatus};
 pub use widget::{
     WidgetCategoryPendingItem, WidgetCategorySummary, WidgetSnapshot, WidgetTheme, WidgetTodoItem,
 };
