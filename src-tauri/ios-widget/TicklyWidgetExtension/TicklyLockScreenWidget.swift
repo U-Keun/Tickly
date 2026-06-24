@@ -31,25 +31,30 @@ struct TicklyLockScreenWidgetEntryView: View {
     }
 
     var body: some View {
-        if let selectedCategory {
-            switch family {
-            case .accessoryInline:
-                inlineView(category: selectedCategory)
-            case .accessoryCircular:
-                circularView(category: selectedCategory)
-            default:
-                rectangularView(category: selectedCategory)
+        Group {
+            if let selectedCategory {
+                switch family {
+                case .accessoryInline:
+                    inlineView(category: selectedCategory)
+                case .accessoryCircular:
+                    circularView(category: selectedCategory)
+                default:
+                    rectangularView(category: selectedCategory)
+                }
+            } else {
+                switch family {
+                case .accessoryInline:
+                    Text(WidgetCopy.allDone)
+                case .accessoryCircular:
+                    Image(systemName: "checkmark.circle.fill")
+                default:
+                    Text(WidgetCopy.allDone)
+                        .font(.caption)
+                }
             }
-        } else {
-            switch family {
-            case .accessoryInline:
-                Text(WidgetCopy.allDone)
-            case .accessoryCircular:
-                Image(systemName: "checkmark.circle.fill")
-            default:
-                Text(WidgetCopy.allDone)
-                    .font(.caption)
-            }
+        }
+        .containerBackground(for: .widget) {
+            Color.clear
         }
     }
 
@@ -111,13 +116,18 @@ struct TicklyLockScreenWidgetEntryView: View {
         let visibleItems = Array(category.pendingItems.prefix(2))
         let overflowCount = max(0, category.pendingItems.count - visibleItems.count)
 
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(category.categoryName)
+                .font(.caption2.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+
             if visibleItems.isEmpty {
                 Text(WidgetCopy.allDone)
-                    .font(.caption)
+                    .font(.caption2)
             } else {
                 ForEach(visibleItems) { item in
-                    pendingItemRow(item: item, categoryId: category.categoryId)
+                    pendingItemRow(item: item)
                 }
 
                 if overflowCount > 0 {
@@ -133,17 +143,11 @@ struct TicklyLockScreenWidgetEntryView: View {
     }
 
     @ViewBuilder
-    private func pendingItemRow(item: WidgetCategoryPendingItem, categoryId: Int64?) -> some View {
+    private func pendingItemRow(item: WidgetCategoryPendingItem) -> some View {
         HStack(spacing: 6) {
-            Button(
-                intent: ToggleTodoIntent(
-                    itemId: Int(item.id),
-                    categoryId: categoryId.map { Int($0) }
-                )
-            ) {
-                Image(systemName: "square")
-            }
-            .buttonStyle(.plain)
+            Image(systemName: "square")
+                .imageScale(.small)
+                .accessibilityHidden(true)
 
             Text(item.text)
                 .font(.caption)
