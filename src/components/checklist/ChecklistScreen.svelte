@@ -42,6 +42,7 @@
     items: TodoItem[];
     availableTags?: Tag[];
     errorMessage?: string | null;
+    isInitialLoading?: boolean;
     initialSearchMode?: boolean;
     initialSearchQuery?: string;
     initialCategoryReorderMode?: boolean;
@@ -78,6 +79,7 @@
     items,
     availableTags = [],
     errorMessage = null,
+    isInitialLoading = false,
     initialSearchMode = false,
     initialSearchQuery = '',
     initialCategoryReorderMode = false,
@@ -222,6 +224,11 @@
     items.filter((item) => item.done && item.repeat_type === 'none')
   );
   let archivableCompletedItemCount = $derived(archivableCompletedItems.length);
+  const loadingItemRows = [
+    { textWidth: '62%', tagWidth: '46px' },
+    { textWidth: '78%', tagWidth: '34px' },
+    { textWidth: '52%', tagWidth: '58px' }
+  ];
 
   function wait(ms: number): Promise<void> {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -1538,7 +1545,31 @@
                 }}
                 out:fade={{ duration: listExitDuration, easing: cubicIn }}
               >
-                {#if activeItems.length === 0 && doneItems.length === 0}
+                {#if isInitialLoading}
+                  <div
+                    class={`flex w-full min-w-0 max-w-full flex-col gap-2 ${nativeDockVisible ? 'pb-28' : 'pb-16'}`}
+                    aria-busy="true"
+                    aria-label={i18n.t('checklistLoadingItems')}
+                  >
+                    {#each loadingItemRows as row}
+                      <div class="min-h-[60px] w-full min-w-0 overflow-hidden rounded-[6px_24px_6px_24px] border-2 border-stroke bg-paper px-3 py-2">
+                        <div class="flex min-h-11 items-center gap-3">
+                          <div class="h-10 w-10 shrink-0 animate-pulse rounded-[10px] border-2 border-stroke bg-white/80"></div>
+                          <div class="min-w-0 flex-1">
+                            <div
+                              class="h-4 animate-pulse rounded-full bg-stroke/70"
+                              style={`width: ${row.textWidth}`}
+                            ></div>
+                          </div>
+                          <div
+                            class="h-5 shrink-0 animate-pulse rounded-full bg-canvas"
+                            style={`width: ${row.tagWidth}`}
+                          ></div>
+                        </div>
+                      </div>
+                    {/each}
+                  </div>
+                {:else if activeItems.length === 0 && doneItems.length === 0}
                   <div class="px-6 py-10 text-center text-ink-muted">
                     {#if hasAppliedSearchQuery}
                       <p class="font-medium text-ink">{i18n.t('checklistNoSearchResultsTemplate')(appliedSearchQuery)}</p>

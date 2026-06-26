@@ -68,6 +68,7 @@ export const ko = {
   icloudSyncUnavailable: '이 기기에서는 iCloud 동기화를 사용할 수 없습니다.',
   icloudSyncAccountUnavailable: '사용 가능한 iCloud 계정이 없습니다.',
   icloudSyncGenericError: 'iCloud 동기화에 실패했습니다.',
+  checklistLoadingItems: '항목을 불러오는 중',
   themeChange: '테마 변경',
   languageChange: '언어 변경',
   back: '뒤로 가기',

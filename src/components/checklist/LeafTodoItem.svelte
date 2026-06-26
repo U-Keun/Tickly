@@ -445,7 +445,7 @@
             <Hash size={12} strokeWidth={2.5} aria-hidden="true" />
             <span class="truncate">{firstTag.name}</span>
             {#if extraTagCount > 0}
-              <span class="shrink-0">+{extraTagCount}</span>
+              <span class="rowTagCount">+{extraTagCount}</span>
             {/if}
           </span>
         {/if}
@@ -559,7 +559,7 @@
 
   .todoTextLane {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) clamp(40px, 14vw, 72px);
+    grid-template-columns: minmax(0, 1fr) clamp(60px, 24vw, 108px);
     align-items: center;
     width: 100%;
     min-width: 0;
@@ -612,14 +612,28 @@
     min-width: 0;
     max-width: calc(100% - 4px);
     align-items: center;
-    gap: 2px;
+    gap: 3px;
     border-radius: 999px;
     background: var(--color-white);
-    padding: 3px 7px;
+    padding: 3px 5px 3px 6px;
     color: var(--color-ink-muted);
     font-size: 11px;
     font-weight: 700;
     line-height: 1.2;
+  }
+
+  .rowTagCount {
+    display: inline-grid;
+    min-width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--color-canvas);
+    padding: 0 4px;
+    color: var(--color-ink-muted);
+    font-size: 10px;
+    line-height: 1;
   }
 
   .rowReminderPill {

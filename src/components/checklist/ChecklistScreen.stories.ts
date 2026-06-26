@@ -104,6 +104,7 @@ const meta = {
     items,
     availableTags: tags,
     errorMessage: null,
+    isInitialLoading: false,
     onSelectCategory: () => {},
     onAddCategory: async () => {},
     onUpdateCategory: async () => {},
@@ -138,6 +139,13 @@ export const DefaultList: Story = {};
 export const EmptyList: Story = {
   args: {
     items: []
+  }
+};
+
+export const LoadingItems: Story = {
+  args: {
+    items: [],
+    isInitialLoading: true
   }
 };
 

@@ -87,6 +87,20 @@ export const RepeatPreview: Story = {
   }
 };
 
+export const RowMetadataBadges: Story = {
+  args: {
+    item: {
+      ...item,
+      text: 'Daily stretch',
+      tags: [
+        { id: 1, name: 'morning', created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-08T00:00:00Z' },
+        { id: 2, name: 'health', created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-08T00:00:00Z' }
+      ],
+      repeat_type: 'daily'
+    }
+  }
+};
+
 export const ReminderPreview: Story = {
   args: {
     item: {

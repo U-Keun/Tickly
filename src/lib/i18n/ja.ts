@@ -69,6 +69,7 @@ export const ja: Translations = {
   icloudSyncUnavailable: 'このデバイスではiCloud同期を利用できません。',
   icloudSyncAccountUnavailable: '利用できるiCloudアカウントがありません。',
   icloudSyncGenericError: 'iCloud同期に失敗しました。',
+  checklistLoadingItems: '項目を読み込み中',
   themeChange: 'テーマ変更',
   languageChange: '言語変更',
   back: '戻る',

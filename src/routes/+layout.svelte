@@ -124,7 +124,7 @@
     el.style.zIndex = '1'; // 들어오는 페이지가 위에
 
     if (!hasNavigated) {
-      return fade(node, { duration: 3000 });
+      return fade(node, { duration: 120 });
     }
     return fly(node, { x: direction * 60, duration: 600, easing: cubicOut });
   }

@@ -30,6 +30,7 @@
   let graphData = $state<GraphData | null>(null);
   let graphItemPendingEdit = $state<TodoItem | null>(null);
   let isSavingGraphItemEdit = $state(false);
+  let isInitialChecklistLoading = $state(true);
   let nativeDockVisible = $derived(
     nativeDockSupported &&
       nativeDockRequestedVisible &&
@@ -247,10 +248,7 @@
     syncNativeDock();
   }
 
-  async function loadChecklistAfterICloudIdle(isCancelled: () => boolean): Promise<void> {
-    await icloudSyncStore.waitUntilIdle();
-    if (isCancelled()) return;
-
+  async function loadChecklist(isCancelled: () => boolean): Promise<void> {
     await checklistStore
       .load()
       .catch(() => undefined)
@@ -261,11 +259,28 @@
       });
   }
 
+  function reloadChecklistAfterICloudIdle(isCancelled: () => boolean): void {
+    if (!icloudSyncStore.isSyncing) return;
+
+    void icloudSyncStore
+      .waitUntilIdle()
+      .then(() => {
+        if (isCancelled() || document.visibilityState !== 'visible') return;
+        return loadChecklist(isCancelled);
+      })
+      .catch(() => undefined);
+  }
+
   onMount(() => {
     let isUnmounted = false;
     initializeTheme();
     initializeFonts();
-    void loadChecklistAfterICloudIdle(() => isUnmounted);
+    void loadChecklist(() => isUnmounted).finally(() => {
+      if (!isUnmounted) {
+        isInitialChecklistLoading = false;
+      }
+      reloadChecklistAfterICloudIdle(() => isUnmounted);
+    });
     void icloudSyncStore
       .loadStatus()
       .then(() => {
@@ -356,6 +371,7 @@
   items={checklistStore.items}
   availableTags={checklistStore.tags}
   errorMessage={checklistStore.errorMessage}
+  isInitialLoading={isInitialChecklistLoading}
   onSelectCategory={checklistStore.selectCategory}
   onAddCategory={checklistStore.addCategory}
   onUpdateCategory={checklistStore.updateCategory}

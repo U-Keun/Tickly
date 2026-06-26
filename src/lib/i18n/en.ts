@@ -69,6 +69,7 @@ export const en: Translations = {
   icloudSyncUnavailable: 'iCloud sync is unavailable on this device.',
   icloudSyncAccountUnavailable: 'No available iCloud account.',
   icloudSyncGenericError: 'iCloud sync failed.',
+  checklistLoadingItems: 'Loading items',
   themeChange: 'Change Theme',
   languageChange: 'Change Language',
   back: 'Back',
