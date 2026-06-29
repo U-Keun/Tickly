@@ -2,7 +2,7 @@ name: CD
 
 on:
   push:
-    tags: ["v*.*.*"]
+    tags: ["v*.*", "v*.*.*"]
   workflow_dispatch:
     inputs:
       build_ios:
@@ -33,11 +33,12 @@ jobs:
     name: Validate Release Version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
+          package-manager-cache: false
 
       - name: Validate package/Tauri version and git tag
         env:
@@ -51,7 +52,12 @@ jobs:
           const ref = process.env.GITHUB_REF ?? '';
           const isTagRef = ref.startsWith('refs/tags/');
           const tag = isTagRef ? ref.replace('refs/tags/', '') : '';
-          const normalizedTag = tag.startsWith('v') ? tag.slice(1) : tag;
+          const normalizeReleaseVersion = (value) => {
+            const raw = value.startsWith('v') ? value.slice(1) : value;
+            const parts = raw.split('.');
+            return parts.length === 2 ? `${raw}.0` : raw;
+          };
+          const normalizedTag = normalizeReleaseVersion(tag);
 
           if (pkg.version !== tauri.version) {
             console.error(`Version mismatch: package.json=${pkg.version}, tauri.conf.json=${tauri.version}`);
@@ -133,10 +139,10 @@ jobs:
       IOS_MOBILE_PROVISION: ${{ secrets.IOS_PROVISIONING_PROFILE }}
       IOS_WIDGET_MOBILE_PROVISION: ${{ secrets.IOS_WIDGET_PROVISIONING_PROFILE }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Select Xcode 26.2
-        uses: maxim-lobanov/setup-xcode@v1
+        uses: maxim-lobanov/setup-xcode@v1.7.0
         with:
           xcode-version: "26.2"
 
@@ -156,9 +162,9 @@ jobs:
           echo "TOOLCHAINS=com.apple.dt.toolchain.XcodeDefault" >> $GITHUB_ENV
           echo "Using TOOLCHAINS=com.apple.dt.toolchain.XcodeDefault"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: yarn
 
       - run: yarn install --frozen-lockfile
@@ -174,7 +180,7 @@ jobs:
         with:
           targets: aarch64-apple-ios
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/
@@ -534,14 +540,14 @@ jobs:
           echo "ipa_path=$IPA_PATH" >> $GITHUB_OUTPUT
           echo "Found IPA: $IPA_PATH"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ios-ipa
           path: ${{ steps.find-ipa.outputs.ipa_path }}
           retention-days: 7
 
       - name: Upload to TestFlight
-        uses: apple-actions/upload-testflight-build@v1
+        uses: apple-actions/upload-testflight-build@v5
         with:
           app-path: ${{ steps.find-ipa.outputs.ipa_path }}
           issuer-id: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
@@ -580,11 +586,11 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: yarn
 
       - run: yarn install --frozen-lockfile
@@ -602,7 +608,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/
@@ -615,7 +621,7 @@ jobs:
 
       - run: yarn tauri build
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: desktop-${{ matrix.platform }}
           path: ${{ matrix.artifact-glob }}
@@ -629,7 +635,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           path: artifacts
           merge-multiple: true
@@ -637,7 +643,7 @@ jobs:
       - name: List artifacts
         run: find artifacts -type f | sort
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: artifacts/**/*
           generate_release_notes: true
