@@ -61,8 +61,8 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleShortVersionString: 1.0.1
-        CFBundleVersion: "1.0.1"
+        CFBundleShortVersionString: 2.0.0
+        CFBundleVersion: "2.0.0"
         TICKLY_APP_GROUP_ID: group.com.u-keunsong.tickly
     entitlements:
       path: tickly_iOS/tickly_iOS.entitlements
@@ -134,8 +134,8 @@ targets:
       path: TicklyWidgetExtension/Info.plist
       properties:
         CFBundleDisplayName: Tickly
-        CFBundleShortVersionString: 1.0.1
-        CFBundleVersion: "1.0.1"
+        CFBundleShortVersionString: 2.0.0
+        CFBundleVersion: "2.0.0"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
         TICKLY_APP_GROUP_ID: group.com.u-keunsong.tickly
