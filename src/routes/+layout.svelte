@@ -6,7 +6,6 @@
   import { cubicOut } from 'svelte/easing';
   import { onMount } from 'svelte';
   import type { Snippet } from 'svelte';
-  import { ensurePermission } from '$lib/notification';
   import { checklistStore } from '$lib/checklist/checklistStore.svelte';
 
   let { children }: { children: Snippet } = $props();
@@ -77,8 +76,6 @@
   }
 
   onMount(async () => {
-    await ensurePermission();
-
     // Apply widget-only check actions queued in app group storage to the checklist.
     await checklistStore.processWidgetActions();
 
