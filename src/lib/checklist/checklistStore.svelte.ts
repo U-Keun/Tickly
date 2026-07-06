@@ -15,6 +15,7 @@ import { icloudSyncStore } from './icloudSyncStore.svelte';
 
 const MIN_REPEAT_TIMER_DELAY_MS = 1000;
 const WIDGET_REFRESH_DEBOUNCE_MS = 300;
+const REMINDER_SYNC_AFTER_LOAD_DELAY_MS = 1500;
 
 let categories = $state<Category[]>([]);
 let items = $state<TodoItem[]>([]);
@@ -25,6 +26,7 @@ let errorMessage = $state<string | null>(null);
 let repeatProcessingTimeout: ReturnType<typeof setTimeout> | null = null;
 let repeatProcessingScheduleToken = 0;
 let widgetRefreshTimeout: ReturnType<typeof setTimeout> | null = null;
+let reminderSyncTimeout: ReturnType<typeof setTimeout> | null = null;
 
 function sortCategories(nextCategories: Category[]): Category[] {
   return [...nextCategories].sort((a, b) => a.display_order - b.display_order);
@@ -112,6 +114,12 @@ function clearWidgetRefreshTimer(): void {
   widgetRefreshTimeout = null;
 }
 
+function clearReminderSyncTimer(): void {
+  if (reminderSyncTimeout === null) return;
+  clearTimeout(reminderSyncTimeout);
+  reminderSyncTimeout = null;
+}
+
 async function refreshWidgetCacheQuietly(): Promise<void> {
   try {
     await widgetApi.refreshWidgetCache();
@@ -122,6 +130,7 @@ async function refreshWidgetCacheQuietly(): Promise<void> {
 
 function scheduleWidgetRefresh(): void {
   clearWidgetRefreshTimer();
+
   widgetRefreshTimeout = setTimeout(() => {
     widgetRefreshTimeout = null;
     void refreshWidgetCacheQuietly();
@@ -151,12 +160,19 @@ async function syncReminderNotifications(): Promise<void> {
   }
 }
 
+function scheduleReminderNotificationSync(delayMs = REMINDER_SYNC_AFTER_LOAD_DELAY_MS): void {
+  clearReminderSyncTimer();
+  reminderSyncTimeout = setTimeout(() => {
+    reminderSyncTimeout = null;
+    void syncReminderNotifications();
+  }, delayMs);
+}
+
 async function load(): Promise<void> {
   isLoading = true;
   errorMessage = null;
 
   try {
-    await checklistApi.processRepeats();
     const [nextCategoriesRaw, nextTagsRaw] = await Promise.all([
       checklistApi.getCategories(),
       checklistApi.getTags()
@@ -179,7 +195,7 @@ async function load(): Promise<void> {
     }
 
     await loadItemsForSelectedCategory();
-    void syncReminderNotifications();
+    scheduleReminderNotificationSync();
     scheduleWidgetRefresh();
   } catch (error) {
     throw setError(error, 'Failed to load checklist.');
@@ -466,6 +482,10 @@ function disposeWidgetRefreshTimer(): void {
   clearWidgetRefreshTimer();
 }
 
+function disposeReminderNotificationSync(): void {
+  clearReminderSyncTimer();
+}
+
 async function processWidgetActionsAndReload(): Promise<number> {
   errorMessage = null;
 
@@ -579,6 +599,7 @@ export const checklistStore = {
   scheduleRepeatProcessing,
   disposeRepeatProcessingTimer,
   disposeWidgetRefreshTimer,
+  disposeReminderNotificationSync,
   refreshWidgetCache: refreshWidgetCacheQuietly,
   processWidgetActions: processWidgetActionsAndReload,
   toggleItemFromWidget,

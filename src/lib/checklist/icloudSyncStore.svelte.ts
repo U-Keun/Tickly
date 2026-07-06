@@ -150,8 +150,8 @@ async function syncNow(): Promise<void> {
 }
 
 function scheduleSync(delayMs = SYNC_DEBOUNCE_MS): void {
-  if (!enabled || isSyncing) return;
   clearSyncTimer();
+  if (!enabled || isSyncing) return;
   const elapsedSinceLastSync = Date.now() - lastSyncStartedAt;
   const intervalDelay = Math.max(0, SYNC_MIN_INTERVAL_MS - elapsedSinceLastSync);
   syncTimeout = setTimeout(() => {

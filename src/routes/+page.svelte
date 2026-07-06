@@ -15,6 +15,8 @@
   import { icloudSyncStore } from '../lib/checklist/icloudSyncStore.svelte';
   import type { GraphData, RepeatType, StreakHeatmap, TodoItem } from '../types';
 
+  const ICLOUD_STATUS_AFTER_LOAD_DELAY_MS = 1500;
+
   let nativeDockSupported = $state(false);
   let nativeDockRequestedVisible = $state(true);
   let nativeSheetOpen = $state(false);
@@ -31,6 +33,7 @@
   let graphItemPendingEdit = $state<TodoItem | null>(null);
   let isSavingGraphItemEdit = $state(false);
   let isInitialChecklistLoading = $state(true);
+  let iCloudSyncScheduleTimeout: ReturnType<typeof setTimeout> | null = null;
   let nativeDockVisible = $derived(
     nativeDockSupported &&
       nativeDockRequestedVisible &&
@@ -248,15 +251,8 @@
     syncNativeDock();
   }
 
-  async function loadChecklist(isCancelled: () => boolean): Promise<void> {
-    await checklistStore
-      .load()
-      .catch(() => undefined)
-      .finally(() => {
-        if (!isCancelled() && document.visibilityState === 'visible') {
-          void checklistStore.scheduleRepeatProcessing();
-        }
-      });
+  async function loadChecklist(): Promise<void> {
+    await checklistStore.load().catch(() => undefined);
   }
 
   function reloadChecklistAfterICloudIdle(isCancelled: () => boolean): void {
@@ -266,26 +262,90 @@
       .waitUntilIdle()
       .then(() => {
         if (isCancelled() || document.visibilityState !== 'visible') return;
-        return loadChecklist(isCancelled);
+        return loadChecklist().finally(() => {
+          if (!isCancelled() && document.visibilityState === 'visible') {
+            void checklistStore.scheduleRepeatProcessing();
+          }
+        });
       })
       .catch(() => undefined);
   }
 
+  function waitForNextFrame(): Promise<void> {
+    return new Promise((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  }
+
+  function clearICloudSyncScheduleTimeout(): void {
+    if (iCloudSyncScheduleTimeout === null) return;
+    window.clearTimeout(iCloudSyncScheduleTimeout);
+    iCloudSyncScheduleTimeout = null;
+  }
+
+  async function runChecklistMaintenance(isCancelled: () => boolean): Promise<void> {
+    await new Promise((resolve) => window.setTimeout(resolve, 250));
+    if (isCancelled() || document.visibilityState !== 'visible') return;
+
+    try {
+      const processedCount = await checklistStore.processWidgetActions();
+      if (isCancelled() || document.visibilityState !== 'visible') return;
+
+      if (processedCount <= 0) {
+        await checklistStore.processRepeatsAndReload();
+      }
+    } catch {
+      // The checklist store keeps the visible error state; boot should continue.
+    } finally {
+      if (isCancelled() || document.visibilityState !== 'visible') return;
+      void checklistStore.scheduleRepeatProcessing();
+    }
+  }
+
+  function scheduleICloudSyncTimersAfterChecklistIdle(
+    isCancelled: () => boolean,
+    delayMs = 2500
+  ): void {
+    clearICloudSyncScheduleTimeout();
+
+    iCloudSyncScheduleTimeout = window.setTimeout(() => {
+      iCloudSyncScheduleTimeout = null;
+      if (isCancelled() || document.visibilityState !== 'visible') return;
+      if (checklistStore.isLoading) {
+        scheduleICloudSyncTimersAfterChecklistIdle(isCancelled, delayMs);
+        return;
+      }
+
+      icloudSyncStore.scheduleAutoSync();
+      icloudSyncStore.scheduleForegroundPull();
+    }, delayMs);
+  }
+
+  async function loadICloudStatusThenSchedule(isCancelled: () => boolean): Promise<void> {
+    await new Promise((resolve) => window.setTimeout(resolve, ICLOUD_STATUS_AFTER_LOAD_DELAY_MS));
+    if (isCancelled() || document.visibilityState !== 'visible') return;
+    await icloudSyncStore.loadStatus().catch(() => undefined);
+    if (isCancelled() || document.visibilityState !== 'visible') return;
+    await waitForNextFrame();
+    scheduleICloudSyncTimersAfterChecklistIdle(isCancelled);
+  }
+
   onMount(() => {
     let isUnmounted = false;
+
     initializeTheme();
     initializeFonts();
-    void loadChecklist(() => isUnmounted).finally(() => {
-      if (!isUnmounted) {
-        isInitialChecklistLoading = false;
-      }
-      reloadChecklistAfterICloudIdle(() => isUnmounted);
-    });
-    void icloudSyncStore
-      .loadStatus()
-      .then(() => {
-        icloudSyncStore.scheduleAutoSync();
-        icloudSyncStore.scheduleForegroundPull();
+    void loadChecklist()
+      .finally(() => {
+        if (!isUnmounted) {
+          isInitialChecklistLoading = false;
+        }
+      })
+      .then(async () => {
+        await runChecklistMaintenance(() => isUnmounted);
+        if (isUnmounted || document.visibilityState !== 'visible') return;
+        reloadChecklistAfterICloudIdle(() => isUnmounted);
+        await loadICloudStatusThenSchedule(() => isUnmounted);
       })
       .catch(() => undefined);
     nativeDockSupported = nativeDockApi.shouldUseNativeDock();
@@ -302,29 +362,21 @@
       }
     };
     const handleFocusOut = (): void => {
-      window.setTimeout(() => {
+      window.requestAnimationFrame(() => {
         setWebEditableFocused(isEditableElement(document.activeElement));
-      }, 0);
+      });
     };
     const handleVisibilityChange = (): void => {
       if (document.visibilityState !== 'visible') {
+        clearICloudSyncScheduleTimeout();
         checklistStore.disposeRepeatProcessingTimer();
         icloudSyncStore.disposeForegroundPull();
         return;
       }
 
-      void checklistStore
-        .processWidgetActions()
-        .then((processedCount) => {
-          if (processedCount > 0) return;
-          return checklistStore.processRepeatsAndReload();
-        })
-        .catch(() => undefined)
-        .finally(() => {
-          void checklistStore.scheduleRepeatProcessing();
-          icloudSyncStore.scheduleAutoSync();
-          icloudSyncStore.scheduleForegroundPull();
-        });
+      void runChecklistMaintenance(() => false).finally(() => {
+        scheduleICloudSyncTimersAfterChecklistIdle(() => false);
+      });
     };
     const handleICloudSyncCompleted = (event: Event): void => {
       const detail = (event as CustomEvent<{ appliedCount?: number }>).detail;
@@ -336,7 +388,6 @@
           void checklistStore.scheduleRepeatProcessing();
         });
     };
-
     window.addEventListener('tickly:nativeSheetState', handleNativeSheetState);
     window.addEventListener('tickly:iCloudSyncCompleted', handleICloudSyncCompleted);
     document.addEventListener('focusin', handleFocusIn);
@@ -349,6 +400,7 @@
 
     return () => {
       isUnmounted = true;
+      clearICloudSyncScheduleTimeout();
       removeNativeDockActionListener();
       window.removeEventListener('tickly:nativeSheetState', handleNativeSheetState);
       window.removeEventListener('tickly:iCloudSyncCompleted', handleICloudSyncCompleted);
@@ -357,6 +409,7 @@
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       checklistStore.disposeRepeatProcessingTimer();
       checklistStore.disposeWidgetRefreshTimer();
+      checklistStore.disposeReminderNotificationSync();
       icloudSyncStore.dispose();
       if (nativeDockSupported) {
         void nativeDockApi.configureNativeDock(buildNativeDockRequest(false));

@@ -117,6 +117,8 @@ private final class TicklyLiquidGlassDockView: UIView {
     private var glassHostingController: UIViewController?
     private var fallbackToolbar: UIToolbar?
     private var bottomConstraint: NSLayoutConstraint?
+    private var widthConstraint: NSLayoutConstraint?
+    private var heightConstraint: NSLayoutConstraint?
     private var latestRequest: TicklyLiquidGlassDockRequest?
     private let streakItem = UIBarButtonItem(
         image: UIImage(systemName: "flame.fill"),
@@ -186,10 +188,17 @@ private final class TicklyLiquidGlassDockView: UIView {
                 equalTo: hostView.safeAreaLayoutGuide.bottomAnchor,
                 constant: glassDockBottomOffset
             )
+            let dockSize = currentGlassDockSize()
+            let widthConstraint = widthAnchor.constraint(equalToConstant: dockSize.width)
+            let heightConstraint = heightAnchor.constraint(equalToConstant: dockSize.height)
             self.bottomConstraint = bottomConstraint
+            self.widthConstraint = widthConstraint
+            self.heightConstraint = heightConstraint
             NSLayoutConstraint.activate([
                 centerXAnchor.constraint(equalTo: hostView.centerXAnchor),
                 bottomConstraint,
+                widthConstraint,
+                heightConstraint,
                 leadingAnchor.constraint(greaterThanOrEqualTo: hostView.leadingAnchor, constant: usesPadDockLayout ? 28 : 18),
                 trailingAnchor.constraint(lessThanOrEqualTo: hostView.trailingAnchor, constant: usesPadDockLayout ? -28 : -18)
             ])
@@ -229,6 +238,7 @@ private final class TicklyLiquidGlassDockView: UIView {
 
         if #available(iOS 26.0, *) {
             bottomConstraint?.constant = glassDockBottomOffset
+            updateGlassDockSizeConstraints()
             if let latestRequest {
                 updateGlassDock(request: latestRequest)
             }
@@ -246,6 +256,86 @@ private final class TicklyLiquidGlassDockView: UIView {
         } else {
             setupFallbackToolbar()
         }
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard alpha > 0.01, !isHidden, isUserInteractionEnabled else {
+            return nil
+        }
+
+        if #available(iOS 26.0, *) {
+            guard isPointInsideGlassDockActionArea(point) else {
+                return nil
+            }
+        }
+
+        let hitView = super.hitTest(point, with: event)
+        return hitView === self ? nil : hitView
+    }
+
+    @available(iOS 26.0, *)
+    private func isPointInsideGlassDockActionArea(_ point: CGPoint) -> Bool {
+        let metrics = TicklyGlassDockMetrics.current(isPad: usesPadDockLayout)
+        let featureWidth =
+            (metrics.buttonSize * 3) +
+            (metrics.featureButtonSpacing * 2) +
+            (metrics.featureHorizontalInset * 2)
+        let settingsWidth = metrics.buttonSize + (metrics.surfaceInset * 2)
+        let dockHeight = metrics.buttonSize + (metrics.surfaceInset * 2)
+        let totalWidth = featureWidth + metrics.groupSpacing + settingsWidth
+        let originX = (bounds.width - totalWidth) / 2
+        let originY = (bounds.height - dockHeight) / 2
+        let touchSlop: CGFloat = 8
+
+        for index in 0..<3 {
+            let buttonX =
+                originX +
+                metrics.featureHorizontalInset +
+                CGFloat(index) * (metrics.buttonSize + metrics.featureButtonSpacing)
+            let rect = CGRect(
+                x: buttonX,
+                y: originY + metrics.surfaceInset,
+                width: metrics.buttonSize,
+                height: metrics.buttonSize
+            ).insetBy(dx: -touchSlop, dy: -touchSlop)
+
+            if rect.contains(point) {
+                return true
+            }
+        }
+
+        let settingsX = originX + featureWidth + metrics.groupSpacing + metrics.surfaceInset
+        let settingsRect = CGRect(
+            x: settingsX,
+            y: originY + metrics.surfaceInset,
+            width: metrics.buttonSize,
+            height: metrics.buttonSize
+        ).insetBy(dx: -touchSlop, dy: -touchSlop)
+
+        return settingsRect.contains(point)
+    }
+
+    @available(iOS 26.0, *)
+    private func currentGlassDockSize() -> CGSize {
+        let metrics = TicklyGlassDockMetrics.current(isPad: usesPadDockLayout)
+        let featureWidth =
+            (metrics.buttonSize * 3) +
+            (metrics.featureButtonSpacing * 2) +
+            (metrics.featureHorizontalInset * 2)
+        let settingsWidth = metrics.buttonSize + (metrics.surfaceInset * 2)
+        let height = metrics.buttonSize + (metrics.surfaceInset * 2)
+
+        return CGSize(
+            width: featureWidth + metrics.groupSpacing + settingsWidth,
+            height: height
+        )
+    }
+
+    @available(iOS 26.0, *)
+    private func updateGlassDockSizeConstraints() {
+        let dockSize = currentGlassDockSize()
+        widthConstraint?.constant = dockSize.width
+        heightConstraint?.constant = dockSize.height
     }
 
     @available(iOS 26.0, *)

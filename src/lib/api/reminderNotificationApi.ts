@@ -5,6 +5,15 @@ interface PendingNotification {
   id: number;
 }
 
+interface ActiveReminder {
+  item: TodoItem;
+  id: number;
+  reminderTime: {
+    hour: number;
+    minute: number;
+  };
+}
+
 const CHECKLIST_NOTIFICATION_ID_OFFSET = 200_000_000;
 const MAX_I32 = 2_147_483_647;
 
@@ -51,6 +60,16 @@ async function nativeCancel(ids: number[]): Promise<void> {
   await invoke('plugin:notification|cancel', { notifications: ids });
 }
 
+function yieldToUI(): Promise<void> {
+  if (typeof window === 'undefined') {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, 0);
+  });
+}
+
 async function ensurePermission(): Promise<boolean> {
   try {
     let granted = await nativeIsPermissionGranted();
@@ -88,6 +107,14 @@ export async function syncReminderForItem(item: TodoItem): Promise<void> {
   const granted = await ensurePermission();
   if (!granted) return;
 
+  await scheduleReminder(item, id, reminderTime);
+}
+
+async function scheduleReminder(
+  item: TodoItem,
+  id: number,
+  reminderTime: { hour: number; minute: number }
+): Promise<void> {
   try {
     await nativeCancel([id]);
     await nativeSendNotification({
@@ -110,14 +137,16 @@ export async function syncReminderForItem(item: TodoItem): Promise<void> {
 }
 
 export async function syncActiveReminderNotifications(items: TodoItem[]): Promise<void> {
-  const activeItems = items.filter(
-    (item) => !item.done && parseReminderTime(item.reminder_at) !== null
-  );
-  const activeIds = new Set(
-    activeItems
-      .map((item) => notificationId(item.id))
-      .filter((id): id is number => id !== null)
-  );
+  const activeReminders = items
+    .map((item): ActiveReminder | null => {
+      if (item.done) return null;
+      const id = notificationId(item.id);
+      const reminderTime = parseReminderTime(item.reminder_at);
+      if (id === null || reminderTime === null) return null;
+      return { item, id, reminderTime };
+    })
+    .filter((reminder): reminder is ActiveReminder => reminder !== null);
+  const activeIds = new Set(activeReminders.map((reminder) => reminder.id));
 
   try {
     const pending = await nativeGetPending();
@@ -129,10 +158,13 @@ export async function syncActiveReminderNotifications(items: TodoItem[]): Promis
     console.error('Failed to prune stale reminders:', error);
   }
 
-  if (activeItems.length === 0) return;
+  if (activeReminders.length === 0) return;
 
   const granted = await ensurePermission();
   if (!granted) return;
 
-  await Promise.all(activeItems.map(syncReminderForItem));
+  for (const reminder of activeReminders) {
+    await scheduleReminder(reminder.item, reminder.id, reminder.reminderTime);
+    await yieldToUI();
+  }
 }
