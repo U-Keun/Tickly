@@ -47,6 +47,7 @@
     initialSearchQuery?: string;
     initialCategoryReorderMode?: boolean;
     initialOpenDrawerItemIds?: number[];
+    routeMotionClass?: string;
     archiveRequestToken?: number;
     nativeDockVisible?: boolean;
     onSelectCategory: (id: number) => MaybePromise;
@@ -84,6 +85,7 @@
     initialSearchQuery = '',
     initialCategoryReorderMode = false,
     initialOpenDrawerItemIds = [],
+    routeMotionClass = '',
     archiveRequestToken = 0,
     nativeDockVisible = false,
     onSelectCategory,
@@ -1475,7 +1477,9 @@
 
 </script>
 
-<div class="app-container full-bleed-app-container isolate bg-canvas text-ink flex min-w-0 flex-col overflow-hidden">
+<div
+  class={`app-container full-bleed-app-container isolate flex min-w-0 flex-col overflow-hidden bg-canvas text-ink ${routeMotionClass}`}
+>
   <main class="relative z-10 mx-auto flex min-h-0 w-full min-w-0 max-w-2xl flex-1 flex-col overflow-hidden">
     <section
       class={`relative flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden pl-[max(1rem,var(--safe-area-left))] pr-[max(1rem,var(--safe-area-right))] pt-[max(0.75rem,var(--safe-area-top))] ${
@@ -1812,6 +1816,23 @@
     pointer-events: none;
   }
 
+  .mainRouteEnterBack {
+    animation: mainRouteEnter 400ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    will-change: transform, opacity;
+  }
+
+  @keyframes mainRouteEnter {
+    from {
+      opacity: 0.94;
+      transform: translate3d(-16px, 0, 0);
+    }
+
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
   .itemExitCollapsing {
     pointer-events: none;
   }
@@ -1901,6 +1922,11 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .mainRouteEnterBack {
+      animation: none;
+      will-change: auto;
+    }
+
     .completionMoveGhost {
       transition: none;
     }

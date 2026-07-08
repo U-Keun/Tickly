@@ -16,7 +16,9 @@
   import type { GraphData, RepeatType, StreakHeatmap, TodoItem } from '../types';
 
   const ICLOUD_STATUS_AFTER_LOAD_DELAY_MS = 1500;
+  const ROUTE_MOTION_KEY = 'tickly:route:last-pathname';
 
+  let mainRouteMotionClass = $state('main-route-enter-idle');
   let nativeDockSupported = $state(false);
   let nativeDockRequestedVisible = $state(true);
   let nativeSheetOpen = $state(false);
@@ -52,6 +54,16 @@
       !showStreakOverlay &&
       !showGraphOverlay
     );
+  }
+
+  function getMainEnterClass(): string {
+    if (typeof sessionStorage === 'undefined') return 'main-route-enter-idle';
+
+    const previousPathname = sessionStorage.getItem(ROUTE_MOTION_KEY);
+    sessionStorage.setItem(ROUTE_MOTION_KEY, '/');
+
+    if (previousPathname?.startsWith('/settings')) return 'mainRouteEnterBack';
+    return 'main-route-enter-idle';
   }
 
   function buildNativeDockRequest(visible: boolean): nativeDockApi.NativeDockRequest {
@@ -333,6 +345,7 @@
   onMount(() => {
     let isUnmounted = false;
 
+    mainRouteMotionClass = getMainEnterClass();
     initializeTheme();
     initializeFonts();
     void loadChecklist()
@@ -425,6 +438,7 @@
   availableTags={checklistStore.tags}
   errorMessage={checklistStore.errorMessage}
   isInitialLoading={isInitialChecklistLoading}
+  routeMotionClass={mainRouteMotionClass}
   onSelectCategory={checklistStore.selectCategory}
   onAddCategory={checklistStore.addCategory}
   onUpdateCategory={checklistStore.updateCategory}
